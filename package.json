@@ -8,9 +8,16 @@
     "start": "next start"
   },
   "dependencies": {
+    "@types/canvas-confetti": "^1.9.0",
+    "canvas-confetti": "^1.9.4",
+    "chart.js": "^4.5.1",
+    "firebase": "^13.0.0",
     "next": "16.4.1",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "19.3.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/node": "^20",

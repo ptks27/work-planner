@@ -1,0 +1,121 @@
+'use client';
+import { usePlanner } from '@/lib/store';
+import { useToday } from '@/lib/hooks';
+import { visibleOn } from '@/lib/selectors';
+import { useAuth } from '@/lib/authStore';
+import { AvatarIcon } from './Avatars';
+
+import {
+  CalendarIcon,
+  UmbrellaIcon,
+  ChartBarIcon,
+  SpreadsheetIcon,
+  SettingsIcon,
+  BoltIcon,
+} from './Icons';
+
+export interface TabItem {
+  id: 'tasks' | 'events' | 'dash' | 'settings';
+  icon: React.ReactNode;
+  label: string;
+  desc: string;
+}
+
+export const TABS: TabItem[] = [
+  { id: 'tasks', icon: <CalendarIcon size={18} />, label: 'ปฏิทินงาน', desc: 'ดูและจัดการงานของแต่ละวัน' },
+  { id: 'events', icon: <UmbrellaIcon size={18} />, label: 'วันหยุด / วันลา', desc: 'บันทึกวันหยุด วันลา และโน้ต' },
+  { id: 'dash', icon: <ChartBarIcon size={18} />, label: 'Dashboard', desc: 'สรุปผลงานและสถิติกราฟ' },
+  { id: 'settings', icon: <SettingsIcon size={18} />, label: 'ตั้งค่า', desc: 'ระบบ คลาวด์ และการแจ้งเตือน' },
+];
+export type TabId = 'tasks' | 'events' | 'dash' | 'settings';
+
+export default function Sidebar({
+  tab,
+  onTab,
+  onOpenProfile,
+}: {
+  tab: TabId;
+  onTab: (t: TabId) => void;
+  onOpenProfile?: () => void;
+}) {
+  const s = usePlanner();
+  const { currentUser } = useAuth();
+  const today = useToday();
+  const ts = visibleOn(s, today);
+  const done = ts.filter(t => t.done).length;
+  const pct = ts.length ? Math.round((done / ts.length) * 100) : 0;
+
+  return (
+    <aside className="sidebar">
+      <div className="brand">
+        <span className="logo">
+          <BoltIcon size={20} color="#fff" />
+        </span>
+        <div><b>Work Planner</b><small>ระบบวางแผนและปฏิทินทีม</small></div>
+      </div>
+
+      <nav className="menu">
+        {TABS.map(t => (
+          <button key={t.id} className={`menu-item ${tab === t.id ? 'active' : ''}`} onClick={() => onTab(t.id)}>
+            <span className="mi-icon">{t.icon}</span>
+            <span>{t.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      <div className="side-progress">
+        <small>ความคืบหน้าวันนี้</small>
+        <div className="sp-num"><b>{done}</b> / {ts.length} งาน</div>
+        <div className="bar"><div style={{ width: `${pct}%` }} /></div>
+        <small>{ts.length === 0 ? 'วันนี้ยังไม่มีงาน' : pct === 100 ? 'ยอดเยี่ยม เสร็จครบแล้ว 🎉' : `สำเร็จแล้ว ${pct}%`}</small>
+      </div>
+
+      {currentUser && (
+        <div
+          onClick={onOpenProfile}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '10px 12px',
+            borderRadius: 16,
+            background: 'rgba(120, 120, 128, 0.08)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: '1px solid var(--line)',
+            cursor: 'pointer',
+            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+          title="ดูโปรไฟล์และเลือก Avatar"
+        >
+          <AvatarIcon id={currentUser.avatarId} size={36} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: 13,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {currentUser.name}
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                color: 'var(--mut)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {currentUser.role || 'โปรไฟล์ส่วนตัว'}
+            </div>
+          </div>
+          <span style={{ fontSize: 13, color: 'var(--mut)' }}>👤</span>
+        </div>
+      )}
+    </aside>
+  );
+}
