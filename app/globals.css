@@ -2326,3 +2326,53 @@ tbody tr:hover td {
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
+
+/* ==========================================================================
+   Executive Report Print & PDF Styling
+   ========================================================================== */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #1d1d1f !important;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif !important;
+  }
+
+  /* Hide app navigation and modal chrome */
+  .sidebar,
+  .topbar,
+  .no-print,
+  .modal-overlay.no-print-backdrop {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    position: static !important;
+    padding: 0 !important;
+  }
+
+  .sidebar,
+  .topbar,
+  .no-print {
+    display: none !important;
+  }
+
+  .executive-report-modal-wrapper {
+    max-width: 100% !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+  }
+
+  .executive-report-document-body {
+    padding: 0 !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Prevent awkward page breaks */
+  table, tr, .report-card {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

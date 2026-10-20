@@ -14,6 +14,7 @@ import TeamSelectScreen from '@/components/TeamSelectScreen';
 import ProfileModal from '@/components/ProfileModal';
 import TeamSwitcher from '@/components/TeamSwitcher';
 import TeamMembersModal from '@/components/TeamMembersModal';
+import MorningBriefingModal from '@/components/MorningBriefingModal';
 import { AvatarIcon } from '@/components/Avatars';
 import { useToday } from '@/lib/hooks';
 import { thDate } from '@/lib/utils';
@@ -42,6 +43,7 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isTeamMembersOpen, setIsTeamMembersOpen] = useState(false);
+  const [isMorningBriefingOpen, setIsMorningBriefingOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [reportCopied, setReportCopied] = useState(false);
   const [teamCodeCopied, setTeamCodeCopied] = useState(false);
@@ -60,6 +62,19 @@ export default function App() {
       fetchTeamMembers(currentUser.teamId);
     }
   }, [mounted, currentUser?.teamId]);
+
+  // แสดงสรุปภาพรวมยามเช้า (Morning Briefing) อัตโนมัติเมื่อเข้าใช้งานครั้งแรกของวัน
+  useEffect(() => {
+    if (mounted && currentUser) {
+      const lastBriefing = localStorage.getItem('wp_last_briefing_date');
+      if (lastBriefing !== today) {
+        const timer = setTimeout(() => {
+          setIsMorningBriefingOpen(true);
+        }, 700);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [mounted, currentUser, today]);
 
   // ซิงค์สมาชิกในทีมและเชื่อมต่อข้อมูลสด Real-time เมื่อมี Firebase Config และอยู่ในทีม
   useEffect(() => {
@@ -245,6 +260,17 @@ export default function App() {
               <span>{thDate(today)}</span>
             </div>
 
+            {/* Morning Briefing Trigger Button */}
+            <button
+              className="nav-action-btn"
+              onClick={() => setIsMorningBriefingOpen(true)}
+              title="เปิดดูสรุปภาพรวมยามเช้า (Morning Briefing)"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <span>🌅</span>
+              <span>สรุปเช้านี้</span>
+            </button>
+
             {/* Daily Report Button */}
             <button
               className="nav-action-btn primary"
@@ -317,6 +343,12 @@ export default function App() {
       <TeamMembersModal
         isOpen={isTeamMembersOpen}
         onClose={() => setIsTeamMembersOpen(false)}
+      />
+
+      <MorningBriefingModal
+        isOpen={isMorningBriefingOpen}
+        onClose={() => setIsMorningBriefingOpen(false)}
+        onViewTodayTasks={() => setTab('tasks')}
       />
 
       <Notifier />

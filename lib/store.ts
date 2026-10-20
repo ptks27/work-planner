@@ -50,6 +50,7 @@ interface PlannerState extends PlannerData {
   updateTaskStatus: (id: string, status: TaskStatus, actor?: { id: string; name: string; avatarId?: AvatarId }) => void;
   updateTask: (id: string, patch: Partial<Omit<Task, 'id'>>, actor?: { id: string; name: string; avatarId?: AvatarId }) => void;
   addTaskComment: (taskId: string, comment: Omit<TaskComment, 'id' | 'createdAt'>) => void;
+  toggleCommentReaction: (taskId: string, commentId: string, emoji: string, userId: string) => void;
   addTaskActivity: (taskId: string, activity: Omit<TaskActivity, 'id' | 'timestamp'>) => void;
   deleteTask: (id: string) => void;
   hideDone: (ids: string[]) => void;
@@ -392,6 +393,37 @@ export const usePlanner = create<PlannerState>()(
               ...t,
               comments: [...(t.comments || []), newComment],
               activities: [newActivity, ...(t.activities || [])],
+            };
+          }),
+        };
+      }),
+
+      toggleCommentReaction: (taskId, commentId, emoji, userId) => set(s => {
+        return {
+          tasks: s.tasks.map(t => {
+            if (t.id !== taskId) return t;
+            const updatedComments = (t.comments || []).map(c => {
+              if (c.id !== commentId) return c;
+              const currentReactions = { ...(c.reactions || {}) };
+              const currentUsers = currentReactions[emoji] || [];
+              if (currentUsers.includes(userId)) {
+                const remaining = currentUsers.filter(id => id !== userId);
+                if (remaining.length === 0) {
+                  delete currentReactions[emoji];
+                } else {
+                  currentReactions[emoji] = remaining;
+                }
+              } else {
+                currentReactions[emoji] = [...currentUsers, userId];
+              }
+              return {
+                ...c,
+                reactions: currentReactions,
+              };
+            });
+            return {
+              ...t,
+              comments: updatedComments,
             };
           }),
         };

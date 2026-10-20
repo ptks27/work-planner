@@ -69,6 +69,7 @@ export interface TaskComment {
   userAvatar?: AvatarId;
   text: string;
   createdAt: number;
+  reactions?: Record<string, string[]>; // emoji -> array of userIds
 }
 
 export interface TaskActivity {

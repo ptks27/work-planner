@@ -59,6 +59,8 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
   const [time, setTime] = useState('');
   const [error, setError] = useState('');
   const [commentText, setCommentText] = useState('');
+  const [activeReactionPickerCommentId, setActiveReactionPickerCommentId] = useState<string | null>(null);
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
 
   // Keep live task reference from store so comments/activity update immediately
   const liveTask = task ? planner.tasks.find(t => t.id === task.id) || task : null;
@@ -210,6 +212,48 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
       currentUser ? { id: currentUser.id, name: currentUser.name, avatarId: currentUser.avatarId } : undefined
     );
     onClose();
+  };
+
+  const memberList = Array.from(
+    new Map(
+      (users || [])
+        .concat(currentUser ? [currentUser] : [])
+        .map(u => [u.id, u])
+    ).values()
+  );
+
+  const PRESET_EMOJIS = ['👍', '❤️', '🎉', '👀', '🔥', '🚀'];
+
+  const renderCommentWithMentions = (text: string) => {
+    const parts = text.split(/(@[^\s,]+)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('@')) {
+        return (
+          <span
+            key={i}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '1px 6px',
+              borderRadius: 6,
+              background: 'var(--pri-l)',
+              color: 'var(--pri)',
+              fontWeight: 600,
+              fontSize: 12,
+              margin: '0 2px',
+            }}
+          >
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
+  const handleInsertMention = (name: string) => {
+    setCommentText(prev => `${prev.trim()} @${name} `);
+    setShowMentionSuggestions(false);
   };
 
   const comments = liveTask.comments || [];
@@ -671,11 +715,13 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
                   <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--mut)' }}>
                     <span style={{ fontSize: 32, display: 'block', marginBottom: 6 }}>💬</span>
                     <p style={{ margin: 0, fontSize: 13.5 }}>ยังไม่มีความคิดเห็นหรือโน้ตสั้น</p>
-                    <small>พิมพ์ข้อความด้านล่าง เช่น "แก้ไขแล้ว รอตรวจครับ" เพื่อแจ้งเตือนทีม</small>
+                    <small>พิมพ์ข้อความด้านล่าง เช่น "แก้ไขแล้ว รอตรวจครับ" หรือใช้ @ เพื่อแท็กเพื่อน</small>
                   </div>
                 ) : (
                   comments.map(c => {
                     const isMe = c.userId === currentUser?.id;
+                    const reactions = c.reactions || {};
+
                     return (
                       <div
                         key={c.id}
@@ -699,9 +745,117 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
                               {new Date(c.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
                             </small>
                           </div>
-                          <p style={{ margin: 0, fontSize: 13, wordBreak: 'break-word', color: 'var(--txt)' }}>
-                            {c.text}
+                          <p style={{ margin: 0, fontSize: 13, wordBreak: 'break-word', color: 'var(--txt)', lineHeight: 1.45 }}>
+                            {renderCommentWithMentions(c.text)}
                           </p>
+
+                          {/* Emoji Reactions Row */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                            {Object.entries(reactions).map(([emoji, userIds]) => {
+                              if (!userIds || userIds.length === 0) return null;
+                              const hasReacted = userIds.includes(currentUser?.id || '');
+                              const userNames = userIds
+                                .map(id => memberList.find(m => m.id === id)?.name || (id === currentUser?.id ? 'คุณ' : 'สมาชิก'))
+                                .join(', ');
+
+                              return (
+                                <button
+                                  key={`react-${c.id}-${emoji}`}
+                                  type="button"
+                                  onClick={() => {
+                                    if (currentUser && task) {
+                                      planner.toggleCommentReaction(task.id, c.id, emoji, currentUser.id);
+                                    }
+                                  }}
+                                  title={`${userNames} กด ${emoji}`}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    padding: '2px 7px',
+                                    borderRadius: 999,
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    border: hasReacted ? '1px solid var(--pri)' : '1px solid var(--line)',
+                                    background: hasReacted ? 'rgba(0, 113, 227, 0.15)' : 'var(--card-solid)',
+                                    color: hasReacted ? 'var(--pri)' : 'var(--txt)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                  }}
+                                >
+                                  <span>{emoji}</span>
+                                  <span>{userIds.length}</span>
+                                </button>
+                              );
+                            })}
+
+                            {/* + Reaction Button with Apple Popover */}
+                            <div style={{ position: 'relative' }}>
+                              <button
+                                type="button"
+                                onClick={() => setActiveReactionPickerCommentId(activeReactionPickerCommentId === c.id ? null : c.id)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '2px 6px',
+                                  borderRadius: 999,
+                                  fontSize: 11,
+                                  border: '1px solid var(--line)',
+                                  background: 'transparent',
+                                  color: 'var(--mut)',
+                                  cursor: 'pointer',
+                                }}
+                                title="เพิ่ม Reaction"
+                              >
+                                + 😊
+                              </button>
+
+                              {activeReactionPickerCommentId === c.id && (
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    bottom: '100%',
+                                    left: 0,
+                                    marginBottom: 6,
+                                    background: 'var(--card-solid)',
+                                    backdropFilter: 'blur(16px)',
+                                    border: '1px solid var(--line)',
+                                    borderRadius: 999,
+                                    padding: '4px 8px',
+                                    display: 'flex',
+                                    gap: 6,
+                                    boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+                                    zIndex: 30,
+                                  }}
+                                >
+                                  {PRESET_EMOJIS.map(emoji => (
+                                    <button
+                                      key={`picker-${c.id}-${emoji}`}
+                                      type="button"
+                                      onClick={() => {
+                                        if (currentUser && task) {
+                                          planner.toggleCommentReaction(task.id, c.id, emoji, currentUser.id);
+                                          setActiveReactionPickerCommentId(null);
+                                        }
+                                      }}
+                                      style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        fontSize: 16,
+                                        cursor: 'pointer',
+                                        padding: '2px',
+                                        transition: 'transform 0.1s ease',
+                                      }}
+                                      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.25)')}
+                                      onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
@@ -709,20 +863,104 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
                 )}
               </div>
 
+              {/* @Mention Suggestion Bar */}
+              {showMentionSuggestions && (
+                <div
+                  style={{
+                    background: 'var(--card-solid)',
+                    border: '1px solid var(--line)',
+                    borderRadius: 12,
+                    padding: '8px 10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    flexWrap: 'wrap',
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
+                  }}
+                >
+                  <small style={{ color: 'var(--mut)', fontSize: 11, fontWeight: 600 }}>แท็กเพื่อน:</small>
+                  {memberList.map(m => (
+                    <button
+                      key={`mention-${m.id}`}
+                      type="button"
+                      onClick={() => handleInsertMention(m.name)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '3px 8px',
+                        borderRadius: 999,
+                        border: '1px solid var(--line)',
+                        background: 'rgba(120, 120, 128, 0.08)',
+                        color: 'var(--txt)',
+                        fontSize: 11.5,
+                        cursor: 'pointer',
+                        fontWeight: 500,
+                      }}
+                    >
+                      <AvatarIcon id={m.avatarId} size={16} />
+                      <span>{m.name}</span>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setShowMentionSuggestions(false)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--mut)',
+                      fontSize: 11,
+                      cursor: 'pointer',
+                      marginLeft: 'auto',
+                    }}
+                  >
+                    ปิด
+                  </button>
+                </div>
+              )}
+
               {/* Comment Input Box */}
-              <div style={{ display: 'flex', gap: 8, marginTop: 'auto', paddingTop: 8, borderTop: '1px solid var(--line)' }}>
+              <div style={{ display: 'flex', gap: 8, marginTop: 'auto', paddingTop: 8, borderTop: '1px solid var(--line)', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowMentionSuggestions(prev => !prev)}
+                  style={{
+                    background: showMentionSuggestions ? 'var(--pri-l)' : 'rgba(120, 120, 128, 0.08)',
+                    color: showMentionSuggestions ? 'var(--pri)' : 'var(--txt)',
+                    border: '1px solid var(--line)',
+                    borderRadius: 8,
+                    padding: '6px 10px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    flexShrink: 0,
+                  }}
+                  title="แท็กเพื่อนร่วมทีม (@mention)"
+                >
+                  <span>@</span>
+                  <span style={{ fontSize: 11 }}>แท็ก</span>
+                </button>
+
                 <input
                   type="text"
                   placeholder="พิมพ์คอมเมนต์หรือโน้ตสั้นๆ... (กด Enter เพื่อส่ง)"
                   value={commentText}
-                  onChange={e => setCommentText(e.target.value)}
+                  onChange={e => {
+                    setCommentText(e.target.value);
+                    if (e.target.value.endsWith('@')) {
+                      setShowMentionSuggestions(true);
+                    }
+                  }}
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       handleSendComment();
                     }
                   }}
-                  style={{ margin: 0 }}
+                  style={{ margin: 0, flex: 1 }}
                 />
                 <button
                   type="button"

@@ -25,6 +25,7 @@ import {
   ChevronRightIcon,
 } from './Icons';
 import ThaiDatePicker from './ThaiDatePicker';
+import ExecutiveReportModal from './ExecutiveReportModal';
 
 const MODE_TITLE: Record<Mode, string> = {
   day: 'สรุปงานรายวัน',
@@ -54,6 +55,7 @@ export default function DashboardTab() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'done'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isExecutiveReportOpen, setIsExecutiveReportOpen] = useState(false);
   const pageSize = 10;
 
   const handleModeChange = (m: Mode) => {
@@ -328,15 +330,41 @@ export default function DashboardTab() {
           </div>
         </div>
 
-        {/* Range Label */}
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+        {/* Range Label & Executive Report Button */}
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           <span style={{ fontSize: 13, color: 'var(--mut)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <CalendarIcon size={14} color="var(--pri)" />
-            <span>ช่วงเวลาวิเคราะห์: <b>{S === E ? thDate(S) : `${thDate(S)} – ${thDate(E)}`}</b></span>
+            <span>ช่วงเวลาวิเคราะห์: <b>{S === E ? thDate(S) : `${thDate(S)} – ${thDate(E)}`}</b> ({MODE_TITLE[mode]})</span>
           </span>
-          <span style={{ fontSize: 12, color: 'var(--mut)' }}>
-            {MODE_TITLE[mode]} · พบทั้งหมด {allTasks.length} งาน
-          </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 12, color: 'var(--mut)' }}>
+              พบทั้งหมด {allTasks.length} งาน
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsExecutiveReportOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '5px 12px',
+                borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 600,
+                background: 'linear-gradient(135deg, #0071e3, #60a5fa)',
+                color: '#ffffff',
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0, 113, 227, 0.28)',
+                transition: 'transform 0.15s ease',
+              }}
+              title="สร้างเอกสารสรุปผลงาน"
+            >
+              <FileTextIcon size={14} color="#ffffff" />
+              <span>📄 สรุปรายงาน (PDF)</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1205,6 +1233,11 @@ export default function DashboardTab() {
           </div>
         )}
       </div>
+
+      <ExecutiveReportModal
+        isOpen={isExecutiveReportOpen}
+        onClose={() => setIsExecutiveReportOpen(false)}
+      />
     </div>
   );
 }
