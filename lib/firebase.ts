@@ -18,6 +18,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import type { PlannerData, User, Team, TeamMember } from './types';
+import { DEFAULT_FIREBASE_CONFIG } from './firebaseDefaultConfig';
 
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
@@ -49,7 +50,9 @@ export function getFirebaseInstance(configStr?: string): { app: FirebaseApp; db:
   if (!configToUse && typeof window !== 'undefined') {
     configToUse = localStorage.getItem('firebase_config') || undefined;
   }
-  if (!configToUse) return null;
+  if (!configToUse) {
+    configToUse = DEFAULT_FIREBASE_CONFIG;
+  }
 
   try {
     const config = parseFirebaseConfig(configToUse);

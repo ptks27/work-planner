@@ -208,6 +208,7 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
         assigneeIds: assignedUserIds,
         assignees,
         tags,
+        links: task.links,
       },
       currentUser ? { id: currentUser.id, name: currentUser.name, avatarId: currentUser.avatarId } : undefined
     );

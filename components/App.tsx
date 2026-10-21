@@ -15,11 +15,14 @@ import ProfileModal from '@/components/ProfileModal';
 import TeamSwitcher from '@/components/TeamSwitcher';
 import TeamMembersModal from '@/components/TeamMembersModal';
 import MorningBriefingModal from '@/components/MorningBriefingModal';
+import AchievementsModal from '@/components/AchievementsModal';
+import { computeActivityStats } from '@/lib/achievements';
 import { AvatarIcon } from '@/components/Avatars';
 import { useToday } from '@/lib/hooks';
 import { thDate } from '@/lib/utils';
 import { usePlanner, setSyncingFromCloud, syncPlannerToFirebase } from '@/lib/store';
 import { useAuth } from '@/lib/authStore';
+import { DEFAULT_FIREBASE_CONFIG } from '@/lib/firebaseDefaultConfig';
 import { subscribePlannerLive } from '@/lib/firebase';
 import { visibleOn } from '@/lib/selectors';
 import { PRIORITY, type Task } from '@/lib/types';
@@ -44,6 +47,7 @@ export default function App() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isTeamMembersOpen, setIsTeamMembersOpen] = useState(false);
   const [isMorningBriefingOpen, setIsMorningBriefingOpen] = useState(false);
+  const [isAchievementsOpen, setIsAchievementsOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [reportCopied, setReportCopied] = useState(false);
   const [teamCodeCopied, setTeamCodeCopied] = useState(false);
@@ -51,6 +55,7 @@ export default function App() {
   const s = usePlanner();
   const { currentUser, currentTeam, teamMembers, fetchTeamMembers, leaveTeam } = useAuth();
   const cur = TABS.find(t => t.id === tab) || TABS[0];
+  const activityStats = computeActivityStats(s.tasks, currentUser?.id, today);
 
   useEffect(() => {
     setMounted(true);
@@ -78,7 +83,8 @@ export default function App() {
 
   // ซิงค์สมาชิกในทีมและเชื่อมต่อข้อมูลสด Real-time เมื่อมี Firebase Config และอยู่ในทีม
   useEffect(() => {
-    if (!mounted || !s.firebaseConfig || !currentUser?.teamId) return;
+    const activeCfg = s.firebaseConfig || DEFAULT_FIREBASE_CONFIG;
+    if (!mounted || !activeCfg || !currentUser?.teamId) return;
 
     // 1. ดึงข้อมูลรายชื่อทีมงานเฉพาะทีมนี้จาก Firestore
     useAuth.getState().syncTeamUsers();
@@ -102,7 +108,7 @@ export default function App() {
           setSyncingFromCloud(false);
         }, 500);
       },
-      s.firebaseConfig,
+      activeCfg,
       currentUser.teamId
     );
 
@@ -260,28 +266,52 @@ export default function App() {
               <span>{thDate(today)}</span>
             </div>
 
-            {/* Morning Briefing Trigger Button */}
+            {/* Streak & Activity Ring Trigger Chip */}
             <button
               className="nav-action-btn"
+              onClick={() => setIsAchievementsOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                background: activityStats.currentStreak > 0 ? 'rgba(255, 59, 48, 0.08)' : 'rgba(120, 120, 128, 0.08)',
+                color: activityStats.currentStreak > 0 ? '#ff3b30' : 'var(--txt)',
+                border: activityStats.currentStreak > 0 ? '1px solid rgba(255, 59, 48, 0.25)' : '1px solid var(--line)',
+                padding: '4px 10px',
+                borderRadius: 999,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+              title={`ดูวงแหวนกิจกรรมและความสำเร็จ (Streak ${activityStats.currentStreak} วัน, ปิดงานวันนี้ ${activityStats.todayPct}%)`}
+            >
+              <span>🔥</span>
+              <span>{activityStats.currentStreak > 0 ? `${activityStats.currentStreak} วัน` : 'Streak'}</span>
+              <span
+                style={{
+                  fontSize: 10.5,
+                  background: activityStats.allRingsClosed ? '#34c759' : '#ff2d55',
+                  color: '#ffffff',
+                  borderRadius: 999,
+                  padding: '1px 6px',
+                  fontWeight: 800,
+                }}
+              >
+                {activityStats.todayPct}%
+              </span>
+            </button>
+
+            {/* Morning Briefing Trigger Button */}
+            <button
+              className="nav-action-btn primary"
               onClick={() => setIsMorningBriefingOpen(true)}
               title="เปิดดูสรุปภาพรวมยามเช้า (Morning Briefing)"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
               <span>🌅</span>
-              <span>สรุปเช้านี้</span>
+              <span>สรุปภาพรวม</span>
             </button>
 
-            {/* Daily Report Button */}
-            <button
-              className="nav-action-btn primary"
-              onClick={handleCopyReport}
-              title="คัดลอกสรุปงานประจำวันสำหรับส่ง LINE / Slack"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              {reportCopied ? <ClipboardCheckIcon size={15} /> : <ClipboardIcon size={15} />}
-              <span>{reportCopied ? 'คัดลอกแล้ว!' : 'สรุปงานวันนี้'}</span>
-            </button>
-
+            
             {/* Theme Toggle Button */}
             <button
               className="nav-icon-btn"
@@ -349,6 +379,11 @@ export default function App() {
         isOpen={isMorningBriefingOpen}
         onClose={() => setIsMorningBriefingOpen(false)}
         onViewTodayTasks={() => setTab('tasks')}
+      />
+
+      <AchievementsModal
+        isOpen={isAchievementsOpen}
+        onClose={() => setIsAchievementsOpen(false)}
       />
 
       <Notifier />

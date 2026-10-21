@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/authStore';
 import { AvatarIcon } from './Avatars';
-import { BuildingIcon, LogOutIcon, SparklesIcon, LinkIcon, CheckIcon } from './Icons';
+import { BuildingIcon, LogOutIcon, SparklesIcon, LinkIcon, CheckIcon, CloudIcon } from './Icons';
+import FirebaseConfigModal from './FirebaseConfigModal';
 
 export default function TeamSelectScreen() {
   const { currentUser, userTeams, switchTeam, createTeam, joinTeam, logout } = useAuth();
@@ -11,6 +12,7 @@ export default function TeamSelectScreen() {
   const [teamCode, setTeamCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   if (!currentUser) return null;
 
@@ -74,6 +76,42 @@ export default function TeamSelectScreen() {
           <p className="mut">
             แยกงาน วันหยุด และวันลาเป็นสัดส่วนเฉพาะทีม ปลอดภัยและซิงค์ข้อมูลตรงกันแบบเรียลไทม์
           </p>
+        </div>
+
+        {/* Global Cloud Status Badge */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+          <button
+            type="button"
+            onClick={() => setIsConfigOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 7,
+              background: 'rgba(52, 199, 89, 0.09)',
+              border: '1px solid rgba(52, 199, 89, 0.25)',
+              color: '#34c759',
+              fontSize: 12,
+              fontWeight: 600,
+              padding: '5px 12px',
+              borderRadius: 999,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="คลิกเพื่อดูหรือปรับแต่งการเชื่อมต่อ Firebase Cloud"
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: '#34c759',
+                boxShadow: '0 0 6px #34c759',
+              }}
+            />
+            <span style={{ color: 'var(--txt)' }}>Cloud ซิงค์ทีมอัตโนมัติ</span>
+            <span style={{ fontSize: 11, opacity: 0.7, color: 'var(--mut)' }}>(work-planner-9caf4)</span>
+            <span style={{ fontSize: 11, color: 'var(--pri)', marginLeft: 2 }}>⚙️ ตั้งค่า</span>
+          </button>
         </div>
 
         {/* Tab switch */}
@@ -222,6 +260,11 @@ export default function TeamSelectScreen() {
           <span><b>หมายเหตุ:</b> คุณสามารถดูรหัสทีม หรือกดออกจากทีมได้ตลอดเวลาที่เมนูด้านบนของระบบ</span>
         </div>
       </div>
+
+      <FirebaseConfigModal
+        isOpen={isConfigOpen}
+        onClose={() => setIsConfigOpen(false)}
+      />
     </div>
   );
 }

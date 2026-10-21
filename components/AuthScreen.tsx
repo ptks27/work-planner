@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/authStore';
 import { AvatarIcon, AVATAR_LIST } from './Avatars';
-import { BoltIcon, SparklesIcon, CheckIcon } from './Icons';
+import { BoltIcon, SparklesIcon, CheckIcon, CloudIcon } from './Icons';
+import FirebaseConfigModal from './FirebaseConfigModal';
 
 export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) {
   const [isRegister, setIsRegister] = useState(false);
@@ -11,6 +12,7 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   const { login, register } = useAuth();
 
@@ -48,6 +50,42 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
           </div>
           <h2>Work Planner</h2>
           <p className="mut">ระบบวางแผนงาน ปฏิทินทีม และติดตามงานรายวัน</p>
+        </div>
+
+        {/* Global Cloud Status Badge */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+          <button
+            type="button"
+            onClick={() => setIsConfigOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 7,
+              background: 'rgba(52, 199, 89, 0.09)',
+              border: '1px solid rgba(52, 199, 89, 0.25)',
+              color: '#34c759',
+              fontSize: 12,
+              fontWeight: 600,
+              padding: '5px 12px',
+              borderRadius: 999,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="คลิกเพื่อดูหรือปรับแต่งการเชื่อมต่อ Firebase Cloud"
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: '#34c759',
+                boxShadow: '0 0 6px #34c759',
+              }}
+            />
+            <span style={{ color: 'var(--txt)' }}>Cloud ซิงค์ทีมอัตโนมัติ</span>
+            <span style={{ fontSize: 11, opacity: 0.7, color: 'var(--mut)' }}>(work-planner-9caf4)</span>
+            <span style={{ fontSize: 11, color: 'var(--pri)', marginLeft: 2 }}>⚙️ ตั้งค่า</span>
+          </button>
         </div>
 
         {/* Animated Avatars Preview Ribbon */}
@@ -157,6 +195,11 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
           </button>
         </form>
       </div>
+
+      <FirebaseConfigModal
+        isOpen={isConfigOpen}
+        onClose={() => setIsConfigOpen(false)}
+      />
     </div>
   );
 }

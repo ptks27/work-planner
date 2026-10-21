@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { usePlanner, setSyncingFromCloud } from '@/lib/store';
 import { useAuth } from '@/lib/authStore';
 import { useModal } from '@/components/ModalContext';
-import { parseFirebaseConfig } from '@/lib/firebase';
+import { parseFirebaseConfig, resetFirebaseInstance } from '@/lib/firebase';
+import { DEFAULT_FIREBASE_CONFIG } from '@/lib/firebaseDefaultConfig';
 import { AvatarIcon } from './Avatars';
 import {
   BellIcon,
@@ -62,8 +63,10 @@ export default function SettingsTab() {
   const handleSaveFirebaseConfig = () => {
     try {
       if (!cfgInput.trim()) {
-        s.setFirebaseConfig('');
-        showAlert('สำเร็จ', 'ล้างการตั้งค่า Firebase เรียบร้อย');
+        s.setFirebaseConfig(DEFAULT_FIREBASE_CONFIG);
+        setCfgInput(DEFAULT_FIREBASE_CONFIG);
+        resetFirebaseInstance();
+        showAlert('สำเร็จ', 'คืนค่าเป็น Cloud กลาง (work-planner-9caf4) เรียบร้อย');
         return;
       }
       const parsed = parseFirebaseConfig(cfgInput);
@@ -73,6 +76,7 @@ export default function SettingsTab() {
       const formatted = JSON.stringify(parsed, null, 2);
       s.setFirebaseConfig(formatted);
       setCfgInput(formatted);
+      resetFirebaseInstance();
       showAlert('สำเร็จ', 'บันทึกการตั้งค่า Firebase Config เรียบร้อย');
     } catch {
       showAlert(
@@ -80,6 +84,13 @@ export default function SettingsTab() {
         'รูปแบบ Firebase Config ไม่ถูกต้อง กรุณาคัดลอกข้อมูล firebaseConfig JSON มาวางใหม่'
       );
     }
+  };
+
+  const handleResetDefaultFirebase = () => {
+    s.setFirebaseConfig(DEFAULT_FIREBASE_CONFIG);
+    setCfgInput(DEFAULT_FIREBASE_CONFIG);
+    resetFirebaseInstance();
+    showAlert('สำเร็จ', 'รีเซ็ตกลับเป็น Cloud กลาง (work-planner-9caf4) เรียบร้อย');
   };
 
   const handleUploadCloud = async () => {
@@ -467,6 +478,15 @@ export default function SettingsTab() {
           >
             <CloudDownloadIcon size={14} />
             <span>ดึงข้อมูลจาก Cloud</span>
+          </button>
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={handleResetDefaultFirebase}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 999, color: 'var(--pri)' }}
+          >
+            <SparklesIcon size={14} />
+            <span>รีเซ็ตเป็น Cloud กลาง</span>
           </button>
         </div>
 

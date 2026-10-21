@@ -1,7 +1,9 @@
 'use client';
+import { useState } from 'react';
 import { usePlanner } from '@/lib/store';
 import { PRIORITY, getTagStyle, type Task } from '@/lib/types';
 import { thDate } from '@/lib/utils';
+import { extractAllLinks, getCleanDetail } from '@/lib/links';
 import {
   TrashIcon,
   EditIcon,
@@ -27,6 +29,12 @@ export default function TaskItem({
   showDate?: boolean;
 }) {
   const { users, currentUser } = useAuth();
+  const [quickSubtask, setQuickSubtask] = useState('');
+  const [isAddingSubtask, setIsAddingSubtask] = useState(false);
+  const [isAddingLink, setIsAddingLink] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkTitle, setLinkTitle] = useState('');
+
   const assignedIds = t.assigneeIds && t.assigneeIds.length ? t.assigneeIds : (t.userId ? [t.userId] : []);
   const assignedList = assignedIds.map(id => {
     const u = users.find(x => x.id === id);
@@ -39,6 +47,10 @@ export default function TaskItem({
 
   const toggle = usePlanner(s => s.toggleTask);
   const toggleSub = usePlanner(s => s.toggleSubtask);
+  const addSub = usePlanner(s => s.addSubtask);
+  const delSub = usePlanner(s => s.deleteSubtask);
+  const addLink = usePlanner(s => s.addTaskLink);
+  const delLink = usePlanner(s => s.deleteTaskLink);
   const del = usePlanner(s => s.deleteTask);
   const soundEnabled = usePlanner(s => s.soundEnabled);
   const tasks = usePlanner(s => s.tasks);
@@ -69,6 +81,20 @@ export default function TaskItem({
     toggleSub(t.id, stId);
   };
 
+  const handleAddQuickSubtask = () => {
+    if (!quickSubtask.trim()) return;
+    addSub(t.id, quickSubtask.trim());
+    setQuickSubtask('');
+  };
+
+  const handleAddQuickLink = () => {
+    if (!linkUrl.trim()) return;
+    addLink(t.id, { url: linkUrl.trim(), title: linkTitle.trim() || undefined });
+    setLinkUrl('');
+    setLinkTitle('');
+    setIsAddingLink(false);
+  };
+
   const onDelete = () => {
     const isVirtual = t.id.startsWith('r:');
     const msg = isVirtual
@@ -84,6 +110,8 @@ export default function TaskItem({
 
   const subs = t.subtasks || [];
   const doneSubs = subs.filter(st => st.done).length;
+  const detectedLinks = extractAllLinks(t.detail, t.links);
+  const cleanDetail = getCleanDetail(t.detail);
 
   return (
     <div
@@ -128,32 +156,199 @@ export default function TaskItem({
             </span>
           )}
         </div>
-        {t.detail && <div className="task-detail">{t.detail}</div>}
+        {cleanDetail && <div className="task-detail">{cleanDetail}</div>}
 
-        {subs.length > 0 && (
-          <div className="subtasks">
-            <div className="subtask-progress">
+        {/* 🔗 Attached & Auto-Detected Links Row */}
+        {detectedLinks.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '5px 0' }} onClick={e => e.stopPropagation()}>
+            {detectedLinks.map(link => (
+              <a
+                key={`link-${link.url}`}
+                href={link.url.startsWith('http') ? link.url : `https://${link.url}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  background: link.bg,
+                  color: link.color,
+                  border: '1px solid rgba(120, 120, 128, 0.15)',
+                  textDecoration: 'none',
+                  transition: 'transform 0.15s ease',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
+                onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                title={`เปิดลิงก์: ${link.url}`}
+              >
+                <span>{link.emoji}</span>
+                <span>{link.label}</span>
+                <span style={{ fontSize: 9.5, opacity: 0.65 }}>↗</span>
+              </a>
+            ))}
+          </div>
+        )}
+
+        {/* Quick Add Link Inline Input */}
+        {isAddingLink && (
+          <div
+            style={{
+              display: 'flex',
+              gap: 6,
+              alignItems: 'center',
+              marginTop: 6,
+              padding: '6px 8px',
+              borderRadius: 8,
+              background: 'rgba(120, 120, 128, 0.06)',
+              border: '1px solid var(--line)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <input
+              type="url"
+              placeholder="วางลิงก์ เช่น Figma, Drive, GitHub..."
+              value={linkUrl}
+              onChange={e => setLinkUrl(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddQuickLink()}
+              style={{ flex: 2, padding: '4px 8px', fontSize: 11.5, margin: 0 }}
+              autoFocus
+            />
+            <input
+              type="text"
+              placeholder="ชื่อลิงก์ (ไม่บังคับ)"
+              value={linkTitle}
+              onChange={e => setLinkTitle(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddQuickLink()}
+              style={{ flex: 1, padding: '4px 8px', fontSize: 11.5, margin: 0 }}
+            />
+            <button
+              type="button"
+              className="btn sm primary"
+              onClick={handleAddQuickLink}
+              disabled={!linkUrl.trim()}
+              style={{ padding: '3px 10px', fontSize: 11, borderRadius: 6 }}
+            >
+              เพิ่ม
+            </button>
+            <button
+              type="button"
+              className="btn sm"
+              onClick={() => setIsAddingLink(false)}
+              style={{ padding: '3px 8px', fontSize: 11, borderRadius: 6 }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* 📋 Subtasks Interactive Checklist Directly on Card */}
+        {(subs.length > 0 || isAddingSubtask) && (
+          <div className="subtasks" onClick={e => e.stopPropagation()}>
+            <div className="subtask-progress" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>
-                รายการย่อย ({doneSubs}/{subs.length})
+                เช็กลิสต์ย่อย ({doneSubs}/{subs.length})
               </span>
-              <div className="subtask-bar">
-                <div style={{ width: `${(doneSubs / subs.length) * 100}%` }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div className="subtask-bar" style={{ width: 60 }}>
+                  <div style={{ width: `${subs.length ? (doneSubs / subs.length) * 100 : 0}%` }} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingSubtask(prev => !prev)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--pri)',
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    padding: 0,
+                    fontWeight: 600,
+                  }}
+                >
+                  {isAddingSubtask ? 'ซ่อน' : '+ ข้อย่อย'}
+                </button>
               </div>
             </div>
+
             {subs.map(st => (
               <div
                 key={st.id}
                 className="subtask-item"
-                onClick={() => handleToggleSubtask(st.id, st.done)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
               >
-                <div className={`subtask-check ${st.done ? 'on' : ''}`}>
-                  {st.done && <CheckIcon size={10} strokeWidth={3} />}
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, cursor: 'pointer' }}
+                  onClick={() => handleToggleSubtask(st.id, st.done)}
+                >
+                  <div className={`subtask-check ${st.done ? 'on' : ''}`}>
+                    {st.done && <CheckIcon size={10} strokeWidth={3} />}
+                  </div>
+                  <span className={`subtask-text ${st.done ? 'done' : ''}`} style={{ fontSize: 12 }}>
+                    {st.title}
+                  </span>
                 </div>
-                <span className={`subtask-text ${st.done ? 'done' : ''}`}>
-                  {st.title}
-                </span>
+
+                <button
+                  type="button"
+                  onClick={() => delSub(t.id, st.id)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--mut)',
+                    cursor: 'pointer',
+                    fontSize: 11,
+                    padding: '2px 4px',
+                    opacity: 0.5,
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
+                  title="ลบข้อย่อยนี้"
+                >
+                  ✕
+                </button>
               </div>
             ))}
+
+            {/* Quick Add Subtask Input Field */}
+            {isAddingSubtask && (
+              <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                <input
+                  type="text"
+                  placeholder="พิมพ์งานย่อยแล้วกด Enter..."
+                  value={quickSubtask}
+                  onChange={e => setQuickSubtask(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddQuickSubtask();
+                    }
+                  }}
+                  style={{
+                    padding: '3px 8px',
+                    fontSize: 11.5,
+                    borderRadius: 6,
+                    border: '1px solid var(--line)',
+                    background: 'var(--card-solid)',
+                    margin: 0,
+                    flex: 1,
+                  }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  className="btn sm"
+                  onClick={handleAddQuickSubtask}
+                  disabled={!quickSubtask.trim()}
+                  style={{ padding: '2px 8px', fontSize: 11, borderRadius: 6 }}
+                >
+                  เพิ่ม
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -221,6 +416,52 @@ export default function TaskItem({
           <span className="pri" style={{ background: p.color }}>
             {p.label}
           </span>
+
+          {/* Quick Action: Add Subtask (if none currently) */}
+          {subs.length === 0 && !isAddingSubtask && (
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                setIsAddingSubtask(true);
+              }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--mut)',
+                fontSize: 11,
+                cursor: 'pointer',
+                padding: '1px 5px',
+                borderRadius: 4,
+              }}
+              title="เพิ่มเช็กลิสต์งานย่อย"
+            >
+              + ข้อย่อย
+            </button>
+          )}
+
+          {/* Quick Action: Attach Link */}
+          {!isAddingLink && (
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                setIsAddingLink(true);
+              }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--mut)',
+                fontSize: 11,
+                cursor: 'pointer',
+                padding: '1px 5px',
+                borderRadius: 4,
+              }}
+              title="แนบลิงก์ Figma, Docs, Drive, GitHub..."
+            >
+              + 🔗 ลิงก์
+            </button>
+          )}
 
           {/* Comments count pill */}
           {t.comments && t.comments.length > 0 && (

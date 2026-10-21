@@ -15,6 +15,7 @@ import type {
   TaskAssignee,
 } from './types';
 import { uid } from './utils';
+import { DEFAULT_FIREBASE_CONFIG } from './firebaseDefaultConfig';
 
 export type NewTask = {
   date: string;
@@ -57,6 +58,10 @@ interface PlannerState extends PlannerData {
   rolloverTasks: (fromDate: string, toDate: string) => number;
   rolloverAllOverdue: (toDate: string) => number;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
+  addSubtask: (taskId: string, title: string) => void;
+  deleteSubtask: (taskId: string, subtaskId: string) => void;
+  addTaskLink: (taskId: string, link: { url: string; title?: string }) => void;
+  deleteTaskLink: (taskId: string, linkId: string) => void;
   addRule: (r: Omit<RecurringRule, 'id' | 'skips'>) => void;
   deleteRule: (id: string) => void;
   addEvents: (list: Omit<PlannerEvent, 'id'>[]) => void;
@@ -83,8 +88,17 @@ export const usePlanner = create<PlannerState>()(
       setTheme: theme => set({ theme }),
       soundEnabled: true,
       setSoundEnabled: soundEnabled => set({ soundEnabled }),
-      firebaseConfig: '',
-      setFirebaseConfig: firebaseConfig => set({ firebaseConfig }),
+      firebaseConfig: (typeof window !== 'undefined' && localStorage.getItem('firebase_config')) || DEFAULT_FIREBASE_CONFIG,
+      setFirebaseConfig: firebaseConfig => {
+        if (typeof window !== 'undefined') {
+          if (firebaseConfig) {
+            localStorage.setItem('firebase_config', firebaseConfig);
+          } else {
+            localStorage.removeItem('firebase_config');
+          }
+        }
+        set({ firebaseConfig: firebaseConfig || DEFAULT_FIREBASE_CONFIG });
+      },
 
       addTasks: list => set(s => ({
         tasks: [...s.tasks, ...list.map(t => {
@@ -265,6 +279,48 @@ export const usePlanner = create<PlannerState>()(
           return {
             ...t,
             subtasks: t.subtasks.map(st => st.id === subtaskId ? { ...st, done: !st.done } : st),
+          };
+        }),
+      })),
+
+      addSubtask: (taskId, title) => set(s => ({
+        tasks: s.tasks.map(t => {
+          if (t.id !== taskId) return t;
+          const newSub: SubTask = { id: uid(), title: title.trim(), done: false };
+          return {
+            ...t,
+            subtasks: [...(t.subtasks || []), newSub],
+          };
+        }),
+      })),
+
+      deleteSubtask: (taskId, subtaskId) => set(s => ({
+        tasks: s.tasks.map(t => {
+          if (t.id !== taskId || !t.subtasks) return t;
+          return {
+            ...t,
+            subtasks: t.subtasks.filter(st => st.id !== subtaskId),
+          };
+        }),
+      })),
+
+      addTaskLink: (taskId, link) => set(s => ({
+        tasks: s.tasks.map(t => {
+          if (t.id !== taskId) return t;
+          const newLink = { id: uid(), url: link.url.trim(), title: link.title?.trim() };
+          return {
+            ...t,
+            links: [...(t.links || []), newLink],
+          };
+        }),
+      })),
+
+      deleteTaskLink: (taskId, linkId) => set(s => ({
+        tasks: s.tasks.map(t => {
+          if (t.id !== taskId || !t.links) return t;
+          return {
+            ...t,
+            links: t.links.filter(l => l.id !== linkId),
           };
         }),
       })),
@@ -545,6 +601,9 @@ export const usePlanner = create<PlannerState>()(
       name: 'work-planner',
       onRehydrateStorage: () => (state) => {
         if (state) {
+          if (!state.firebaseConfig) {
+            state.firebaseConfig = (typeof window !== 'undefined' && localStorage.getItem('firebase_config')) || DEFAULT_FIREBASE_CONFIG;
+          }
           // ล้าง mockup tasks และ mockup events เก่าออกทั้งหมด
           const mockUserIds = ['user-mint', 'user-top', 'user-joy', 'user-somchai'];
           state.tasks = (state.tasks || []).filter(t => !mockUserIds.includes(t.userId || ''));
@@ -565,7 +624,8 @@ export const setSyncingFromCloud = (val: boolean) => {
 export const syncPlannerToFirebase = async () => {
   if (isSyncingFromCloud) return;
   const state = usePlanner.getState();
-  if (!state.firebaseConfig) return;
+  const cfg = state.firebaseConfig || DEFAULT_FIREBASE_CONFIG;
+  if (!cfg) return;
 
   try {
     const { uploadToFirebase } = await import('./firebase');
@@ -579,7 +639,7 @@ export const syncPlannerToFirebase = async () => {
         customTags: state.customTags || [],
         deletedTags: state.deletedTags || [],
       },
-      state.firebaseConfig,
+      cfg,
       user?.teamId
     );
     if (res.success) {
@@ -613,7 +673,8 @@ let previousDeletedTags = usePlanner.getState().deletedTags;
 if (typeof window !== 'undefined') {
   usePlanner.subscribe(state => {
     if (isSyncingFromCloud) return;
-    if (!state.firebaseConfig) return;
+    const cfg = state.firebaseConfig || DEFAULT_FIREBASE_CONFIG;
+    if (!cfg) return;
 
     if (
       state.tasks !== previousTasks ||
@@ -634,7 +695,8 @@ if (typeof window !== 'undefined') {
   // บันทึกทันทีก่อนที่หน้าต่างจะถูกปิดหรือกดรีเฟรช F5
   window.addEventListener('beforeunload', () => {
     const state = usePlanner.getState();
-    if (state.firebaseConfig && !isSyncingFromCloud) {
+    const cfg = state.firebaseConfig || DEFAULT_FIREBASE_CONFIG;
+    if (cfg && !isSyncingFromCloud) {
       syncPlannerToFirebase();
     }
   });

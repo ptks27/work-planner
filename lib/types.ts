@@ -62,6 +62,12 @@ export interface SubTask {
   done: boolean;
 }
 
+export interface TaskLink {
+  id: string;
+  url: string;
+  title?: string;
+}
+
 export interface TaskComment {
   id: string;
   userId: string;
@@ -109,6 +115,7 @@ export interface Task {
   assigneeIds?: string[]; // สมาชิกทุกคนที่รับผิดชอบงานนี้ (รองรับ 1 หรือ 2+ คน)
   assignees?: TaskAssignee[];
   tags?: string[];       // แท็กหมวดหมู่งาน เช่น ['Frontend', 'Bug', 'Meeting']
+  links?: TaskLink[];    // ลิงก์แนบงาน เช่น Figma, Google Drive, Docs, GitHub
   comments?: TaskComment[]; // รายการคอมเมนต์/โน้ตสั้น
   activities?: TaskActivity[]; // ประวัติกิจกรรมและการเปลี่ยนแปลง
 }

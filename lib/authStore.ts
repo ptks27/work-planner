@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, Team, TeamMember, AvatarId } from './types';
 import { uid } from './utils';
+import { DEFAULT_FIREBASE_CONFIG } from './firebaseDefaultConfig';
 import {
   firebaseRegisterUser,
   firebaseLoginUser,
@@ -36,6 +37,8 @@ const DEFAULT_AVATARS: AvatarId[] = [
   'pixel_ninja',
 ];
 
+const getFirebaseCfg = () => usePlanner.getState().firebaseConfig || DEFAULT_FIREBASE_CONFIG;
+
 interface AuthState {
   currentUser: User | null;
   currentTeam: Team | null;
@@ -67,7 +70,7 @@ export const useAuth = create<AuthState>()(
 
       login: async (email, password) => {
         const cleanEmail = email.trim().toLowerCase();
-        const firebaseCfg = usePlanner.getState().firebaseConfig;
+        const firebaseCfg = getFirebaseCfg();
 
         // 1. ลองตรวจสอบกับ Firebase Firestore ก่อน (ถ้ามีการตั้งค่า Firebase)
         if (firebaseCfg) {
@@ -124,7 +127,7 @@ export const useAuth = create<AuthState>()(
       register: async (name, email, password) => {
         const cleanName = name.trim();
         const cleanEmail = email.trim().toLowerCase();
-        const firebaseCfg = usePlanner.getState().firebaseConfig;
+        const firebaseCfg = getFirebaseCfg();
 
         if (!cleanName) {
           return { success: false, error: 'กรุณากรอกชื่อ-นามสกุล' };
@@ -175,7 +178,7 @@ export const useAuth = create<AuthState>()(
         const user = get().currentUser;
         if (!user) return { success: false, error: 'กรุณาเข้าสู่ระบบก่อนสร้างทีม' };
 
-        const firebaseCfg = usePlanner.getState().firebaseConfig;
+        const firebaseCfg = getFirebaseCfg();
         const res = await firebaseCreateTeam(teamName, user, firebaseCfg);
         if (!res.success || !res.team) {
           return { success: false, error: res.error || 'ไม่สามารถสร้างทีมได้' };
@@ -209,33 +212,7 @@ export const useAuth = create<AuthState>()(
         const user = get().currentUser;
         if (!user) return { success: false, error: 'กรุณาเข้าสู่ระบบก่อนเข้าร่วมทีม' };
 
-        const firebaseCfg = usePlanner.getState().firebaseConfig;
-        if (!firebaseCfg) {
-          // Local simulation
-          const code = teamCode.trim().toUpperCase();
-          const team: Team = {
-            id: `team-local-${code}`,
-            code,
-            name: `ทีม ${code}`,
-            createdBy: 'other-user',
-            createdAt: Date.now(),
-            memberIds: [user.id],
-          };
-          const updatedUser: User = {
-            ...user,
-            teamId: team.id,
-            teamCode: team.code,
-            teamName: team.name,
-            teamIds: Array.from(new Set([...(user.teamIds || []), team.id])),
-          };
-          set(state => ({
-            currentUser: updatedUser,
-            currentTeam: team,
-            userTeams: [...state.userTeams.filter(t => t.id !== team.id), team],
-          }));
-          return { success: true, team };
-        }
-
+        const firebaseCfg = getFirebaseCfg();
         const res = await firebaseJoinTeam(teamCode, user, firebaseCfg);
         if (!res.success || !res.team) {
           return { success: false, error: res.error || 'ไม่พบทีมหรือรหัสไม่ถูกต้อง' };
@@ -278,7 +255,7 @@ export const useAuth = create<AuthState>()(
         }
 
         let targetTeam = get().userTeams.find(t => t.id === teamId);
-        const firebaseCfg = usePlanner.getState().firebaseConfig;
+        const firebaseCfg = getFirebaseCfg();
 
         if (!targetTeam && firebaseCfg) {
           targetTeam = (await firebaseFetchTeam(teamId, firebaseCfg)) || undefined;
@@ -323,7 +300,7 @@ export const useAuth = create<AuthState>()(
         const teamIdToLeave = targetTeamId || user.teamId;
         if (!teamIdToLeave) return { success: false, error: 'ไม่มีทีมที่ต้องการออก' };
 
-        const firebaseCfg = usePlanner.getState().firebaseConfig;
+        const firebaseCfg = getFirebaseCfg();
         let remainingTeams: Team[] = get().userTeams.filter(t => t.id !== teamIdToLeave);
 
         if (firebaseCfg) {
@@ -367,7 +344,7 @@ export const useAuth = create<AuthState>()(
       fetchUserTeams: async () => {
         const user = get().currentUser;
         if (!user) return [];
-        const firebaseCfg = usePlanner.getState().firebaseConfig;
+        const firebaseCfg = getFirebaseCfg();
         if (firebaseCfg) {
           const teams = await firebaseFetchUserTeams(user.id, firebaseCfg);
           set({ userTeams: teams });
@@ -384,7 +361,7 @@ export const useAuth = create<AuthState>()(
           return [];
         }
 
-        const firebaseCfg = usePlanner.getState().firebaseConfig;
+        const firebaseCfg = getFirebaseCfg();
         if (firebaseCfg) {
           const members = await firebaseFetchTeamMembers(targetTeamId, firebaseCfg);
           if (members.length > 0) {
@@ -429,7 +406,7 @@ export const useAuth = create<AuthState>()(
 
       syncTeamUsers: async () => {
         const user = get().currentUser;
-        const firebaseCfg = usePlanner.getState().firebaseConfig;
+        const firebaseCfg = getFirebaseCfg();
         if (!firebaseCfg || !user?.teamId) return;
 
         // ดึงเฉพาะสมาชิกในทีมเดียวกัน
@@ -496,7 +473,7 @@ export const useAuth = create<AuthState>()(
               : m
           );
 
-          const firebaseCfg = usePlanner.getState().firebaseConfig;
+          const firebaseCfg = getFirebaseCfg();
           if (firebaseCfg) {
             import('./firebase').then(({ firebaseUpdateUser }) => {
               firebaseUpdateUser(updatedUser, firebaseCfg);
