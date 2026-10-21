@@ -463,6 +463,69 @@ export async function firebaseLeaveTeam(
   }
 }
 
+export async function firebaseRemoveMemberFromTeam(
+  teamId: string,
+  targetUserId: string,
+  configStr?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const instance = getFirebaseInstance(configStr);
+    if (!instance || !teamId || !targetUserId) {
+      return { success: false, error: 'ข้อมูลไม่ครบถ้วน' };
+    }
+
+    const teamRef = doc(instance.db, 'teams', teamId);
+    const teamSnap = await getDoc(teamRef);
+    if (!teamSnap.exists()) {
+      return { success: false, error: 'ไม่พบทีมนี้ในระบบ' };
+    }
+
+    const team = teamSnap.data() as Team;
+    // ป้องกันไม่ให้ลบหัวหน้าทีม/ผู้สร้างทีม
+    if (team.createdBy === targetUserId) {
+      return { success: false, error: 'ไม่สามารถนำหัวหน้าทีม/ผู้สร้างทีมออกจากทีมได้' };
+    }
+
+    const memberIds = (team.memberIds || []).filter(id => id !== targetUserId);
+    const members = (team.members || []).filter(m => m.userId !== targetUserId);
+    await setDoc(teamRef, { memberIds, members }, { merge: true });
+
+    // อัปเดตข้อมูลของผู้ใช้ที่ถูกนำออกใน Firestore
+    const userRef = doc(instance.db, 'users', targetUserId);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      // ตรวจสอบว่าผู้ใช้มีทีมอื่นเหลืออยู่หรือไม่
+      const remainingQ = query(
+        collection(instance.db, 'teams'),
+        where('memberIds', 'array-contains', targetUserId)
+      );
+      const remainingSnap = await getDocs(remainingQ);
+      const remainingTeams = remainingSnap.docs
+        .map(d => ({ ...d.data(), id: d.id } as Team))
+        .filter(t => t.id !== teamId);
+
+      const nextTeam = remainingTeams.length > 0 ? remainingTeams[0] : null;
+
+      await setDoc(
+        userRef,
+        {
+          teamId: nextTeam ? nextTeam.id : '',
+          teamCode: nextTeam ? nextTeam.code : '',
+          teamName: nextTeam ? nextTeam.name : '',
+        },
+        { merge: true }
+      );
+    }
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการนำสมาชิกออกจากทีม',
+    };
+  }
+}
+
 export async function firebaseFetchUserTeams(
   userId: string,
   configStr?: string

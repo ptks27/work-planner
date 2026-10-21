@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/authStore';
+import { useModal } from '@/components/ModalContext';
 import { AvatarIcon } from './Avatars';
 import {
   UsersIcon,
@@ -13,6 +14,7 @@ import {
   CalendarIcon,
   BuildingIcon,
   SparklesIcon,
+  TrashIcon,
 } from './Icons';
 import { TH_DOW_FULL, TH_MONTHS, pad } from '@/lib/utils';
 
@@ -35,10 +37,12 @@ function formatJoinedDate(ts?: number): string {
 }
 
 export default function TeamMembersModal({ isOpen, onClose }: TeamMembersModalProps) {
-  const { currentUser, currentTeam, teamMembers, fetchTeamMembers } = useAuth();
+  const { currentUser, currentTeam, teamMembers, fetchTeamMembers, removeMember } = useAuth();
+  const { showAlert, showConfirm } = useModal();
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
   // ดึงข้อมูลสมาชิกสดใหม่ทุกครั้งที่เปิด modal
   useEffect(() => {
@@ -50,6 +54,24 @@ export default function TeamMembersModal({ isOpen, onClose }: TeamMembersModalPr
   if (!isOpen || !currentUser) return null;
 
   const isCreator = currentTeam?.createdBy === currentUser.id;
+  const canManage = isCreator || currentUser.role === 'admin';
+
+  const handleKickMember = (member: any) => {
+    showConfirm(
+      'นำสมาชิกออกจากทีม',
+      `คุณต้องการนำคุณ "${member.name}" ออกจากทีมนี้ใช่หรือไม่?\n\nสมาชิกคนนี้จะไม่สามารถเข้าถึงงาน วันหยุด หรือปฏิทินของทีมนี้ได้อีกต่อไป`,
+      async () => {
+        setRemovingUserId(member.userId);
+        const res = await removeMember(member.userId);
+        setRemovingUserId(null);
+        if (res.success) {
+          showAlert('สำเร็จ', `นำคุณ "${member.name}" ออกจากทีมเรียบร้อยแล้ว`);
+        } else {
+          showAlert('ข้อผิดพลาด', res.error || 'ไม่สามารถนำสมาชิกออกจากทีมได้');
+        }
+      }
+    );
+  };
 
   const handleRefresh = async () => {
     if (!currentTeam?.id) return;
@@ -86,8 +108,9 @@ export default function TeamMembersModal({ isOpen, onClose }: TeamMembersModalPr
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.65)',
-        backdropFilter: 'blur(4px)',
+        backgroundColor: 'rgba(0, 0, 0, 0.55)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
         zIndex: 1000,
         display: 'grid',
         placeItems: 'center',
@@ -104,11 +127,11 @@ export default function TeamMembersModal({ isOpen, onClose }: TeamMembersModalPr
           display: 'flex',
           flexDirection: 'column',
           borderRadius: 20,
-          background: 'var(--card)',
+          background: 'var(--card-solid, #ffffff)',
           border: '1px solid var(--line)',
-          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.25)',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
           overflow: 'hidden',
-          animation: 'modalSlideUp 0.2s ease-out',
+          animation: 'appleScaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
         {/* Header */}
@@ -490,6 +513,35 @@ export default function TeamMembersModal({ isOpen, onClose }: TeamMembersModalPr
                       </div>
                     </div>
                   </div>
+
+                  {/* Right Action: Kick button for team creator / admin */}
+                  {canManage && !isMe && !isOwner && (
+                    <button
+                      type="button"
+                      onClick={() => handleKickMember(member)}
+                      disabled={removingUserId === member.userId}
+                      className="btn ghost sm"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '6px 12px',
+                        borderRadius: 999,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: '#ff3b30',
+                        background: 'rgba(255, 59, 48, 0.08)',
+                        border: '1px solid rgba(255, 59, 48, 0.22)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        flexShrink: 0,
+                      }}
+                      title={`นำคุณ ${member.name} ออกจากทีม`}
+                    >
+                      <TrashIcon size={13} color="#ff3b30" />
+                      <span>{removingUserId === member.userId ? 'กำลังนำออก...' : 'เอาออกจากทีม'}</span>
+                    </button>
+                  )}
                 </div>
               );
             })

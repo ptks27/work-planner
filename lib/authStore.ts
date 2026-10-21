@@ -9,6 +9,7 @@ import {
   firebaseCreateTeam,
   firebaseJoinTeam,
   firebaseLeaveTeam,
+  firebaseRemoveMemberFromTeam,
   firebaseFetchTeam,
   firebaseFetchTeamUsers,
   firebaseFetchTeamMembers,
@@ -53,6 +54,7 @@ interface AuthState {
   joinTeam: (teamCode: string) => Promise<{ success: boolean; team?: Team; error?: string }>;
   switchTeam: (teamId: string) => Promise<{ success: boolean; team?: Team; error?: string }>;
   leaveTeam: (teamId?: string) => Promise<{ success: boolean; error?: string }>;
+  removeMember: (targetUserId: string) => Promise<{ success: boolean; error?: string }>;
   fetchUserTeams: () => Promise<Team[]>;
   fetchTeamMembers: (teamId?: string) => Promise<TeamMember[]>;
   syncTeamUsers: () => Promise<void>;
@@ -341,6 +343,59 @@ export const useAuth = create<AuthState>()(
         return { success: true };
       },
 
+      removeMember: async (targetUserId: string) => {
+        const currentUser = get().currentUser;
+        const currentTeam = get().currentTeam;
+        if (!currentUser || !currentTeam) {
+          return { success: false, error: 'กรุณาเข้าสู่ระบบ' };
+        }
+
+        // สิทธิ์: ต้องเป็นผู้สร้างทีม (createdBy) หรือมี role เป็น owner/admin
+        const isOwner =
+          currentTeam.createdBy === currentUser.id ||
+          currentUser.role === 'admin' ||
+          get().teamMembers.some(m => m.userId === currentUser.id && m.teamRole === 'owner');
+
+        if (!isOwner) {
+          return { success: false, error: 'เฉพาะหัวหน้าทีม/ผู้สร้างทีมเท่านั้นที่สามารถนำสมาชิกออกได้' };
+        }
+
+        if (targetUserId === currentUser.id) {
+          return { success: false, error: 'ไม่สามารถนำตนเองออกจากทีมได้ หากต้องการออกกรุณาใช้เมนูออกจากทีม' };
+        }
+
+        const firebaseCfg = getFirebaseCfg();
+        if (firebaseCfg) {
+          const res = await firebaseRemoveMemberFromTeam(currentTeam.id, targetUserId, firebaseCfg);
+          if (!res.success) {
+            return { success: false, error: res.error || 'ไม่สามารถนำสมาชิกออกจากทีมได้' };
+          }
+        }
+
+        // อัปเดตในเครื่อง
+        const updatedMemberIds = (currentTeam.memberIds || []).filter(id => id !== targetUserId);
+        const updatedMembers = (get().teamMembers || []).filter(m => m.userId !== targetUserId);
+        const updatedTeam: Team = {
+          ...currentTeam,
+          memberIds: updatedMemberIds,
+          members: updatedMembers,
+        };
+
+        set(state => ({
+          currentTeam: updatedTeam,
+          teamMembers: updatedMembers,
+          users: state.users.map(u => {
+            if (u.id === targetUserId) {
+              return { ...u, teamId: undefined, teamCode: undefined, teamName: undefined };
+            }
+            return u;
+          }),
+        }));
+
+        await get().fetchTeamMembers(currentTeam.id);
+        return { success: true };
+      },
+
       fetchUserTeams: async () => {
         const user = get().currentUser;
         if (!user) return [];
@@ -435,6 +490,18 @@ export const useAuth = create<AuthState>()(
         // อัปเดตข้อมูลทีม
         const team = await firebaseFetchTeam(user.teamId, firebaseCfg);
         if (team) {
+          // หากผู้ใช้ปัจจุบันไม่ได้เป็นสมาชิกในทีมนี้แล้ว (ถูกนำออกจากทีม) ให้ล้างข้อมูลทีมและกลับสู่หน้าเลือกทีม
+          if (team.memberIds && !team.memberIds.includes(user.id)) {
+            const updatedUser: User = {
+              ...user,
+              teamId: undefined,
+              teamCode: undefined,
+              teamName: undefined,
+            };
+            usePlanner.getState().restore({ tasks: [], rules: [], events: [] });
+            set({ currentUser: updatedUser, currentTeam: null, teamMembers: [] });
+            return;
+          }
           set({ currentTeam: team });
         }
 
