@@ -5,8 +5,10 @@ import Notifier from '@/components/Notifier';
 import TasksTab from '@/components/TasksTab';
 import RecurringTab from '@/components/RecurringTab';
 import EventsTab from '@/components/EventsTab';
+import TimelineTab from '@/components/TimelineTab';
 import DashboardTab from '@/components/DashboardTab';
 import SettingsTab from '@/components/SettingsTab';
+import NotificationCenter from '@/components/NotificationCenter';
 import SearchModal from '@/components/SearchModal';
 import EditTaskModal from '@/components/EditTaskModal';
 import AuthScreen from '@/components/AuthScreen';
@@ -311,7 +313,9 @@ export default function App() {
               <span>สรุปภาพรวม</span>
             </button>
 
-            
+            {/* Notification Center Popover */}
+            <NotificationCenter onOpenTask={task => setEditingTask(task)} />
+
             {/* Theme Toggle Button */}
             <button
               className="nav-icon-btn"
@@ -345,6 +349,7 @@ export default function App() {
 
         <main>
           {tab === 'tasks' && <TasksTab />}
+          {tab === 'timeline' && <TimelineTab />}
           {tab === 'events' && <EventsTab />}
           {tab === 'dash' && <DashboardTab />}
           {tab === 'settings' && <SettingsTab />}

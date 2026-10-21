@@ -68,6 +68,29 @@ export interface TaskLink {
   title?: string;
 }
 
+export interface TaskAttachment {
+  id: string;
+  name: string;
+  url: string;          // base64 data url
+  size?: number;        // ขนาดไฟล์เป็น byte
+  type?: string;        // mime type เช่น image/png, image/jpeg
+  createdAt: number;
+}
+
+export interface AppNotification {
+  id: string;
+  type: 'mention' | 'assigned' | 'status_change';
+  taskId: string;
+  taskTitle: string;
+  targetUserId: string; // ผู้รับการแจ้งเตือน
+  actorId: string;      // ผู้กระทำ
+  actorName: string;
+  actorAvatar?: AvatarId;
+  text: string;
+  createdAt: number;
+  read: boolean;
+}
+
 export interface TaskComment {
   id: string;
   userId: string;
@@ -116,6 +139,7 @@ export interface Task {
   assignees?: TaskAssignee[];
   tags?: string[];       // แท็กหมวดหมู่งาน เช่น ['Frontend', 'Bug', 'Meeting']
   links?: TaskLink[];    // ลิงก์แนบงาน เช่น Figma, Google Drive, Docs, GitHub
+  attachments?: TaskAttachment[]; // ไฟล์และภาพแคปเจอร์หน้าจอแนบ
   comments?: TaskComment[]; // รายการคอมเมนต์/โน้ตสั้น
   activities?: TaskActivity[]; // ประวัติกิจกรรมและการเปลี่ยนแปลง
 }
@@ -150,6 +174,7 @@ export interface PlannerData {
   events: PlannerEvent[];
   customTags?: string[];
   deletedTags?: string[];
+  notifications?: AppNotification[];
 }
 
 export const PRIORITY: Record<Priority, { label: string; color: string; order: number }> = {

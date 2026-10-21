@@ -534,3 +534,22 @@ export function FireIcon({ size = 14, strokeWidth = 2, className, style, color }
   );
 }
 
+export function ImageIcon({ size = 16, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <path d="m21 15-5-5L5 21" />
+    </svg>
+  );
+}
+
+export function PaperclipIcon({ size = 16, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l7.88-7.87" />
+    </svg>
+  );
+}
+
+

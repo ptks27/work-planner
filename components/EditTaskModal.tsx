@@ -11,6 +11,7 @@ import {
   type SubTask,
   type AvatarId,
   type TaskAssignee,
+  type TaskAttachment,
 } from '@/lib/types';
 import { uid, thDate } from '@/lib/utils';
 import {
@@ -25,12 +26,19 @@ import {
   HistoryIcon,
   CalendarIcon,
   ClockIcon,
+  SparklesIcon,
+  ImageIcon,
+  PaperclipIcon,
 } from './Icons';
 import { useAuth } from '@/lib/authStore';
 import { usePlanner } from '@/lib/store';
 import { useModal } from '@/components/ModalContext';
 import { AvatarIcon } from './Avatars';
 import ThaiDatePicker from './ThaiDatePicker';
+import SmartSubtasksModal from './SmartSubtasksModal';
+import ImageLightboxModal from './ImageLightboxModal';
+import { compressImageFile, getImageFilesFromClipboard, formatFileSize } from '@/lib/attachments';
+import { notifyMentionsInComment, notifyTaskAssignment, notifyTaskStatusChange } from '@/lib/notifications';
 
 interface EditTaskModalProps {
   task: Task | null;
@@ -56,6 +64,10 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
   const [customTagInput, setCustomTagInput] = useState('');
   const [subtasks, setSubtasks] = useState<SubTask[]>([]);
   const [newSubtask, setNewSubtask] = useState('');
+  const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
+  const [isSmartSubtasksOpen, setIsSmartSubtasksOpen] = useState(false);
+  const [lightboxAttachment, setLightboxAttachment] = useState<TaskAttachment | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [time, setTime] = useState('');
   const [error, setError] = useState('');
   const [commentText, setCommentText] = useState('');
@@ -81,6 +93,7 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
 
       setTags(task.tags ? [...task.tags] : []);
       setSubtasks(task.subtasks ? [...task.subtasks] : []);
+      setAttachments(task.attachments ? [...task.attachments] : []);
       setTime(task.time || '');
       setError('');
       setActiveTab('details');
@@ -155,14 +168,77 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
     setSubtasks(prev => prev.filter(st => st.id !== id));
   };
 
+  const handleProcessImageFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+    setIsUploadingImage(true);
+    try {
+      for (const file of files) {
+        const dataUrl = await compressImageFile(file);
+        const newAtt: TaskAttachment = {
+          id: uid(),
+          name: file.name || `ภาพแนบ_${new Date().toLocaleTimeString('th-TH')}.jpg`,
+          url: dataUrl,
+          size: file.size,
+          type: file.type || 'image/jpeg',
+          createdAt: Date.now(),
+        };
+        setAttachments(prev => [...prev, newAtt]);
+      }
+    } catch (err) {
+      console.error('Error processing image:', err);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const files = getImageFilesFromClipboard(e);
+    if (files.length > 0) {
+      e.preventDefault();
+      handleProcessImageFiles(files);
+    }
+  };
+
+  const handleRemoveAttachment = (attachmentId: string) => {
+    setAttachments(prev => prev.filter(a => a.id !== attachmentId));
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files: File[] = [];
+      for (let i = 0; i < e.target.files.length; i++) {
+        const f = e.target.files[i];
+        if (f.type.startsWith('image/')) {
+          files.push(f);
+        }
+      }
+      if (files.length > 0) {
+        handleProcessImageFiles(files);
+      }
+      e.target.value = '';
+    }
+  };
+
   const handleSendComment = () => {
     if (!commentText.trim() || !currentUser) return;
-    planner.addTaskComment(task.id, {
+    const newComment = {
+      id: uid(),
       userId: currentUser.id,
       userName: currentUser.name,
       userAvatar: currentUser.avatarId,
       text: commentText.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    planner.addTaskComment(task.id, newComment);
+
+    // แจ้งเตือนเพื่อนร่วมทีมที่ถูก @Mention
+    notifyMentionsInComment({
+      taskId: task.id,
+      taskTitle: liveTask.title,
+      commentText: commentText.trim(),
+      actor: { id: currentUser.id, name: currentUser.name, avatarId: currentUser.avatarId },
     });
+
     setCommentText('');
   };
 
@@ -190,6 +266,27 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
 
     const primaryAssignee = assignees[0];
 
+    // แจ้งเตือนเมื่อมีการมอบหมายงานใหม่
+    const previousAssignees = task.assigneeIds || (task.userId ? [task.userId] : []);
+    const newlyAssigned = assignedUserIds.filter(id => !previousAssignees.includes(id));
+    if (newlyAssigned.length > 0 && currentUser) {
+      notifyTaskAssignment({
+        task: { ...task, title: title.trim(), assigneeIds: assignedUserIds },
+        prevAssigneeIds: previousAssignees,
+        actor: { id: currentUser.id, name: currentUser.name, avatarId: currentUser.avatarId },
+      });
+    }
+
+    // แจ้งเตือนเมื่อมีการเปลี่ยนสถานะงาน
+    const prevStatus = task.status ?? (task.done ? 'done' : 'todo');
+    if (prevStatus !== status && currentUser) {
+      notifyTaskStatusChange({
+        task: { ...task, title: title.trim() },
+        newStatus: status,
+        actor: { id: currentUser.id, name: currentUser.name, avatarId: currentUser.avatarId },
+      });
+    }
+
     onSave(
       task.id,
       {
@@ -201,6 +298,7 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
         status,
         done: status === 'done',
         subtasks,
+        attachments,
         time: time || undefined,
         userId: primaryAssignee?.id,
         userName: primaryAssignee?.name,
@@ -264,6 +362,7 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
     <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal-box"
+        onPaste={handlePaste}
         style={{
           maxWidth: 560,
           width: '92%',
@@ -615,9 +714,33 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
                 />
               </div>
 
-              {/* Checklist / Subtasks */}
+              {/* Checklist / Subtasks with AI Generator button */}
               <div>
-                <label>รายการย่อย (Checklist)</label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <label style={{ margin: 0, fontWeight: 600 }}>รายการย่อย (Checklist)</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsSmartSubtasksOpen(true)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '4px 10px',
+                      borderRadius: 999,
+                      background: 'linear-gradient(135deg, rgba(0, 113, 227, 0.12), rgba(175, 82, 222, 0.12))',
+                      color: 'var(--pri)',
+                      border: '1px solid rgba(0, 113, 227, 0.25)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <SparklesIcon size={13} color="var(--pri)" />
+                    <span>✨ AI ช่วยแตกงานย่อย</span>
+                  </button>
+                </div>
                 {subtasks.length > 0 && (
                   <div
                     style={{
@@ -694,6 +817,179 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
                     <PlusIcon size={13} strokeWidth={2.5} /> เพิ่ม
                   </button>
                 </div>
+              </div>
+
+              {/* Image Attachments & Screenshots (Drag & Drop / Paste Screenshot) */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <label style={{ margin: 0, display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                    <PaperclipIcon size={14} color="var(--pri)" />
+                    <span>รูปภาพ & สกรีนช็อตแนบ ({attachments.length})</span>
+                  </label>
+                  <span style={{ fontSize: 11, color: 'var(--mut)' }}>
+                    กด Ctrl + V หรือลากวางได้ทันที
+                  </span>
+                </div>
+
+                {/* Upload Zone / Dropzone */}
+                <div
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => {
+                    e.preventDefault();
+                    if (e.dataTransfer.files) {
+                      const files: File[] = [];
+                      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+                        const f = e.dataTransfer.files[i];
+                        if (f.type.startsWith('image/')) files.push(f);
+                      }
+                      if (files.length > 0) handleProcessImageFiles(files);
+                    }
+                  }}
+                  style={{
+                    border: '1.5px dashed var(--line)',
+                    borderRadius: 12,
+                    padding: '12px 14px',
+                    background: 'rgba(120, 120, 128, 0.03)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10,
+                    marginBottom: attachments.length > 0 ? 10 : 0,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        background: 'rgba(0, 113, 227, 0.1)',
+                        color: 'var(--pri)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <ImageIcon size={16} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12.5, fontWeight: 600 }}>
+                        {isUploadingImage ? 'กำลังประมวลผลรูปภาพ...' : 'แนบภาพหรือแคปหน้าจอ'}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--mut)' }}>
+                        รองรับ PNG, JPG, WebP (บีบอัดอัตโนมัติ)
+                      </div>
+                    </div>
+                  </div>
+
+                  <label
+                    className="btn sm"
+                    style={{
+                      borderRadius: 999,
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      margin: 0,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <PlusIcon size={12} strokeWidth={2.5} />
+                    <span>เลือกไฟล์</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleFileInputChange}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </div>
+
+                {/* Thumbnails grid */}
+                {attachments.length > 0 && (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+                      gap: 8,
+                    }}
+                  >
+                    {attachments.map(att => (
+                      <div
+                        key={att.id}
+                        style={{
+                          position: 'relative',
+                          borderRadius: 10,
+                          overflow: 'hidden',
+                          border: '1px solid var(--line)',
+                          background: 'rgba(120, 120, 128, 0.05)',
+                          aspectRatio: '1',
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => setLightboxAttachment(att)}
+                      >
+                        <img
+                          src={att.url}
+                          alt={att.name}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            display: 'block',
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)',
+                            padding: '4px 6px',
+                            color: '#fff',
+                            fontSize: 10,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 55 }}>
+                            {att.name}
+                          </span>
+                          <span>{formatFileSize(att.size)}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveAttachment(att.id);
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: 4,
+                            right: 4,
+                            width: 20,
+                            height: 20,
+                            borderRadius: '50%',
+                            background: 'rgba(0, 0, 0, 0.65)',
+                            color: '#fff',
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 12,
+                            lineHeight: 1,
+                          }}
+                          title="ลบรูปภาพ"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1029,6 +1325,31 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
           </button>
         </div>
       </div>
+
+      {isSmartSubtasksOpen && (
+        <SmartSubtasksModal
+          isOpen={isSmartSubtasksOpen}
+          taskTitle={title}
+          taskDetail={detail}
+          onClose={() => setIsSmartSubtasksOpen(false)}
+          onApplySubtasks={(newSubtaskTitles: string[]) => {
+            const toAdd: SubTask[] = newSubtaskTitles.map((t: string) => ({
+              id: uid(),
+              title: t,
+              done: false,
+            }));
+            setSubtasks(prev => [...prev, ...toAdd]);
+          }}
+        />
+      )}
+
+      {lightboxAttachment && (
+        <ImageLightboxModal
+          isOpen={true}
+          attachment={lightboxAttachment}
+          onClose={() => setLightboxAttachment(null)}
+        />
+      )}
     </div>
   );
 }

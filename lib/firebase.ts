@@ -737,6 +737,7 @@ export async function uploadToFirebase(
       events: cleanEvents,
       customTags: data.customTags || [],
       deletedTags: data.deletedTags || [],
+      notifications: data.notifications || [],
       updatedAt: Date.now(),
     });
 
@@ -784,6 +785,7 @@ export async function downloadFromFirebase(
         events: val.events || [],
         customTags: val.customTags || [],
         deletedTags: val.deletedTags || [],
+        notifications: val.notifications || [],
       },
     };
   } catch (err) {
@@ -816,6 +818,7 @@ export function subscribePlannerLive(
           events: val.events || [],
           customTags: val.customTags || [],
           deletedTags: val.deletedTags || [],
+          notifications: val.notifications || [],
         });
       }
     });

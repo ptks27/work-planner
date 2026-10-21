@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { usePlanner } from '@/lib/store';
-import { PRIORITY, getTagStyle, type Task } from '@/lib/types';
+import { PRIORITY, getTagStyle, type Task, type TaskAttachment } from '@/lib/types';
 import { thDate } from '@/lib/utils';
 import { extractAllLinks, getCleanDetail } from '@/lib/links';
 import {
@@ -13,11 +13,13 @@ import {
   ClockIcon,
   CalendarIcon,
   MessageSquareIcon,
+  ImageIcon,
 } from './Icons';
 import { useModal } from './ModalContext';
 import { playCompletionSound, triggerConfetti } from '@/lib/audio';
 import { AvatarIcon } from './Avatars';
 import { useAuth } from '@/lib/authStore';
+import ImageLightboxModal from './ImageLightboxModal';
 
 export default function TaskItem({
   t,
@@ -34,6 +36,7 @@ export default function TaskItem({
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkTitle, setLinkTitle] = useState('');
+  const [activeLightboxAttachment, setActiveLightboxAttachment] = useState<TaskAttachment | null>(null);
 
   const assignedIds = t.assigneeIds && t.assigneeIds.length ? t.assigneeIds : (t.userId ? [t.userId] : []);
   const assignedList = assignedIds.map(id => {
@@ -352,6 +355,71 @@ export default function TaskItem({
           </div>
         )}
 
+        {/* 🖼️ Attached Images Preview Strip */}
+        {t.attachments && t.attachments.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              marginTop: 6,
+              overflowX: 'auto',
+              paddingBottom: 2,
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {t.attachments.slice(0, 4).map(att => (
+              <div
+                key={att.id}
+                onClick={() => setActiveLightboxAttachment(att)}
+                title={`คลิกเพื่อดูภาพเต็ม: ${att.name}`}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                  border: '1px solid var(--line)',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                  transition: 'transform 0.15s ease',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
+                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+              >
+                <img
+                  src={att.url}
+                  alt={att.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              </div>
+            ))}
+            {t.attachments.length > 4 && (
+              <button
+                type="button"
+                onClick={() => onEdit?.(t)}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 8,
+                  border: '1px dashed var(--line)',
+                  background: 'rgba(120, 120, 128, 0.08)',
+                  color: 'var(--mut)',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                +{t.attachments.length - 4}
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Tags */}
         {t.tags && t.tags.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
@@ -485,6 +553,33 @@ export default function TaskItem({
             </span>
           )}
 
+          {/* Attachments count pill */}
+          {t.attachments && t.attachments.length > 0 && (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                background: 'rgba(175, 82, 222, 0.08)',
+                color: '#af52de',
+                padding: '2px 8px',
+                borderRadius: 999,
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (t.attachments && t.attachments[0]) {
+                  setActiveLightboxAttachment(t.attachments[0]);
+                }
+              }}
+              title={`${t.attachments.length} รูปภาพแนบ (คลิกเพื่อดูรูปแรก)`}
+            >
+              <ImageIcon size={11} /> {t.attachments.length}
+            </span>
+          )}
+
           {(showDate || (t.endDate && t.endDate !== t.date)) && (
             <span style={{ color: 'var(--pri)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <CalendarIcon size={12} />
@@ -529,6 +624,14 @@ export default function TaskItem({
           <TrashIcon size={16} />
         </button>
       </div>
+
+      {activeLightboxAttachment && (
+        <ImageLightboxModal
+          isOpen={true}
+          attachment={activeLightboxAttachment}
+          onClose={() => setActiveLightboxAttachment(null)}
+        />
+      )}
     </div>
   );
 }

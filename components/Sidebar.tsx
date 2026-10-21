@@ -7,6 +7,7 @@ import { AvatarIcon } from './Avatars';
 
 import {
   CalendarIcon,
+  ColumnsIcon,
   UmbrellaIcon,
   ChartBarIcon,
   SpreadsheetIcon,
@@ -15,7 +16,7 @@ import {
 } from './Icons';
 
 export interface TabItem {
-  id: 'tasks' | 'events' | 'dash' | 'settings';
+  id: 'tasks' | 'timeline' | 'events' | 'dash' | 'settings';
   icon: React.ReactNode;
   label: string;
   desc: string;
@@ -23,11 +24,12 @@ export interface TabItem {
 
 export const TABS: TabItem[] = [
   { id: 'tasks', icon: <CalendarIcon size={18} />, label: 'ปฏิทินงาน', desc: 'ดูและจัดการงานของแต่ละวัน' },
+  { id: 'timeline', icon: <ColumnsIcon size={18} />, label: 'ไทม์ไลน์งาน', desc: 'แกนต์ชาร์ตและ Roadmap โครงการ' },
   { id: 'events', icon: <UmbrellaIcon size={18} />, label: 'วันหยุด / วันลา', desc: 'บันทึกวันหยุด วันลา และโน้ต' },
   { id: 'dash', icon: <ChartBarIcon size={18} />, label: 'Dashboard', desc: 'สรุปผลงานและสถิติกราฟ' },
   { id: 'settings', icon: <SettingsIcon size={18} />, label: 'ตั้งค่า', desc: 'ระบบ คลาวด์ และการแจ้งเตือน' },
 ];
-export type TabId = 'tasks' | 'events' | 'dash' | 'settings';
+export type TabId = 'tasks' | 'timeline' | 'events' | 'dash' | 'settings';
 
 export default function Sidebar({
   tab,

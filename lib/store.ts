@@ -13,6 +13,8 @@ import type {
   TaskComment,
   TaskActivity,
   TaskAssignee,
+  TaskAttachment,
+  AppNotification,
 } from './types';
 import { uid } from './utils';
 import { DEFAULT_FIREBASE_CONFIG } from './firebaseDefaultConfig';
@@ -62,6 +64,13 @@ interface PlannerState extends PlannerData {
   deleteSubtask: (taskId: string, subtaskId: string) => void;
   addTaskLink: (taskId: string, link: { url: string; title?: string }) => void;
   deleteTaskLink: (taskId: string, linkId: string) => void;
+  addTaskAttachment: (taskId: string, attachment: Omit<TaskAttachment, 'id' | 'createdAt'>) => void;
+  deleteTaskAttachment: (taskId: string, attachmentId: string) => void;
+  notifications: AppNotification[];
+  addNotification: (n: Omit<AppNotification, 'id' | 'createdAt' | 'read'>) => void;
+  markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: (userId?: string) => void;
+  clearNotifications: (userId?: string) => void;
   addRule: (r: Omit<RecurringRule, 'id' | 'skips'>) => void;
   deleteRule: (id: string) => void;
   addEvents: (list: Omit<PlannerEvent, 'id'>[]) => void;
@@ -83,7 +92,7 @@ const parseVirtual = (id: string) => { const [, ruleId, date] = id.split(':'); r
 export const usePlanner = create<PlannerState>()(
   persist(
     (set, get) => ({
-      tasks: [], rules: [], events: [], customTags: [], deletedTags: [], notified: [], remindBefore: 10,
+      tasks: [], rules: [], events: [], customTags: [], deletedTags: [], notifications: [], notified: [], remindBefore: 10,
       theme: 'light',
       setTheme: theme => set({ theme }),
       soundEnabled: true,
@@ -323,6 +332,62 @@ export const usePlanner = create<PlannerState>()(
             links: t.links.filter(l => l.id !== linkId),
           };
         }),
+      })),
+
+      addTaskAttachment: (taskId, attachment) => set(s => ({
+        tasks: s.tasks.map(t => {
+          if (t.id !== taskId) return t;
+          const newAtt: TaskAttachment = {
+            ...attachment,
+            id: uid(),
+            createdAt: Date.now(),
+          };
+          return {
+            ...t,
+            attachments: [...(t.attachments || []), newAtt],
+          };
+        }),
+      })),
+
+      deleteTaskAttachment: (taskId, attachmentId) => set(s => ({
+        tasks: s.tasks.map(t => {
+          if (t.id !== taskId || !t.attachments) return t;
+          return {
+            ...t,
+            attachments: t.attachments.filter(a => a.id !== attachmentId),
+          };
+        }),
+      })),
+
+      addNotification: n => set(s => {
+        const newNotif: AppNotification = {
+          ...n,
+          id: uid(),
+          createdAt: Date.now(),
+          read: false,
+        };
+        return {
+          notifications: [newNotif, ...(s.notifications || [])].slice(0, 100),
+        };
+      }),
+
+      markNotificationRead: id => set(s => ({
+        notifications: (s.notifications || []).map(n => n.id === id ? { ...n, read: true } : n),
+      })),
+
+      markAllNotificationsRead: targetUserId => set(s => ({
+        notifications: (s.notifications || []).map(n => {
+          if (!targetUserId || n.targetUserId === targetUserId) {
+            return { ...n, read: true };
+          }
+          return n;
+        }),
+      })),
+
+      clearNotifications: targetUserId => set(s => ({
+        notifications: targetUserId
+          ? (s.notifications || []).filter(n => n.targetUserId !== targetUserId)
+          : [],
       })),
 
       updateTask: (id, patch, actor) => set(s => {
@@ -595,6 +660,7 @@ export const usePlanner = create<PlannerState>()(
         events: d.events ?? s.events,
         customTags: d.customTags !== undefined ? d.customTags : (s.customTags || []),
         deletedTags: d.deletedTags !== undefined ? d.deletedTags : (s.deletedTags || []),
+        notifications: d.notifications !== undefined ? d.notifications : (s.notifications || []),
       })),
     }),
     {
@@ -638,6 +704,7 @@ export const syncPlannerToFirebase = async () => {
         events: state.events,
         customTags: state.customTags || [],
         deletedTags: state.deletedTags || [],
+        notifications: state.notifications || [],
       },
       cfg,
       user?.teamId
@@ -669,6 +736,7 @@ let previousEvents = usePlanner.getState().events;
 let previousRules = usePlanner.getState().rules;
 let previousCustomTags = usePlanner.getState().customTags;
 let previousDeletedTags = usePlanner.getState().deletedTags;
+let previousNotifications = usePlanner.getState().notifications;
 
 if (typeof window !== 'undefined') {
   usePlanner.subscribe(state => {
@@ -681,13 +749,15 @@ if (typeof window !== 'undefined') {
       state.events !== previousEvents ||
       state.rules !== previousRules ||
       state.customTags !== previousCustomTags ||
-      state.deletedTags !== previousDeletedTags
+      state.deletedTags !== previousDeletedTags ||
+      state.notifications !== previousNotifications
     ) {
       previousTasks = state.tasks;
       previousEvents = state.events;
       previousRules = state.rules;
       previousCustomTags = state.customTags;
       previousDeletedTags = state.deletedTags;
+      previousNotifications = state.notifications;
       triggerCloudSync();
     }
   });

@@ -26,6 +26,7 @@ import {
 } from './Icons';
 import ThaiDatePicker from './ThaiDatePicker';
 import ExecutiveReportModal from './ExecutiveReportModal';
+import TeamWorkloadBar from './TeamWorkloadBar';
 
 const MODE_TITLE: Record<Mode, string> = {
   day: 'สรุปงานรายวัน',
@@ -737,6 +738,9 @@ export default function DashboardTab() {
           )}
         </div>
       </div>
+
+      {/* Team Workload Balancing Widget */}
+      <TeamWorkloadBar />
 
       {/* Detail Timeline List (Days & Tasks Inspector) with Search & Pagination */}
       <div className="card">
