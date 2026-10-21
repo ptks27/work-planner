@@ -691,6 +691,24 @@ export async function firebaseFetchTeamMembers(
 
 // ----------------- Planner Data Sync (Tasks, Events/Leaves) -----------------
 
+// ฟังก์ชันทำความสะอาด objects ป้องกัน undefined values ที่ทำให้ Firestore บันทึกไม่สำเร็จ
+function cleanForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) return data;
+  if (Array.isArray(data)) {
+    return data.map(item => cleanForFirestore(item)) as unknown as T;
+  }
+  if (typeof data === 'object') {
+    const copy: any = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        copy[key] = cleanForFirestore(value);
+      }
+    }
+    return copy;
+  }
+  return data;
+}
+
 export async function uploadToFirebase(
   data: PlannerData,
   configStr?: string,
@@ -706,35 +724,10 @@ export async function uploadToFirebase(
       ? doc(instance.db, 'team_planners', teamId)
       : doc(instance.db, 'work_planner', 'team_data');
 
-    // ทำความสะอาด objects ป้องกัน undefined values ที่ทำให้ Firestore บันทึกไม่สำเร็จ
-    const cleanTasks = (data.tasks || []).map(t => {
-      const copy: any = { ...t };
-      Object.keys(copy).forEach(k => {
-        if (copy[k] === undefined) delete copy[k];
-      });
-      return copy;
-    });
-
-    const cleanEvents = (data.events || []).map(e => {
-      const copy: any = { ...e };
-      Object.keys(copy).forEach(k => {
-        if (copy[k] === undefined) delete copy[k];
-      });
-      return copy;
-    });
-
-    const cleanRules = (data.rules || []).map(r => {
-      const copy: any = { ...r };
-      Object.keys(copy).forEach(k => {
-        if (copy[k] === undefined) delete copy[k];
-      });
-      return copy;
-    });
-
-    await setDoc(docRef, {
-      tasks: cleanTasks,
-      rules: cleanRules,
-      events: cleanEvents,
+    const cleanPayload = cleanForFirestore({
+      tasks: data.tasks || [],
+      rules: data.rules || [],
+      events: data.events || [],
       customTags: data.customTags || [],
       deletedTags: data.deletedTags || [],
       notifications: data.notifications || [],
@@ -742,6 +735,8 @@ export async function uploadToFirebase(
       canvasConnections: data.canvasConnections || [],
       updatedAt: Date.now(),
     });
+
+    await setDoc(docRef, cleanPayload);
 
     return { success: true };
   } catch (err) {
@@ -788,8 +783,8 @@ export async function downloadFromFirebase(
         customTags: val.customTags || [],
         deletedTags: val.deletedTags || [],
         notifications: val.notifications || [],
-        canvasNotes: val.canvasNotes || [],
-        canvasConnections: val.canvasConnections || [],
+        canvasNotes: val.canvasNotes !== undefined ? val.canvasNotes : undefined,
+        canvasConnections: val.canvasConnections !== undefined ? val.canvasConnections : undefined,
       },
     };
   } catch (err) {
@@ -823,8 +818,8 @@ export function subscribePlannerLive(
           customTags: val.customTags || [],
           deletedTags: val.deletedTags || [],
           notifications: val.notifications || [],
-          canvasNotes: val.canvasNotes || [],
-          canvasConnections: val.canvasConnections || [],
+          canvasNotes: val.canvasNotes !== undefined ? val.canvasNotes : undefined,
+          canvasConnections: val.canvasConnections !== undefined ? val.canvasConnections : undefined,
         });
       }
     });

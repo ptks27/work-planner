@@ -93,6 +93,7 @@ interface PlannerState extends PlannerData {
   addCanvasConnection: (fromId: string, toId: string, label?: string) => void;
   deleteCanvasConnection: (id: string) => void;
   autoLayoutDataFlow: () => void;
+  setCanvasData: (notes: CanvasNote[], connections: CanvasConnection[]) => void;
   convertNoteToTask: (noteId: string, taskData: { title: string; date: string; priority: Priority; assigneeId?: string; detail?: string }) => void;
   restore: (d: Partial<PlannerData>) => void;
 }
@@ -673,6 +674,7 @@ export const usePlanner = create<PlannerState>()(
         };
         set(s => ({ canvasNotes: [...(s.canvasNotes || []), newNote] }));
         triggerCloudSync();
+        syncPlannerToFirebase();
       },
 
       updateCanvasNote: (id, patch) => {
@@ -688,6 +690,7 @@ export const usePlanner = create<PlannerState>()(
           canvasConnections: (s.canvasConnections || []).filter(c => c.fromId !== id && c.toId !== id),
         }));
         triggerCloudSync();
+        syncPlannerToFirebase();
       },
 
       addCanvasConnection: (fromId, toId, label) => {
@@ -704,6 +707,7 @@ export const usePlanner = create<PlannerState>()(
           return { canvasConnections: [...current, newConn] };
         });
         triggerCloudSync();
+        syncPlannerToFirebase();
       },
 
       deleteCanvasConnection: id => {
@@ -711,6 +715,7 @@ export const usePlanner = create<PlannerState>()(
           canvasConnections: (s.canvasConnections || []).filter(c => c.id !== id),
         }));
         triggerCloudSync();
+        syncPlannerToFirebase();
       },
 
       autoLayoutDataFlow: () => {
@@ -749,6 +754,16 @@ export const usePlanner = create<PlannerState>()(
           };
         });
         triggerCloudSync();
+        syncPlannerToFirebase();
+      },
+
+      setCanvasData: (notes, connections) => {
+        set({
+          canvasNotes: notes,
+          canvasConnections: connections,
+        });
+        triggerCloudSync();
+        syncPlannerToFirebase();
       },
 
       convertNoteToTask: (noteId, taskData) => {
@@ -795,6 +810,7 @@ export const usePlanner = create<PlannerState>()(
         deletedTags: d.deletedTags !== undefined ? d.deletedTags : (s.deletedTags || []),
         notifications: d.notifications !== undefined ? d.notifications : (s.notifications || []),
         canvasNotes: d.canvasNotes !== undefined ? d.canvasNotes : (s.canvasNotes || []),
+        canvasConnections: d.canvasConnections !== undefined ? d.canvasConnections : (s.canvasConnections || []),
       })),
     }),
     {

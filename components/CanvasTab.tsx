@@ -93,6 +93,7 @@ export default function CanvasTab() {
     addCanvasConnection,
     deleteCanvasConnection,
     autoLayoutDataFlow,
+    setCanvasData,
     convertNoteToTask,
     tasks,
   } = usePlanner();
@@ -229,55 +230,74 @@ export default function CanvasTab() {
 
   // Quick Preset Sample Data Flow
   const handleAddSampleDataFlow = () => {
-    const samples: Array<{
-      text: string;
-      color: StickyColor;
-      role: 'input' | 'process' | 'output' | 'database';
-      step: number;
-    }> = [
+    const ts = Date.now();
+    const id1 = `sample-${ts}-1`;
+    const id2 = `sample-${ts}-2`;
+    const id3 = `sample-${ts}-3`;
+    const id4 = `sample-${ts}-4`;
+
+    const sampleNotes: CanvasNote[] = [
       {
+        id: id1,
         text: '📥 1. ผู้ใช้กรอกฟอร์มลงทะเบียน\n- ตรวจสอบอีเมล & รหัสผ่าน\n- เช็กรหัสทีมที่แนบมา',
         color: 'blue',
-        role: 'input',
-        step: 1,
-      },
-      {
-        text: '⚙️ 2. ตรวจสอบความถูกต้อง (Validation)\n- Hash Password\n- เช็กอีเมลซ้ำในระบบ Firestore',
-        color: 'purple',
-        role: 'process',
-        step: 2,
-      },
-      {
-        text: '🗄️ 3. บันทึกข้อมูลลงฐานข้อมูล\n- สร้าง User Document ใน Firestore\n- เพิ่ม Member เข้าทีม',
-        color: 'orange',
-        role: 'database',
-        step: 3,
-      },
-      {
-        text: '📤 4. ส่งผลลัพธ์ & เข้าสู่แดชบอร์ด\n- ออก JWT Token / Session\n- นำทางเข้าหน้า Planner พร้อมซิงค์ข้อมูล',
-        color: 'green',
-        role: 'output',
-        step: 4,
-      },
-    ];
-
-    samples.forEach(s => {
-      addCanvasNote({
-        text: s.text,
-        color: s.color,
-        x: 60,
-        y: 60,
+        x: 50,
+        y: 80,
         authorId: currentUser?.id,
         authorName: currentUser?.name || 'สถาปัตยกรรมระบบ',
         authorAvatar: currentUser?.avatarId,
-        flowRole: s.role,
-        stepNumber: s.step,
-      });
-    });
+        flowRole: 'input',
+        stepNumber: 1,
+        createdAt: ts,
+      },
+      {
+        id: id2,
+        text: '⚙️ 2. ตรวจสอบความถูกต้อง (Validation)\n- Hash Password\n- เช็กอีเมลซ้ำในระบบ Firestore',
+        color: 'purple',
+        x: 370,
+        y: 80,
+        authorId: currentUser?.id,
+        authorName: currentUser?.name || 'สถาปัตยกรรมระบบ',
+        authorAvatar: currentUser?.avatarId,
+        flowRole: 'process',
+        stepNumber: 2,
+        createdAt: ts + 1,
+      },
+      {
+        id: id3,
+        text: '🗄️ 3. บันทึกข้อมูลลงฐานข้อมูล\n- สร้าง User Document ใน Firestore\n- เพิ่ม Member เข้าทีม',
+        color: 'orange',
+        x: 690,
+        y: 80,
+        authorId: currentUser?.id,
+        authorName: currentUser?.name || 'สถาปัตยกรรมระบบ',
+        authorAvatar: currentUser?.avatarId,
+        flowRole: 'database',
+        stepNumber: 3,
+        createdAt: ts + 2,
+      },
+      {
+        id: id4,
+        text: '📤 4. ส่งผลลัพธ์ & เข้าสู่แดชบอร์ด\n- ออก JWT Token / Session\n- นำทางเข้าหน้า Planner พร้อมซิงค์ข้อมูล',
+        color: 'green',
+        x: 1010,
+        y: 80,
+        authorId: currentUser?.id,
+        authorName: currentUser?.name || 'สถาปัตยกรรมระบบ',
+        authorAvatar: currentUser?.avatarId,
+        flowRole: 'output',
+        stepNumber: 4,
+        createdAt: ts + 3,
+      },
+    ];
 
-    setTimeout(() => {
-      autoLayoutDataFlow();
-    }, 150);
+    const sampleConnections: CanvasConnection[] = [
+      { id: `conn-${id1}-${id2}`, fromId: id1, toId: id2, label: 'Step 1 ➔ 2' },
+      { id: `conn-${id2}-${id3}`, fromId: id2, toId: id3, label: 'Step 2 ➔ 3' },
+      { id: `conn-${id3}-${id4}`, fromId: id3, toId: id4, label: 'Step 3 ➔ 4' },
+    ];
+
+    setCanvasData([...notes, ...sampleNotes], [...connections, ...sampleConnections]);
   };
 
   return (

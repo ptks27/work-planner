@@ -126,6 +126,24 @@ export default function App() {
           return;
         }
 
+        const localCanvasNotes = usePlanner.getState().canvasNotes || [];
+        const localCanvasConnections = usePlanner.getState().canvasConnections || [];
+        const cloudHasCanvas = cloudData.canvasNotes && cloudData.canvasNotes.length > 0;
+        const localHasCanvas = localCanvasNotes.length > 0;
+
+        // ถ้าบน Cloud ยังไม่มี canvas แต่ใน Local มีอยู่ ให้รักษาของ Local ไว้แล้วดันขึ้น Cloud ทันที
+        if (!cloudHasCanvas && localHasCanvas) {
+          cloudData.canvasNotes = localCanvasNotes;
+          cloudData.canvasConnections = localCanvasConnections;
+          syncPlannerToFirebase();
+        } else if (
+          (!cloudData.canvasConnections || cloudData.canvasConnections.length === 0) &&
+          localCanvasConnections.length > 0
+        ) {
+          cloudData.canvasConnections = localCanvasConnections;
+          syncPlannerToFirebase();
+        }
+
         setSyncingFromCloud(true);
         s.restore(cloudData);
         setTimeout(() => {
