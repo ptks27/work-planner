@@ -21,6 +21,7 @@ import {
 } from './Icons';
 import ThaiDatePicker from './ThaiDatePicker';
 import { playCompletionSound, triggerConfetti } from '@/lib/audio';
+import { useModal } from './ModalContext';
 
 const STICKY_THEMES: Record<
   StickyColor,
@@ -110,6 +111,7 @@ export default function CanvasTab() {
 
   const { currentUser, users } = useAuth();
   const today = useToday();
+  const { showAlert, showConfirm } = useModal();
 
   const [search, setSearch] = useState('');
   const [selectedColorFilter, setSelectedColorFilter] = useState<StickyColor | 'all'>('all');
@@ -441,12 +443,17 @@ export default function CanvasTab() {
   const handleDeleteBoard = (b: CanvasBoard, e: React.MouseEvent) => {
     e.stopPropagation();
     if (boards.length <= 1) {
-      alert('ไม่สามารถลบ Flow สุดท้ายได้');
+      showAlert('ไม่สามารถลบได้', 'ไม่สามารถลบ Flow สุดท้ายได้ คุณต้องมีอย่างน้อย 1 Flow สำหรับใช้งาน');
       return;
     }
-    if (confirm(`คุณต้องการลบ "${b.title}" ใช่หรือไม่?\n(ข้อมูลและการเชื่อมต่อใน Flow นี้จะถูกลบออก)`)) {
-      deleteCanvasBoard(b.id);
-    }
+    showConfirm(
+      'ยืนยันการลบ Flow',
+      `คุณต้องการลบ "${b.title}" ใช่หรือไม่?\n(ข้อมูลโพสต์อิทและการเชื่อมต่อทั้งหมดใน Flow นี้จะถูกลบออก)`,
+      () => {
+        deleteCanvasBoard(b.id);
+      },
+      { confirmText: 'ลบ Flow', danger: true }
+    );
   };
 
   const handleDuplicateBoard = (b: CanvasBoard, e: React.MouseEvent) => {

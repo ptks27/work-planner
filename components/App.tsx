@@ -20,6 +20,7 @@ import TeamSwitcher from '@/components/TeamSwitcher';
 import TeamMembersModal from '@/components/TeamMembersModal';
 import MorningBriefingModal from '@/components/MorningBriefingModal';
 import AchievementsModal from '@/components/AchievementsModal';
+import { useModal } from '@/components/ModalContext';
 import { computeActivityStats } from '@/lib/achievements';
 import { AvatarIcon } from '@/components/Avatars';
 import { useToday } from '@/lib/hooks';
@@ -63,6 +64,7 @@ export default function App() {
   const today = useToday();
   const s = usePlanner();
   const { currentUser, currentTeam, teamMembers, fetchTeamMembers, leaveTeam } = useAuth();
+  const { showConfirm } = useModal();
   const cur = TABS.find(t => t.id === tab) || TABS[0];
   const activityStats = computeActivityStats(s.tasks, currentUser?.id, today);
 
@@ -230,9 +232,14 @@ export default function App() {
 
   const handleLeaveTeam = () => {
     const teamTitle = currentTeam?.name || currentUser?.teamName || 'ทีมนี้';
-    if (confirm(`คุณต้องการออกจาก "${teamTitle}" ใช่หรือไม่?\n(คุณสามารถใช้รหัสทีมกลับเข้าทีมนี้ได้ตลอดเวลา)`)) {
-      leaveTeam();
-    }
+    showConfirm(
+      'ยืนยันการออกจากทีม',
+      `คุณต้องการออกจาก "${teamTitle}" ใช่หรือไม่?\n(คุณสามารถใช้รหัสทีมกลับเข้าทีมนี้ได้ตลอดเวลา)`,
+      () => {
+        leaveTeam();
+      },
+      { confirmText: 'ออกจากทีม', danger: true }
+    );
   };
 
   if (!mounted) {
