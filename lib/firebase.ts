@@ -733,6 +733,8 @@ export async function uploadToFirebase(
       notifications: data.notifications || [],
       canvasNotes: data.canvasNotes || [],
       canvasConnections: data.canvasConnections || [],
+      canvasBoards: data.canvasBoards || [],
+      activeBoardId: data.activeBoardId || 'default-board',
       updatedAt: Date.now(),
     });
 
@@ -785,6 +787,8 @@ export async function downloadFromFirebase(
         notifications: val.notifications || [],
         canvasNotes: val.canvasNotes !== undefined ? val.canvasNotes : undefined,
         canvasConnections: val.canvasConnections !== undefined ? val.canvasConnections : undefined,
+        canvasBoards: val.canvasBoards !== undefined ? val.canvasBoards : undefined,
+        activeBoardId: val.activeBoardId !== undefined ? val.activeBoardId : undefined,
       },
     };
   } catch (err) {
@@ -820,6 +824,8 @@ export function subscribePlannerLive(
           notifications: val.notifications || [],
           canvasNotes: val.canvasNotes !== undefined ? val.canvasNotes : undefined,
           canvasConnections: val.canvasConnections !== undefined ? val.canvasConnections : undefined,
+          canvasBoards: val.canvasBoards !== undefined ? val.canvasBoards : undefined,
+          activeBoardId: val.activeBoardId !== undefined ? val.activeBoardId : undefined,
         });
       }
     });

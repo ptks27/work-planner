@@ -195,6 +195,15 @@ export interface CanvasNote {
   flowRole?: 'input' | 'process' | 'output' | 'database'; // บทบาทใน Data Flow
 }
 
+export interface CanvasBoard {
+  id: string;
+  title: string;
+  notes: CanvasNote[];
+  connections: CanvasConnection[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface MemberScorecard {
   memberId: string;
   memberName: string;
@@ -223,6 +232,8 @@ export interface PlannerData {
   notifications?: AppNotification[];
   canvasNotes?: CanvasNote[];
   canvasConnections?: CanvasConnection[];
+  canvasBoards?: CanvasBoard[];
+  activeBoardId?: string;
 }
 
 export const PRIORITY: Record<Priority, { label: string; color: string; order: number }> = {

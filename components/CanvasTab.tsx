@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import { usePlanner } from '@/lib/store';
 import { useAuth } from '@/lib/authStore';
 import { useToday } from '@/lib/hooks';
-import { CanvasNote, CanvasConnection, StickyColor, Priority, PRIORITIES, PRIORITY } from '@/lib/types';
+import { CanvasNote, CanvasConnection, CanvasBoard, StickyColor, Priority, PRIORITIES, PRIORITY } from '@/lib/types';
 import { AvatarIcon } from './Avatars';
 import {
   StickyNoteIcon,
@@ -15,6 +15,9 @@ import {
   SparklesIcon,
   CloseIcon,
   BoltIcon,
+  CopyIcon,
+  EditIcon,
+  ClockIcon,
 } from './Icons';
 import ThaiDatePicker from './ThaiDatePicker';
 import { playCompletionSound, triggerConfetti } from '@/lib/audio';
@@ -87,6 +90,8 @@ export default function CanvasTab() {
   const {
     canvasNotes,
     canvasConnections,
+    canvasBoards,
+    activeBoardId,
     addCanvasNote,
     updateCanvasNote,
     deleteCanvasNote,
@@ -94,6 +99,11 @@ export default function CanvasTab() {
     deleteCanvasConnection,
     autoLayoutDataFlow,
     setCanvasData,
+    createCanvasBoard,
+    switchCanvasBoard,
+    renameCanvasBoard,
+    deleteCanvasBoard,
+    duplicateCanvasBoard,
     convertNoteToTask,
     tasks,
   } = usePlanner();
@@ -105,6 +115,15 @@ export default function CanvasTab() {
   const [selectedColorFilter, setSelectedColorFilter] = useState<StickyColor | 'all'>('all');
   const [connectingFromId, setConnectingFromId] = useState<string | null>(null);
   const [editingRoleNoteId, setEditingRoleNoteId] = useState<string | null>(null);
+
+  // Board Manager state
+  const [isBoardManagerOpen, setIsBoardManagerOpen] = useState(false);
+  const [isCreateBoardModalOpen, setIsCreateBoardModalOpen] = useState(false);
+  const [newBoardTitle, setNewBoardTitle] = useState('');
+  const [newBoardTemplate, setNewBoardTemplate] = useState<'blank' | 'sample_flow'>('blank');
+  const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
+  const [editingBoardTitle, setEditingBoardTitle] = useState('');
+  const [boardSearch, setBoardSearch] = useState('');
 
   // Dragging state
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
@@ -122,11 +141,33 @@ export default function CanvasTab() {
   const notes = canvasNotes || [];
   const connections = canvasConnections || [];
 
-  // Filter notes
+  // Compute Active Board & Board list
+  const boards: CanvasBoard[] =
+    canvasBoards && canvasBoards.length > 0
+      ? canvasBoards
+      : [
+          {
+            id: activeBoardId || 'default-board',
+            title: 'กระดานเริ่มต้น (Main Flow)',
+            notes,
+            connections,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        ];
+  const currentBoard = boards.find(b => b.id === (activeBoardId || 'default-board')) || boards[0];
+
+  // Filter notes on current board
   const filteredNotes = notes.filter(n => {
     if (selectedColorFilter !== 'all' && n.color !== selectedColorFilter) return false;
     if (search.trim() && !n.text.toLowerCase().includes(search.toLowerCase().trim())) return false;
     return true;
+  });
+
+  // Filter saved boards in Manager
+  const filteredBoards = boards.filter(b => {
+    if (!boardSearch.trim()) return true;
+    return b.title.toLowerCase().includes(boardSearch.toLowerCase().trim());
   });
 
   const handleCreateNote = (
@@ -193,10 +234,8 @@ export default function CanvasTab() {
     if (!connectingFromId) {
       setConnectingFromId(noteId);
     } else if (connectingFromId === noteId) {
-      // Cancel
       setConnectingFromId(null);
     } else {
-      // Complete connection from connectingFromId -> noteId
       addCanvasConnection(connectingFromId, noteId);
       setConnectingFromId(null);
     }
@@ -300,6 +339,122 @@ export default function CanvasTab() {
     setCanvasData([...notes, ...sampleNotes], [...connections, ...sampleConnections]);
   };
 
+  // Board Creation Handler
+  const handleOpenCreateModal = () => {
+    setNewBoardTitle(`Flow ใหม่ #${boards.length + 1}`);
+    setNewBoardTemplate('blank');
+    setIsCreateBoardModalOpen(true);
+  };
+
+  const handleConfirmCreateBoard = () => {
+    const title = newBoardTitle.trim() || `Flow ใหม่ #${boards.length + 1}`;
+    createCanvasBoard(title);
+
+    if (newBoardTemplate === 'sample_flow') {
+      const ts = Date.now();
+      const id1 = `sample-${ts}-1`;
+      const id2 = `sample-${ts}-2`;
+      const id3 = `sample-${ts}-3`;
+      const id4 = `sample-${ts}-4`;
+
+      const sampleNotes: CanvasNote[] = [
+        {
+          id: id1,
+          text: '📥 1. ผู้ใช้กรอกฟอร์มลงทะเบียน\n- ตรวจสอบอีเมล & รหัสผ่าน\n- เช็กรหัสทีมที่แนบมา',
+          color: 'blue',
+          x: 50,
+          y: 80,
+          authorId: currentUser?.id,
+          authorName: currentUser?.name || 'สถาปัตยกรรมระบบ',
+          authorAvatar: currentUser?.avatarId,
+          flowRole: 'input',
+          stepNumber: 1,
+          createdAt: ts,
+        },
+        {
+          id: id2,
+          text: '⚙️ 2. ตรวจสอบความถูกต้อง (Validation)\n- Hash Password\n- เช็กอีเมลซ้ำในระบบ Firestore',
+          color: 'purple',
+          x: 370,
+          y: 80,
+          authorId: currentUser?.id,
+          authorName: currentUser?.name || 'สถาปัตยกรรมระบบ',
+          authorAvatar: currentUser?.avatarId,
+          flowRole: 'process',
+          stepNumber: 2,
+          createdAt: ts + 1,
+        },
+        {
+          id: id3,
+          text: '🗄️ 3. บันทึกข้อมูลลงฐานข้อมูล\n- สร้าง User Document ใน Firestore\n- เพิ่ม Member เข้าทีม',
+          color: 'orange',
+          x: 690,
+          y: 80,
+          authorId: currentUser?.id,
+          authorName: currentUser?.name || 'สถาปัตยกรรมระบบ',
+          authorAvatar: currentUser?.avatarId,
+          flowRole: 'database',
+          stepNumber: 3,
+          createdAt: ts + 2,
+        },
+        {
+          id: id4,
+          text: '📤 4. ส่งผลลัพธ์ & เข้าสู่แดชบอร์ด\n- ออก JWT Token / Session\n- นำทางเข้าหน้า Planner พร้อมซิงค์ข้อมูล',
+          color: 'green',
+          x: 1010,
+          y: 80,
+          authorId: currentUser?.id,
+          authorName: currentUser?.name || 'สถาปัตยกรรมระบบ',
+          authorAvatar: currentUser?.avatarId,
+          flowRole: 'output',
+          stepNumber: 4,
+          createdAt: ts + 3,
+        },
+      ];
+
+      const sampleConnections: CanvasConnection[] = [
+        { id: `conn-${id1}-${id2}`, fromId: id1, toId: id2, label: 'Step 1 ➔ 2' },
+        { id: `conn-${id2}-${id3}`, fromId: id2, toId: id3, label: 'Step 2 ➔ 3' },
+        { id: `conn-${id3}-${id4}`, fromId: id3, toId: id4, label: 'Step 3 ➔ 4' },
+      ];
+      setCanvasData(sampleNotes, sampleConnections);
+    }
+
+    setNewBoardTitle('');
+    setIsCreateBoardModalOpen(false);
+    setIsBoardManagerOpen(false);
+  };
+
+  const handleStartRename = (b: CanvasBoard, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingBoardId(b.id);
+    setEditingBoardTitle(b.title);
+  };
+
+  const handleSaveRename = (boardId: string) => {
+    if (editingBoardTitle.trim()) {
+      renameCanvasBoard(boardId, editingBoardTitle.trim());
+    }
+    setEditingBoardId(null);
+  };
+
+  const handleDeleteBoard = (b: CanvasBoard, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (boards.length <= 1) {
+      alert('ไม่สามารถลบ Flow สุดท้ายได้');
+      return;
+    }
+    if (confirm(`คุณต้องการลบ "${b.title}" ใช่หรือไม่?\n(ข้อมูลและการเชื่อมต่อใน Flow นี้จะถูกลบออก)`)) {
+      deleteCanvasBoard(b.id);
+    }
+  };
+
+  const handleDuplicateBoard = (b: CanvasBoard, e: React.MouseEvent) => {
+    e.stopPropagation();
+    duplicateCanvasBoard(b.id);
+    setIsBoardManagerOpen(false);
+  };
+
   return (
     <div
       style={{
@@ -314,16 +469,16 @@ export default function CanvasTab() {
       <div
         className="card"
         style={{
-          padding: '12px 18px',
+          padding: '10px 16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: 12,
+          gap: 10,
           borderRadius: 14,
         }}
       >
-        {/* Left: Title & Info */}
+        {/* Left: Title, Flow Switcher & Note Count */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div className="macos-traffic-lights" aria-hidden="true">
             <span className="macos-traffic-dot red" />
@@ -346,15 +501,66 @@ export default function CanvasTab() {
               <StickyNoteIcon size={17} />
             </span>
             <div>
-              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em' }}>
-                กระดานไอเดีย & Data Flow (Visual Canvas)
-              </h2>
-              <small style={{ color: 'var(--mut)', fontSize: 11 }}>
-                ระดมความคิด แปะโพสต์อิท และเชื่อมโยงเป็น Data Flow / Pipeline แปลงเป็นงานได้ทันที
-              </small>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em' }}>
+                  กระดานไอเดีย & Data Flow
+                </h2>
+
+                {/* Board Switcher Dropdown Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsBoardManagerOpen(true)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '3px 10px',
+                    borderRadius: 999,
+                    background: 'rgba(0, 113, 227, 0.08)',
+                    border: '1px solid rgba(0, 113, 227, 0.25)',
+                    color: 'var(--pri)',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                  title="คลิกเพื่อสลับดู Flow เก่าที่บันทึกไว้ หรือสร้าง Flow ใหม่"
+                >
+                  <span>📂</span>
+                  <span style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {currentBoard.title}
+                  </span>
+                  <span style={{ fontSize: 10.5, opacity: 0.65 }}>({boards.length} Flows)</span>
+                  <span style={{ fontSize: 9 }}>▼</span>
+                </button>
+
+                {/* Quick New Board Button */}
+                <button
+                  type="button"
+                  onClick={handleOpenCreateModal}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '3px 8px',
+                    borderRadius: 999,
+                    background: 'rgba(120, 120, 128, 0.08)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--txt)',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                  title="สร้าง Flow ใหม่ (กระดานใหม่)"
+                >
+                  <PlusIcon size={11} />
+                  <span>สร้าง Flow ใหม่</span>
+                </button>
+              </div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 2 }}>
             <span
               style={{
                 padding: '2px 8px',
@@ -395,19 +601,19 @@ export default function CanvasTab() {
               style={{
                 borderRadius: 999,
                 padding: '5px 12px',
-                fontSize: 12,
+                fontSize: 11.5,
                 fontWeight: 600,
                 background: 'rgba(0, 113, 227, 0.1)',
                 color: 'var(--pri)',
                 border: '1px solid rgba(0, 113, 227, 0.25)',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 6,
+                gap: 5,
                 cursor: 'pointer',
               }}
               title="จัดเรียงตำแหน่งโพสต์อิทเป็นสาย Data Flow ซ้ายไปขวาพร้อมเชื่อมต่อเส้นอัตโนมัติ"
             >
-              <BoltIcon size={13} color="var(--pri)" />
+              <BoltIcon size={12} color="var(--pri)" />
               <span>⚡ จัดเรียง Data Flow</span>
             </button>
           )}
@@ -450,7 +656,7 @@ export default function CanvasTab() {
           </div>
 
           {/* Search Input */}
-          <div style={{ position: 'relative', width: 150 }}>
+          <div style={{ position: 'relative', width: 140 }}>
             <SearchIcon
               size={13}
               style={{
@@ -469,9 +675,9 @@ export default function CanvasTab() {
               style={{
                 paddingLeft: 28,
                 paddingRight: 10,
-                fontSize: 12,
+                fontSize: 11.5,
                 borderRadius: 999,
-                height: 30,
+                height: 28,
                 margin: 0,
               }}
             />
@@ -484,8 +690,8 @@ export default function CanvasTab() {
               onClick={handleAddSampleDataFlow}
               style={{
                 borderRadius: 999,
-                padding: '5px 12px',
-                fontSize: 11.5,
+                padding: '4px 10px',
+                fontSize: 11,
                 background: 'rgba(52, 199, 89, 0.12)',
                 color: '#15803d',
                 border: '1px solid rgba(52, 199, 89, 0.25)',
@@ -494,7 +700,7 @@ export default function CanvasTab() {
                 gap: 5,
               }}
             >
-              <SparklesIcon size={13} />
+              <SparklesIcon size={12} />
               <span>ใส่ตัวอย่าง Data Flow</span>
             </button>
           )}
@@ -590,7 +796,6 @@ export default function CanvasTab() {
             const toNote = notes.find(n => n.id === conn.toId);
             if (!fromNote || !toNote) return null;
 
-            // Compute connection anchors
             const isLeftToRight = toNote.x >= fromNote.x;
             const x1 = isLeftToRight ? fromNote.x + 260 : fromNote.x;
             const y1 = fromNote.y + 100;
@@ -601,9 +806,6 @@ export default function CanvasTab() {
             const pathD = isLeftToRight
               ? `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
               : `M ${x1} ${y1} C ${x1 - dx} ${y1}, ${x2 + dx} ${y2}, ${x2} ${y2}`;
-
-            const midX = (x1 + x2) / 2;
-            const midY = (y1 + y2) / 2;
 
             return (
               <g key={conn.id}>
@@ -709,7 +911,7 @@ export default function CanvasTab() {
           >
             <div style={{ fontSize: 44, marginBottom: 10 }}>🎨</div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--txt)' }}>
-              กระดานไอเดีย & Data Flow ยังว่างอยู่
+              Flow นี้ยังว่างอยู่ ({currentBoard.title})
             </h3>
             <p style={{ margin: '6px 0 14px', fontSize: 13 }}>
               คลิกเลือกสีโพสต์อิทด้านบน หรือกดปุ่ม "ใส่ตัวอย่าง Data Flow" เพื่อเริ่มต้นได้เลย
@@ -1163,6 +1365,352 @@ export default function CanvasTab() {
           );
         })}
       </div>
+
+      {/* Board Manager Modal */}
+      {isBoardManagerOpen && (
+        <div className="modal-overlay" onClick={() => setIsBoardManagerOpen(false)}>
+          <div
+            className="modal-box"
+            style={{ maxWidth: 620, width: '92%', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 9,
+                    background: 'rgba(0, 113, 227, 0.12)',
+                    color: 'var(--pri)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 18,
+                  }}
+                >
+                  📂
+                </span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16 }}>คลังจัดเก็บ Flow & กระดานความคิด</h3>
+                  <small style={{ color: 'var(--mut)', fontSize: 11.5 }}>
+                    สลับดู Flow เก่าที่บันทึกไว้ สร้าง Flow ใหม่ หรือทำซ้ำแม่แบบ ({boards.length} รายการ)
+                  </small>
+                </div>
+              </div>
+              <button className="icon-btn" onClick={() => setIsBoardManagerOpen(false)}>
+                <CloseIcon size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Search & New Board Bar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <SearchIcon
+                    size={14}
+                    style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--mut)' }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="ค้นหา Flow ตามชื่อ..."
+                    value={boardSearch}
+                    onChange={e => setBoardSearch(e.target.value)}
+                    style={{ paddingLeft: 30, borderRadius: 999, height: 34, fontSize: 12.5, margin: 0 }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={handleOpenCreateModal}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 999, height: 34, padding: '0 16px', fontSize: 12.5 }}
+                >
+                  <PlusIcon size={14} />
+                  <span>สร้าง Flow ใหม่</span>
+                </button>
+              </div>
+
+              {/* Boards List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {filteredBoards.map(b => {
+                  const isActive = b.id === (activeBoardId || 'default-board');
+                  const isEditingThis = editingBoardId === b.id;
+                  const noteCount = b.notes?.length || 0;
+                  const connCount = b.connections?.length || 0;
+
+                  return (
+                    <div
+                      key={b.id}
+                      onClick={() => {
+                        if (!isEditingThis) {
+                          switchCanvasBoard(b.id);
+                          setIsBoardManagerOpen(false);
+                        }
+                      }}
+                      style={{
+                        padding: '12px 16px',
+                        borderRadius: 14,
+                        border: isActive ? '1.5px solid var(--pri)' : '1px solid var(--line)',
+                        background: isActive ? 'rgba(0, 113, 227, 0.05)' : 'rgba(120, 120, 128, 0.03)',
+                        cursor: isEditingThis ? 'default' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={e => {
+                        if (!isActive && !isEditingThis) e.currentTarget.style.background = 'rgba(0, 113, 227, 0.03)';
+                      }}
+                      onMouseLeave={e => {
+                        if (!isActive && !isEditingThis) e.currentTarget.style.background = 'rgba(120, 120, 128, 0.03)';
+                      }}
+                    >
+                      {/* Left: Icon, Title & Meta */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: 22 }}>{isActive ? '🟢' : '📁'}</span>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          {isEditingThis ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
+                              <input
+                                type="text"
+                                value={editingBoardTitle}
+                                onChange={e => setEditingBoardTitle(e.target.value)}
+                                autoFocus
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') handleSaveRename(b.id);
+                                  if (e.key === 'Escape') setEditingBoardId(null);
+                                }}
+                                style={{ height: 28, fontSize: 13, borderRadius: 6, margin: 0, padding: '2px 8px' }}
+                              />
+                              <button
+                                type="button"
+                                className="btn primary sm"
+                                onClick={() => handleSaveRename(b.id)}
+                                style={{ padding: '2px 8px', fontSize: 11 }}
+                              >
+                                บันทึก
+                              </button>
+                              <button
+                                type="button"
+                                className="btn ghost sm"
+                                onClick={() => setEditingBoardId(null)}
+                                style={{ padding: '2px 8px', fontSize: 11 }}
+                              >
+                                ยกเลิก
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {b.title}
+                              </h4>
+                              {isActive && (
+                                <span style={{ fontSize: 10, background: 'var(--pri)', color: '#fff', borderRadius: 999, padding: '1px 6px', fontWeight: 700 }}>
+                                  ใช้งานอยู่
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                            <span style={{ fontSize: 11, color: 'var(--mut)' }}>
+                              📦 {noteCount} โน้ต
+                            </span>
+                            <span style={{ fontSize: 11, color: 'var(--mut)' }}>
+                              🔗 {connCount} Flow
+                            </span>
+                            <span style={{ fontSize: 11, color: 'var(--mut)' }}>
+                              • อัปเดตล่าสุด: {new Date(b.updatedAt || b.createdAt).toLocaleDateString('th-TH')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Actions */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
+                        {!isActive && (
+                          <button
+                            type="button"
+                            className="btn primary sm"
+                            onClick={() => {
+                              switchCanvasBoard(b.id);
+                              setIsBoardManagerOpen(false);
+                            }}
+                            style={{ borderRadius: 999, padding: '3px 12px', fontSize: 11.5 }}
+                          >
+                            เปิด Flow นี้
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          className="icon-btn sm"
+                          onClick={e => handleDuplicateBoard(b, e)}
+                          title="ทำซ้ำ Flow นี้ (Duplicate)"
+                        >
+                          <CopyIcon size={14} />
+                        </button>
+
+                        <button
+                          type="button"
+                          className="icon-btn sm"
+                          onClick={e => handleStartRename(b, e)}
+                          title="เปลี่ยนชื่อ Flow"
+                        >
+                          <EditIcon size={14} />
+                        </button>
+
+                        <button
+                          type="button"
+                          className="icon-btn sm"
+                          onClick={e => handleDeleteBoard(b, e)}
+                          disabled={boards.length <= 1}
+                          style={{ color: boards.length <= 1 ? 'var(--mut)' : '#dc2626', opacity: boards.length <= 1 ? 0.3 : 1 }}
+                          title={boards.length <= 1 ? 'ไม่สามารถลบ Flow สุดท้ายได้' : 'ลบ Flow นี้'}
+                        >
+                          <TrashIcon size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="modal-footer">
+              <button className="btn primary" onClick={() => setIsBoardManagerOpen(false)}>
+                ปิดหน้าต่าง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create New Board Modal */}
+      {isCreateBoardModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsCreateBoardModalOpen(false)}>
+          <div
+            className="modal-box"
+            style={{ maxWidth: 460, width: '92%' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    background: 'rgba(0, 113, 227, 0.12)',
+                    color: 'var(--pri)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 16,
+                  }}
+                >
+                  ✨
+                </span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16 }}>สร้าง Flow ใหม่ (New Canvas)</h3>
+                  <small style={{ color: 'var(--mut)', fontSize: 11.5 }}>
+                    เพิ่มกระดานสำหรับวางแผนหรือระดมความคิดชุดใหม่
+                  </small>
+                </div>
+              </div>
+              <button className="icon-btn" onClick={() => setIsCreateBoardModalOpen(false)}>
+                <CloseIcon size={16} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600 }}>ชื่อ Flow / ชื่องาน *</label>
+                <input
+                  type="text"
+                  value={newBoardTitle}
+                  onChange={e => setNewBoardTitle(e.target.value)}
+                  placeholder="เช่น Flow การชำระเงิน, วางแผนไตรมาส 3..."
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600 }}>เลือกแม่แบบเริ่มต้น (Template)</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => setNewBoardTemplate('blank')}
+                    style={{
+                      padding: '12px 10px',
+                      borderRadius: 12,
+                      border: newBoardTemplate === 'blank' ? '2px solid var(--pri)' : '1px solid var(--line)',
+                      background: newBoardTemplate === 'blank' ? 'rgba(0, 113, 227, 0.08)' : 'rgba(120, 120, 128, 0.04)',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <span style={{ fontSize: 24 }}>⚪</span>
+                    <strong style={{ fontSize: 12.5, color: newBoardTemplate === 'blank' ? 'var(--pri)' : 'var(--txt)' }}>
+                      กระดานว่างเปล่า
+                    </strong>
+                    <small style={{ fontSize: 10.5, color: 'var(--mut)' }}>เริ่มต้นวางไอเดียใหม่จากศูนย์</small>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewBoardTemplate('sample_flow')}
+                    style={{
+                      padding: '12px 10px',
+                      borderRadius: 12,
+                      border: newBoardTemplate === 'sample_flow' ? '2px solid var(--pri)' : '1px solid var(--line)',
+                      background: newBoardTemplate === 'sample_flow' ? 'rgba(0, 113, 227, 0.08)' : 'rgba(120, 120, 128, 0.04)',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <span style={{ fontSize: 24 }}>🚀</span>
+                    <strong style={{ fontSize: 12.5, color: newBoardTemplate === 'sample_flow' ? 'var(--pri)' : 'var(--txt)' }}>
+                      ตัวอย่าง Data Flow
+                    </strong>
+                    <small style={{ fontSize: 10.5, color: 'var(--mut)' }}>Input ➔ Process ➔ DB ➔ Output</small>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="modal-footer">
+              <button className="btn ghost" onClick={() => setIsCreateBoardModalOpen(false)}>
+                ยกเลิก
+              </button>
+              <button
+                className="btn primary"
+                onClick={handleConfirmCreateBoard}
+                disabled={!newBoardTitle.trim()}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <PlusIcon size={14} />
+                <span>สร้างและเปิดใช้งาน</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Convert Note to Task Modal */}
       {convertingNote && (

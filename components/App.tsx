@@ -144,6 +144,14 @@ export default function App() {
           syncPlannerToFirebase();
         }
 
+        const localBoards = usePlanner.getState().canvasBoards || [];
+        const cloudHasBoards = cloudData.canvasBoards && cloudData.canvasBoards.length > 0;
+        if (!cloudHasBoards && localBoards.length > 0) {
+          cloudData.canvasBoards = localBoards;
+          cloudData.activeBoardId = usePlanner.getState().activeBoardId || 'default-board';
+          syncPlannerToFirebase();
+        }
+
         setSyncingFromCloud(true);
         s.restore(cloudData);
         setTimeout(() => {

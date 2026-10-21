@@ -17,6 +17,7 @@ import type {
   AppNotification,
   CanvasNote,
   CanvasConnection,
+  CanvasBoard,
 } from './types';
 import { uid } from './utils';
 import { DEFAULT_FIREBASE_CONFIG } from './firebaseDefaultConfig';
@@ -87,6 +88,8 @@ interface PlannerState extends PlannerData {
   resetDefaultTags: () => void;
   canvasNotes: CanvasNote[];
   canvasConnections: CanvasConnection[];
+  canvasBoards: CanvasBoard[];
+  activeBoardId: string;
   addCanvasNote: (note: Omit<CanvasNote, 'id' | 'createdAt'>) => void;
   updateCanvasNote: (id: string, patch: Partial<CanvasNote>) => void;
   deleteCanvasNote: (id: string) => void;
@@ -94,6 +97,11 @@ interface PlannerState extends PlannerData {
   deleteCanvasConnection: (id: string) => void;
   autoLayoutDataFlow: () => void;
   setCanvasData: (notes: CanvasNote[], connections: CanvasConnection[]) => void;
+  createCanvasBoard: (title?: string) => string;
+  switchCanvasBoard: (boardId: string) => void;
+  renameCanvasBoard: (boardId: string, title: string) => void;
+  deleteCanvasBoard: (boardId: string) => void;
+  duplicateCanvasBoard: (boardId: string) => string;
   convertNoteToTask: (noteId: string, taskData: { title: string; date: string; priority: Priority; assigneeId?: string; detail?: string }) => void;
   restore: (d: Partial<PlannerData>) => void;
 }
@@ -101,10 +109,38 @@ interface PlannerState extends PlannerData {
 // งานประจำที่ยังไม่ถูกแตะ จะมี id แบบ "r:<ruleId>:<date>"
 const parseVirtual = (id: string) => { const [, ruleId, date] = id.split(':'); return { ruleId, date }; };
 
+const updateActiveBoardInList = (
+  boards: CanvasBoard[],
+  activeId: string,
+  notes: CanvasNote[],
+  connections: CanvasConnection[]
+): CanvasBoard[] => {
+  const list = boards && boards.length > 0 ? [...boards] : [];
+  const idx = list.findIndex(b => b.id === activeId);
+  if (idx >= 0) {
+    list[idx] = {
+      ...list[idx],
+      notes,
+      connections,
+      updatedAt: Date.now(),
+    };
+  } else {
+    list.push({
+      id: activeId || 'default-board',
+      title: 'กระดานเริ่มต้น (Main Flow)',
+      notes,
+      connections,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  }
+  return list;
+};
+
 export const usePlanner = create<PlannerState>()(
   persist(
     (set, get) => ({
-      tasks: [], rules: [], events: [], customTags: [], deletedTags: [], notifications: [], canvasNotes: [], canvasConnections: [], notified: [], remindBefore: 10,
+      tasks: [], rules: [], events: [], customTags: [], deletedTags: [], notifications: [], canvasNotes: [], canvasConnections: [], canvasBoards: [], activeBoardId: 'default-board', notified: [], remindBefore: 10,
       theme: 'light',
       setTheme: theme => set({ theme }),
       soundEnabled: true,
@@ -672,23 +708,53 @@ export const usePlanner = create<PlannerState>()(
           id: uid(),
           createdAt: Date.now(),
         };
-        set(s => ({ canvasNotes: [...(s.canvasNotes || []), newNote] }));
+        set(s => {
+          const newNotes = [...(s.canvasNotes || []), newNote];
+          return {
+            canvasNotes: newNotes,
+            canvasBoards: updateActiveBoardInList(
+              s.canvasBoards || [],
+              s.activeBoardId || 'default-board',
+              newNotes,
+              s.canvasConnections || []
+            ),
+          };
+        });
         triggerCloudSync();
         syncPlannerToFirebase();
       },
 
       updateCanvasNote: (id, patch) => {
-        set(s => ({
-          canvasNotes: (s.canvasNotes || []).map(n => (n.id === id ? { ...n, ...patch } : n)),
-        }));
+        set(s => {
+          const newNotes = (s.canvasNotes || []).map(n => (n.id === id ? { ...n, ...patch } : n));
+          return {
+            canvasNotes: newNotes,
+            canvasBoards: updateActiveBoardInList(
+              s.canvasBoards || [],
+              s.activeBoardId || 'default-board',
+              newNotes,
+              s.canvasConnections || []
+            ),
+          };
+        });
         triggerCloudSync();
       },
 
       deleteCanvasNote: id => {
-        set(s => ({
-          canvasNotes: (s.canvasNotes || []).filter(n => n.id !== id),
-          canvasConnections: (s.canvasConnections || []).filter(c => c.fromId !== id && c.toId !== id),
-        }));
+        set(s => {
+          const newNotes = (s.canvasNotes || []).filter(n => n.id !== id);
+          const newConns = (s.canvasConnections || []).filter(c => c.fromId !== id && c.toId !== id);
+          return {
+            canvasNotes: newNotes,
+            canvasConnections: newConns,
+            canvasBoards: updateActiveBoardInList(
+              s.canvasBoards || [],
+              s.activeBoardId || 'default-board',
+              newNotes,
+              newConns
+            ),
+          };
+        });
         triggerCloudSync();
         syncPlannerToFirebase();
       },
@@ -704,16 +770,34 @@ export const usePlanner = create<PlannerState>()(
             toId,
             label,
           };
-          return { canvasConnections: [...current, newConn] };
+          const newConns = [...current, newConn];
+          return {
+            canvasConnections: newConns,
+            canvasBoards: updateActiveBoardInList(
+              s.canvasBoards || [],
+              s.activeBoardId || 'default-board',
+              s.canvasNotes || [],
+              newConns
+            ),
+          };
         });
         triggerCloudSync();
         syncPlannerToFirebase();
       },
 
       deleteCanvasConnection: id => {
-        set(s => ({
-          canvasConnections: (s.canvasConnections || []).filter(c => c.id !== id),
-        }));
+        set(s => {
+          const newConns = (s.canvasConnections || []).filter(c => c.id !== id);
+          return {
+            canvasConnections: newConns,
+            canvasBoards: updateActiveBoardInList(
+              s.canvasBoards || [],
+              s.activeBoardId || 'default-board',
+              s.canvasNotes || [],
+              newConns
+            ),
+          };
+        });
         triggerCloudSync();
         syncPlannerToFirebase();
       },
@@ -751,6 +835,12 @@ export const usePlanner = create<PlannerState>()(
           return {
             canvasNotes: updatedNotes,
             canvasConnections: newConnections,
+            canvasBoards: updateActiveBoardInList(
+              s.canvasBoards || [],
+              s.activeBoardId || 'default-board',
+              updatedNotes,
+              newConnections
+            ),
           };
         });
         triggerCloudSync();
@@ -758,12 +848,166 @@ export const usePlanner = create<PlannerState>()(
       },
 
       setCanvasData: (notes, connections) => {
-        set({
+        set(s => ({
           canvasNotes: notes,
           canvasConnections: connections,
+          canvasBoards: updateActiveBoardInList(
+            s.canvasBoards || [],
+            s.activeBoardId || 'default-board',
+            notes,
+            connections
+          ),
+        }));
+        triggerCloudSync();
+        syncPlannerToFirebase();
+      },
+
+      createCanvasBoard: (title) => {
+        const newId = uid();
+        const s = get();
+        const savedBoards = updateActiveBoardInList(
+          s.canvasBoards || [],
+          s.activeBoardId || 'default-board',
+          s.canvasNotes || [],
+          s.canvasConnections || []
+        );
+        const count = savedBoards.length + 1;
+        const newBoard: CanvasBoard = {
+          id: newId,
+          title: title?.trim() || `Flow ใหม่ #${count}`,
+          notes: [],
+          connections: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        set({
+          activeBoardId: newId,
+          canvasNotes: [],
+          canvasConnections: [],
+          canvasBoards: [...savedBoards, newBoard],
         });
         triggerCloudSync();
         syncPlannerToFirebase();
+        return newId;
+      },
+
+      switchCanvasBoard: (boardId) => {
+        const s = get();
+        if (s.activeBoardId === boardId) return;
+
+        const savedBoards = updateActiveBoardInList(
+          s.canvasBoards || [],
+          s.activeBoardId || 'default-board',
+          s.canvasNotes || [],
+          s.canvasConnections || []
+        );
+
+        const target = savedBoards.find(b => b.id === boardId);
+        if (target) {
+          set({
+            activeBoardId: boardId,
+            canvasNotes: target.notes || [],
+            canvasConnections: target.connections || [],
+            canvasBoards: savedBoards,
+          });
+        } else {
+          set({
+            activeBoardId: boardId,
+            canvasBoards: savedBoards,
+          });
+        }
+        triggerCloudSync();
+        syncPlannerToFirebase();
+      },
+
+      renameCanvasBoard: (boardId, title) => {
+        set(s => {
+          const boards = (s.canvasBoards || []).map(b =>
+            b.id === boardId ? { ...b, title: title.trim(), updatedAt: Date.now() } : b
+          );
+          return { canvasBoards: boards };
+        });
+        triggerCloudSync();
+        syncPlannerToFirebase();
+      },
+
+      deleteCanvasBoard: (boardId) => {
+        const s = get();
+        const remaining = (s.canvasBoards || []).filter(b => b.id !== boardId);
+        if (remaining.length === 0) {
+          const newId = uid();
+          const defaultBoard: CanvasBoard = {
+            id: newId,
+            title: 'กระดานเริ่มต้น (Main Flow)',
+            notes: [],
+            connections: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
+          set({
+            activeBoardId: newId,
+            canvasNotes: [],
+            canvasConnections: [],
+            canvasBoards: [defaultBoard],
+          });
+        } else if (s.activeBoardId === boardId) {
+          const next = remaining[0];
+          set({
+            activeBoardId: next.id,
+            canvasNotes: next.notes || [],
+            canvasConnections: next.connections || [],
+            canvasBoards: remaining,
+          });
+        } else {
+          set({ canvasBoards: remaining });
+        }
+        triggerCloudSync();
+        syncPlannerToFirebase();
+      },
+
+      duplicateCanvasBoard: (boardId) => {
+        const s = get();
+        const target = (s.canvasBoards || []).find(b => b.id === boardId);
+        if (!target) return '';
+
+        const idMap = new Map<string, string>();
+        const duplicatedNotes: CanvasNote[] = (target.notes || []).map(n => {
+          const newNoteId = uid();
+          idMap.set(n.id, newNoteId);
+          return {
+            ...n,
+            id: newNoteId,
+            createdAt: Date.now(),
+          };
+        });
+
+        const duplicatedConnections: CanvasConnection[] = (target.connections || []).map(c => ({
+          ...c,
+          id: uid(),
+          fromId: idMap.get(c.fromId) || c.fromId,
+          toId: idMap.get(c.toId) || c.toId,
+        }));
+
+        const newId = uid();
+        const clonedBoard: CanvasBoard = {
+          id: newId,
+          title: `${target.title} (สำเนา)`,
+          notes: duplicatedNotes,
+          connections: duplicatedConnections,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        const updatedBoards = [...(s.canvasBoards || []), clonedBoard];
+        set({
+          activeBoardId: newId,
+          canvasNotes: duplicatedNotes,
+          canvasConnections: duplicatedConnections,
+          canvasBoards: updatedBoards,
+        });
+        triggerCloudSync();
+        syncPlannerToFirebase();
+        return newId;
       },
 
       convertNoteToTask: (noteId, taskData) => {
@@ -802,16 +1046,43 @@ export const usePlanner = create<PlannerState>()(
         triggerCloudSync();
       },
 
-      restore: d => set(s => ({
-        tasks: (d.tasks ?? s.tasks).map(t => ({ ...t, priority: t.priority ?? 'medium' })), // รองรับ backup จากเวอร์ชัน HTML
-        rules: d.rules ?? s.rules,
-        events: d.events ?? s.events,
-        customTags: d.customTags !== undefined ? d.customTags : (s.customTags || []),
-        deletedTags: d.deletedTags !== undefined ? d.deletedTags : (s.deletedTags || []),
-        notifications: d.notifications !== undefined ? d.notifications : (s.notifications || []),
-        canvasNotes: d.canvasNotes !== undefined ? d.canvasNotes : (s.canvasNotes || []),
-        canvasConnections: d.canvasConnections !== undefined ? d.canvasConnections : (s.canvasConnections || []),
-      })),
+      restore: d => set(s => {
+        let boards = d.canvasBoards !== undefined ? d.canvasBoards : (s.canvasBoards || []);
+        let activeId = d.activeBoardId || s.activeBoardId || 'default-board';
+        let notes = d.canvasNotes !== undefined ? d.canvasNotes : (s.canvasNotes || []);
+        let connections = d.canvasConnections !== undefined ? d.canvasConnections : (s.canvasConnections || []);
+
+        if (boards.length === 0 && (notes.length > 0 || connections.length > 0)) {
+          boards = [{
+            id: activeId,
+            title: 'กระดานเริ่มต้น (Main Flow)',
+            notes,
+            connections,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          }];
+        } else if (boards.length > 0 && notes.length === 0 && connections.length === 0) {
+          const currentBoard = boards.find(b => b.id === activeId) || boards[0];
+          if (currentBoard) {
+            notes = currentBoard.notes || [];
+            connections = currentBoard.connections || [];
+            activeId = currentBoard.id;
+          }
+        }
+
+        return {
+          tasks: (d.tasks ?? s.tasks).map(t => ({ ...t, priority: t.priority ?? 'medium' })), // รองรับ backup จากเวอร์ชัน HTML
+          rules: d.rules ?? s.rules,
+          events: d.events ?? s.events,
+          customTags: d.customTags !== undefined ? d.customTags : (s.customTags || []),
+          deletedTags: d.deletedTags !== undefined ? d.deletedTags : (s.deletedTags || []),
+          notifications: d.notifications !== undefined ? d.notifications : (s.notifications || []),
+          canvasNotes: notes,
+          canvasConnections: connections,
+          canvasBoards: boards,
+          activeBoardId: activeId,
+        };
+      }),
     }),
     {
       name: 'work-planner',
@@ -857,6 +1128,8 @@ export const syncPlannerToFirebase = async () => {
         notifications: state.notifications || [],
         canvasNotes: state.canvasNotes || [],
         canvasConnections: state.canvasConnections || [],
+        canvasBoards: state.canvasBoards || [],
+        activeBoardId: state.activeBoardId || 'default-board',
       },
       cfg,
       user?.teamId
@@ -891,6 +1164,8 @@ let previousDeletedTags = usePlanner.getState().deletedTags;
 let previousNotifications = usePlanner.getState().notifications;
 let previousCanvasNotes = usePlanner.getState().canvasNotes;
 let previousCanvasConnections = usePlanner.getState().canvasConnections;
+let previousCanvasBoards = usePlanner.getState().canvasBoards;
+let previousActiveBoardId = usePlanner.getState().activeBoardId;
 
 if (typeof window !== 'undefined') {
   usePlanner.subscribe(state => {
@@ -906,7 +1181,9 @@ if (typeof window !== 'undefined') {
       state.deletedTags !== previousDeletedTags ||
       state.notifications !== previousNotifications ||
       state.canvasNotes !== previousCanvasNotes ||
-      state.canvasConnections !== previousCanvasConnections
+      state.canvasConnections !== previousCanvasConnections ||
+      state.canvasBoards !== previousCanvasBoards ||
+      state.activeBoardId !== previousActiveBoardId
     ) {
       previousTasks = state.tasks;
       previousEvents = state.events;
@@ -916,6 +1193,8 @@ if (typeof window !== 'undefined') {
       previousNotifications = state.notifications;
       previousCanvasNotes = state.canvasNotes;
       previousCanvasConnections = state.canvasConnections;
+      previousCanvasBoards = state.canvasBoards;
+      previousActiveBoardId = state.activeBoardId;
       triggerCloudSync();
     }
   });
