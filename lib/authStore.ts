@@ -101,7 +101,7 @@ export const useAuth = create<AuthState>()(
               return {
                 currentUser: user,
                 currentTeam: team,
-                userTeams: allTeams.length > 0 ? allTeams : (team ? [team] : state.userTeams || []),
+                userTeams: allTeams,
                 users: exists ? state.users.map(u => (u.id === user.id ? user : u)) : [...state.users, user],
               };
             });
@@ -171,6 +171,8 @@ export const useAuth = create<AuthState>()(
           users: [...state.users.filter(u => (u.email || '').toLowerCase() !== cleanEmail), newUser],
           currentUser: newUser,
           currentTeam: null,
+          userTeams: [],
+          teamMembers: [],
         }));
 
         return { success: true, user: newUser };
@@ -510,7 +512,8 @@ export const useAuth = create<AuthState>()(
       },
 
       logout: () => {
-        set({ currentUser: null, currentTeam: null, teamMembers: [] });
+        usePlanner.getState().restore({ tasks: [], rules: [], events: [] });
+        set({ currentUser: null, currentTeam: null, teamMembers: [], userTeams: [] });
       },
 
       updateProfile: patch => {
@@ -577,6 +580,14 @@ export const useAuth = create<AuthState>()(
           state.users = Array.from(userMap.values());
           if (state.currentUser && state.currentUser.id?.startsWith('user-')) {
             state.currentUser = null;
+          }
+          // ป้องกันทีมของบัญชีเดิมค้างอยู่ใน userTeams ของบัญชีใหม่
+          if (state.currentUser) {
+            state.userTeams = (state.userTeams || []).filter(
+              t => t.memberIds?.includes(state.currentUser!.id) || t.createdBy === state.currentUser!.id
+            );
+          } else {
+            state.userTeams = [];
           }
         }
       },

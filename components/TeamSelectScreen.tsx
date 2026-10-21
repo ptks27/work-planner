@@ -1,18 +1,25 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/authStore';
 import { AvatarIcon } from './Avatars';
 import { BuildingIcon, LogOutIcon, SparklesIcon, LinkIcon, CheckIcon, CloudIcon } from './Icons';
 import FirebaseConfigModal from './FirebaseConfigModal';
 
 export default function TeamSelectScreen() {
-  const { currentUser, userTeams, switchTeam, createTeam, joinTeam, logout } = useAuth();
+  const { currentUser, userTeams, switchTeam, createTeam, joinTeam, logout, fetchUserTeams } = useAuth();
   const [tab, setTab] = useState<'create' | 'join'>('create');
   const [teamName, setTeamName] = useState('');
   const [teamCode, setTeamCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+
+  // ซิงค์ทีมที่เป็นของบัญชีปัจจุบันจริงจาก Firestore ทันทีที่เปิดหน้านี้
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetchUserTeams();
+    }
+  }, [currentUser?.id]);
 
   if (!currentUser) return null;
 
@@ -225,37 +232,44 @@ export default function TeamSelectScreen() {
         )}
 
         {/* Existing teams list if available */}
-        {userTeams && userTeams.length > 0 && (
-          <div style={{ marginTop: 20, padding: 14, background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--line)' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: 'var(--txt)' }}>
-              ทีมที่คุณสังกัดอยู่แล้ว ({userTeams.length})
+        {(() => {
+          const myTeams = (userTeams || []).filter(
+            t => t && (t.memberIds?.includes(currentUser.id) || t.createdBy === currentUser.id)
+          );
+          if (myTeams.length === 0) return null;
+
+          return (
+            <div style={{ marginTop: 20, padding: 14, background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--line)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: 'var(--txt)' }}>
+                ทีมที่คุณสังกัดอยู่แล้ว ({myTeams.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {myTeams.map(t => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className="btn ghost"
+                    onClick={() => switchTeam(t.id)}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '8px 12px',
+                      textAlign: 'left',
+                      borderRadius: 8,
+                      background: 'var(--panel)',
+                      border: '1px solid var(--line)',
+                      width: '100%',
+                    }}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: 13 }}>{t.name}</span>
+                    <span style={{ fontSize: 12, color: 'var(--pri)', fontWeight: 600 }}>เข้าสู่พื้นที่ทีมนี้ &rarr;</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {userTeams.map(t => (
-                <button
-                  key={t.id}
-                  type="button"
-                  className="btn ghost"
-                  onClick={() => switchTeam(t.id)}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 12px',
-                    textAlign: 'left',
-                    borderRadius: 8,
-                    background: 'var(--panel)',
-                    border: '1px solid var(--line)',
-                    width: '100%',
-                  }}
-                >
-                  <span style={{ fontWeight: 600, fontSize: 13 }}>{t.name}</span>
-                  <span style={{ fontSize: 12, color: 'var(--pri)', fontWeight: 600 }}>เข้าสู่พื้นที่ทีมนี้ &rarr;</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Team features reminder */}
         <div className="hint" style={{ marginTop: 20, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
