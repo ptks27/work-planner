@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Sidebar, { TABS, type TabId } from '@/components/Sidebar';
 import Notifier from '@/components/Notifier';
 import TasksTab from '@/components/TasksTab';
@@ -43,6 +43,7 @@ import {
   ChevronDownIcon,
   UsersIcon,
   AwardIcon,
+  BoltIcon,
 } from '@/components/Icons';
 
 export default function App() {
@@ -57,11 +58,28 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [reportCopied, setReportCopied] = useState(false);
   const [teamCodeCopied, setTeamCodeCopied] = useState(false);
+  const [isQuickMenuOpen, setIsQuickMenuOpen] = useState(false);
+  const quickMenuRef = useRef<HTMLDivElement>(null);
   const today = useToday();
   const s = usePlanner();
   const { currentUser, currentTeam, teamMembers, fetchTeamMembers, leaveTeam } = useAuth();
   const cur = TABS.find(t => t.id === tab) || TABS[0];
   const activityStats = computeActivityStats(s.tasks, currentUser?.id, today);
+
+  // ปิด Quick Menu เมื่อคลิกนอกขอบเขต
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (quickMenuRef.current && !quickMenuRef.current.contains(e.target as Node)) {
+        setIsQuickMenuOpen(false);
+      }
+    };
+    if (isQuickMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isQuickMenuOpen]);
 
   useEffect(() => {
     setMounted(true);
@@ -264,16 +282,11 @@ export default function App() {
             </button>
           </div>
 
-          {/* Right: Date, Daily Report, Theme Toggle & User Profile */}
+          {/* Right: Clean Apple macOS Controls with Unified Quick Action Menu */}
           <div className="nav-right">
-            {/* Today's Date with Live Indicator */}
-            <div className="nav-today-pill" title={`วันที่ปัจจุบัน: ${thDate(today)}`}>
-              <span className="nav-live-dot" />
-              <span>{thDate(today)}</span>
-            </div>
-
             {/* Streak & Activity Ring Trigger Chip */}
             <button
+              type="button"
               className="nav-action-btn"
               onClick={() => setIsAchievementsOpen(true)}
               style={{
@@ -287,6 +300,7 @@ export default function App() {
                 borderRadius: 999,
                 fontWeight: 700,
                 cursor: 'pointer',
+                fontSize: 12,
               }}
               title={`ดูวงแหวนกิจกรรมและความสำเร็จ (Streak ${activityStats.currentStreak} วัน, ปิดงานวันนี้ ${activityStats.todayPct}%)`}
             >
@@ -306,27 +320,141 @@ export default function App() {
               </span>
             </button>
 
-            {/* Member Scorecard Button */}
-            <button
-              className="nav-action-btn"
-              onClick={() => setIsScorecardOpen(true)}
-              title="ดูบัตรประเมิน KPI รายบุคคล"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              <AwardIcon size={14} color="#ff9500" />
-              <span>ประเมิน KPI</span>
-            </button>
+            {/* macOS Quick Actions Menu Popover */}
+            <div ref={quickMenuRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className="nav-action-btn"
+                onClick={() => setIsQuickMenuOpen(prev => !prev)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: isQuickMenuOpen ? 'var(--pri-l)' : 'rgba(255, 255, 255, 0.8)',
+                  color: isQuickMenuOpen ? 'var(--pri)' : 'var(--txt)',
+                  borderColor: isQuickMenuOpen ? 'var(--pri)' : 'var(--line)',
+                  fontWeight: 600,
+                  fontSize: 12.5,
+                }}
+                title="เปิดเมนูด่วน / เครื่องมือช่วยงาน"
+              >
+                <BoltIcon size={14} color="var(--pri)" />
+                <span>เมนูด่วน</span>
+                <ChevronDownIcon
+                  size={12}
+                  style={{
+                    transform: isQuickMenuOpen ? 'rotate(180deg)' : 'none',
+                    transition: 'transform 0.15s ease',
+                  }}
+                />
+              </button>
 
-            {/* Morning Briefing Trigger Button */}
-            <button
-              className="nav-action-btn primary"
-              onClick={() => setIsMorningBriefingOpen(true)}
-              title="เปิดดูสรุปภาพรวมยามเช้า (Morning Briefing)"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              <span>🌅</span>
-              <span>สรุปภาพรวม</span>
-            </button>
+              {isQuickMenuOpen && (
+                <div className="quick-menu-popover" onClick={e => e.stopPropagation()}>
+                  <div
+                    style={{
+                      padding: '6px 10px 4px',
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      color: 'var(--mut)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}
+                  >
+                    ⚡ เครื่องมือและรายงานด่วน
+                  </div>
+
+                  <button
+                    type="button"
+                    className="quick-menu-item"
+                    onClick={() => {
+                      setIsMorningBriefingOpen(true);
+                      setIsQuickMenuOpen(false);
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>🌅</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600 }}>สรุปภาพรวมยามเช้า</div>
+                      <small style={{ color: 'var(--mut)', fontSize: 11 }}>
+                        Morning Briefing สรุปเดดไลน์ & วันลา
+                      </small>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="quick-menu-item"
+                    onClick={() => {
+                      setIsScorecardOpen(true);
+                      setIsQuickMenuOpen(false);
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>📊</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600 }}>ประเมิน KPI รายบุคคล</div>
+                      <small style={{ color: 'var(--mut)', fontSize: 11 }}>
+                        Member Scorecard & On-Time Rate
+                      </small>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="quick-menu-item"
+                    onClick={() => {
+                      setIsAchievementsOpen(true);
+                      setIsQuickMenuOpen(false);
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>🏆</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600 }}>วงแหวนความสำเร็จ & Streak</div>
+                      <small style={{ color: 'var(--mut)', fontSize: 11 }}>
+                        ความต่อเนื่องและเป้าหมายประจำวัน
+                      </small>
+                    </div>
+                  </button>
+
+                  <div className="quick-menu-divider" />
+
+                  <button
+                    type="button"
+                    className="quick-menu-item"
+                    onClick={() => {
+                      handleCopyReport();
+                      setIsQuickMenuOpen(false);
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>📋</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600 }}>
+                        {reportCopied ? '✅ คัดลอกสรุปงานแล้ว!' : 'คัดลอกสรุปงานประจำวัน'}
+                      </div>
+                      <small style={{ color: 'var(--mut)', fontSize: 11 }}>
+                        ฟอร์แมตสวยงามพร้อมส่งใน LINE / Slack
+                      </small>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="quick-menu-item"
+                    onClick={() => {
+                      setIsTeamMembersOpen(true);
+                      setIsQuickMenuOpen(false);
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>👥</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600 }}>รายชื่อสมาชิกในทีม</div>
+                      <small style={{ color: 'var(--mut)', fontSize: 11 }}>
+                        จัดการทีมและดูบทบาท ({teamMembers.length} คน)
+                      </small>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Notification Center Popover */}
             <NotificationCenter onOpenTask={task => setEditingTask(task)} />

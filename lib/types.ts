@@ -170,6 +170,14 @@ export interface PlannerEvent {
 
 export type StickyColor = 'yellow' | 'blue' | 'green' | 'pink' | 'purple' | 'orange';
 
+export interface CanvasConnection {
+  id: string;
+  fromId: string;
+  toId: string;
+  label?: string;
+  color?: string;
+}
+
 export interface CanvasNote {
   id: string;
   text: string;
@@ -183,6 +191,8 @@ export interface CanvasNote {
   authorAvatar?: AvatarId;
   createdAt: number;
   convertedTaskId?: string; // ID ของงานที่ถูกแปลงไป
+  stepNumber?: number;      // ลำดับขั้นตอนใน Data Flow เช่น 1, 2, 3
+  flowRole?: 'input' | 'process' | 'output' | 'database'; // บทบาทใน Data Flow
 }
 
 export interface MemberScorecard {
@@ -212,6 +222,7 @@ export interface PlannerData {
   deletedTags?: string[];
   notifications?: AppNotification[];
   canvasNotes?: CanvasNote[];
+  canvasConnections?: CanvasConnection[];
 }
 
 export const PRIORITY: Record<Priority, { label: string; color: string; order: number }> = {

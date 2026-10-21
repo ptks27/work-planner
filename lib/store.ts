@@ -16,6 +16,7 @@ import type {
   TaskAttachment,
   AppNotification,
   CanvasNote,
+  CanvasConnection,
 } from './types';
 import { uid } from './utils';
 import { DEFAULT_FIREBASE_CONFIG } from './firebaseDefaultConfig';
@@ -85,9 +86,13 @@ interface PlannerState extends PlannerData {
   deleteCustomTag: (tag: string) => void;
   resetDefaultTags: () => void;
   canvasNotes: CanvasNote[];
+  canvasConnections: CanvasConnection[];
   addCanvasNote: (note: Omit<CanvasNote, 'id' | 'createdAt'>) => void;
   updateCanvasNote: (id: string, patch: Partial<CanvasNote>) => void;
   deleteCanvasNote: (id: string) => void;
+  addCanvasConnection: (fromId: string, toId: string, label?: string) => void;
+  deleteCanvasConnection: (id: string) => void;
+  autoLayoutDataFlow: () => void;
   convertNoteToTask: (noteId: string, taskData: { title: string; date: string; priority: Priority; assigneeId?: string; detail?: string }) => void;
   restore: (d: Partial<PlannerData>) => void;
 }
@@ -98,7 +103,7 @@ const parseVirtual = (id: string) => { const [, ruleId, date] = id.split(':'); r
 export const usePlanner = create<PlannerState>()(
   persist(
     (set, get) => ({
-      tasks: [], rules: [], events: [], customTags: [], deletedTags: [], notifications: [], canvasNotes: [], notified: [], remindBefore: 10,
+      tasks: [], rules: [], events: [], customTags: [], deletedTags: [], notifications: [], canvasNotes: [], canvasConnections: [], notified: [], remindBefore: 10,
       theme: 'light',
       setTheme: theme => set({ theme }),
       soundEnabled: true,
@@ -680,7 +685,69 @@ export const usePlanner = create<PlannerState>()(
       deleteCanvasNote: id => {
         set(s => ({
           canvasNotes: (s.canvasNotes || []).filter(n => n.id !== id),
+          canvasConnections: (s.canvasConnections || []).filter(c => c.fromId !== id && c.toId !== id),
         }));
+        triggerCloudSync();
+      },
+
+      addCanvasConnection: (fromId, toId, label) => {
+        if (fromId === toId) return;
+        set(s => {
+          const current = s.canvasConnections || [];
+          if (current.some(c => c.fromId === fromId && c.toId === toId)) return s;
+          const newConn: CanvasConnection = {
+            id: uid(),
+            fromId,
+            toId,
+            label,
+          };
+          return { canvasConnections: [...current, newConn] };
+        });
+        triggerCloudSync();
+      },
+
+      deleteCanvasConnection: id => {
+        set(s => ({
+          canvasConnections: (s.canvasConnections || []).filter(c => c.id !== id),
+        }));
+        triggerCloudSync();
+      },
+
+      autoLayoutDataFlow: () => {
+        set(s => {
+          const notes = [...(s.canvasNotes || [])];
+          if (notes.length === 0) return s;
+
+          // จัดเรียงโน้ตเป็นสาย Data Flow แนวนอนตามลำดับ
+          const updatedNotes: CanvasNote[] = notes.map((note, idx) => {
+            const col = idx % 4;
+            const row = Math.floor(idx / 4);
+            const x = 50 + col * 320;
+            const y = 80 + row * 260;
+            return {
+              ...note,
+              x,
+              y,
+              stepNumber: idx + 1,
+            };
+          });
+
+          // สร้าง Connection เชื่อมโยงทีละขั้นตอนอัตโนมัติ (1 -> 2 -> 3 ...)
+          const newConnections: CanvasConnection[] = [];
+          for (let i = 0; i < updatedNotes.length - 1; i++) {
+            newConnections.push({
+              id: uid(),
+              fromId: updatedNotes[i].id,
+              toId: updatedNotes[i + 1].id,
+              label: `Step ${i + 1} ➔ ${i + 2}`,
+            });
+          }
+
+          return {
+            canvasNotes: updatedNotes,
+            canvasConnections: newConnections,
+          };
+        });
         triggerCloudSync();
       },
 
@@ -773,6 +840,7 @@ export const syncPlannerToFirebase = async () => {
         deletedTags: state.deletedTags || [],
         notifications: state.notifications || [],
         canvasNotes: state.canvasNotes || [],
+        canvasConnections: state.canvasConnections || [],
       },
       cfg,
       user?.teamId
@@ -806,6 +874,7 @@ let previousCustomTags = usePlanner.getState().customTags;
 let previousDeletedTags = usePlanner.getState().deletedTags;
 let previousNotifications = usePlanner.getState().notifications;
 let previousCanvasNotes = usePlanner.getState().canvasNotes;
+let previousCanvasConnections = usePlanner.getState().canvasConnections;
 
 if (typeof window !== 'undefined') {
   usePlanner.subscribe(state => {
@@ -820,7 +889,8 @@ if (typeof window !== 'undefined') {
       state.customTags !== previousCustomTags ||
       state.deletedTags !== previousDeletedTags ||
       state.notifications !== previousNotifications ||
-      state.canvasNotes !== previousCanvasNotes
+      state.canvasNotes !== previousCanvasNotes ||
+      state.canvasConnections !== previousCanvasConnections
     ) {
       previousTasks = state.tasks;
       previousEvents = state.events;
@@ -829,6 +899,7 @@ if (typeof window !== 'undefined') {
       previousDeletedTags = state.deletedTags;
       previousNotifications = state.notifications;
       previousCanvasNotes = state.canvasNotes;
+      previousCanvasConnections = state.canvasConnections;
       triggerCloudSync();
     }
   });

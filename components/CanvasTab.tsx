@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { usePlanner } from '@/lib/store';
 import { useAuth } from '@/lib/authStore';
 import { useToday } from '@/lib/hooks';
-import { CanvasNote, StickyColor, Priority, PRIORITIES, PRIORITY } from '@/lib/types';
+import { CanvasNote, CanvasConnection, StickyColor, Priority, PRIORITIES, PRIORITY } from '@/lib/types';
 import { AvatarIcon } from './Avatars';
 import {
   StickyNoteIcon,
@@ -69,13 +69,41 @@ const STICKY_THEMES: Record<
 
 const COLOR_KEYS: StickyColor[] = ['yellow', 'blue', 'green', 'pink', 'purple', 'orange'];
 
+const FLOW_ROLES: Array<{
+  id: 'input' | 'process' | 'output' | 'database';
+  label: string;
+  icon: string;
+  color: string;
+  bg: string;
+  border: string;
+}> = [
+  { id: 'input', label: 'Input (รับข้อมูล)', icon: '📥', color: '#0284c7', bg: 'rgba(2, 132, 199, 0.14)', border: 'rgba(2, 132, 199, 0.35)' },
+  { id: 'process', label: 'Process (ประมวลผล)', icon: '⚙️', color: '#7c3aed', bg: 'rgba(124, 58, 237, 0.14)', border: 'rgba(124, 58, 237, 0.35)' },
+  { id: 'output', label: 'Output (ส่งผลลัพธ์)', icon: '📤', color: '#16a34a', bg: 'rgba(22, 163, 74, 0.14)', border: 'rgba(22, 163, 74, 0.35)' },
+  { id: 'database', label: 'Database (ฐานข้อมูล)', icon: '🗄️', color: '#ea580c', bg: 'rgba(234, 88, 12, 0.14)', border: 'rgba(234, 88, 12, 0.35)' },
+];
+
 export default function CanvasTab() {
-  const { canvasNotes, addCanvasNote, updateCanvasNote, deleteCanvasNote, convertNoteToTask, tasks } = usePlanner();
+  const {
+    canvasNotes,
+    canvasConnections,
+    addCanvasNote,
+    updateCanvasNote,
+    deleteCanvasNote,
+    addCanvasConnection,
+    deleteCanvasConnection,
+    autoLayoutDataFlow,
+    convertNoteToTask,
+    tasks,
+  } = usePlanner();
+
   const { currentUser, users } = useAuth();
   const today = useToday();
 
   const [search, setSearch] = useState('');
   const [selectedColorFilter, setSelectedColorFilter] = useState<StickyColor | 'all'>('all');
+  const [connectingFromId, setConnectingFromId] = useState<string | null>(null);
+  const [editingRoleNoteId, setEditingRoleNoteId] = useState<string | null>(null);
 
   // Dragging state
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
@@ -91,6 +119,7 @@ export default function CanvasTab() {
   const [taskAssigneeId, setTaskAssigneeId] = useState<string>('');
 
   const notes = canvasNotes || [];
+  const connections = canvasConnections || [];
 
   // Filter notes
   const filteredNotes = notes.filter(n => {
@@ -99,26 +128,35 @@ export default function CanvasTab() {
     return true;
   });
 
-  const handleCreateNote = (color: StickyColor = 'yellow') => {
-    // คำนวณตำแหน่งไม่ให้ซ้อนกันตรงๆ
+  const handleCreateNote = (
+    color: StickyColor = 'yellow',
+    role?: 'input' | 'process' | 'output' | 'database',
+    defaultText?: string
+  ) => {
     const offsetIndex = notes.length % 10;
-    const initialX = 40 + (offsetIndex % 5) * 250;
-    const initialY = 40 + Math.floor(offsetIndex / 5) * 260;
+    const initialX = 50 + (offsetIndex % 5) * 280;
+    const initialY = 60 + Math.floor(offsetIndex / 5) * 270;
 
     addCanvasNote({
-      text: '',
+      text: defaultText || '',
       color,
       x: initialX,
       y: initialY,
       authorId: currentUser?.id,
       authorName: currentUser?.name || 'สมาชิก',
       authorAvatar: currentUser?.avatarId,
+      flowRole: role,
+      stepNumber: role ? notes.filter(n => n.flowRole).length + 1 : undefined,
     });
   };
 
   const handleStartDrag = (e: React.MouseEvent, note: CanvasNote) => {
-    // Only drag from header bar or when not clicking inside textarea/buttons
-    if ((e.target as HTMLElement).tagName === 'TEXTAREA' || (e.target as HTMLElement).tagName === 'BUTTON') {
+    if (
+      (e.target as HTMLElement).tagName === 'TEXTAREA' ||
+      (e.target as HTMLElement).tagName === 'BUTTON' ||
+      (e.target as HTMLElement).closest('button') ||
+      (e.target as HTMLElement).closest('.note-role-popover')
+    ) {
       return;
     }
     setDraggingNoteId(note.id);
@@ -139,7 +177,6 @@ export default function CanvasTab() {
     let newX = Math.max(10, e.clientX - canvasRect.left - dragOffsetRef.current.offsetX);
     let newY = Math.max(10, e.clientY - canvasRect.top - dragOffsetRef.current.offsetY);
 
-    // Limit to reasonable canvas bounds
     newX = Math.min(newX, 3200);
     newY = Math.min(newY, 3200);
 
@@ -148,6 +185,20 @@ export default function CanvasTab() {
 
   const handleMouseUp = () => {
     setDraggingNoteId(null);
+  };
+
+  // Connection Click Handler
+  const handleNoteConnectClick = (noteId: string) => {
+    if (!connectingFromId) {
+      setConnectingFromId(noteId);
+    } else if (connectingFromId === noteId) {
+      // Cancel
+      setConnectingFromId(null);
+    } else {
+      // Complete connection from connectingFromId -> noteId
+      addCanvasConnection(connectingFromId, noteId);
+      setConnectingFromId(null);
+    }
   };
 
   const openConvertModal = (note: CanvasNote) => {
@@ -176,32 +227,37 @@ export default function CanvasTab() {
     setConvertingNote(null);
   };
 
-  // Add sample brainstorming notes if canvas is empty
-  const handleAddSampleNotes = () => {
-    const samples: Array<{ text: string; color: StickyColor; x: number; y: number }> = [
+  // Quick Preset Sample Data Flow
+  const handleAddSampleDataFlow = () => {
+    const samples: Array<{
+      text: string;
+      color: StickyColor;
+      role: 'input' | 'process' | 'output' | 'database';
+      step: number;
+    }> = [
       {
-        text: '🎨 Redesign Landing Page 2026\n- อัปเดต SF Pro Typography\n- ใส่ Interactive Lightbox\n- เคลียร์ Contrast ให้เข้าเกณฑ์ WCAG',
-        color: 'yellow',
-        x: 40,
-        y: 40,
-      },
-      {
-        text: '🚀 แคมเปญโปรโมตเปิดตัวแอป\n- ทำวิดีโอตัวอย่าง 30 วินาที\n- ส่งเมลหาผู้ใช้งานกลุ่มทดสอบ VIP\n- โพสต์แชร์ใน Facebook Group',
-        color: 'pink',
-        x: 320,
-        y: 40,
-      },
-      {
-        text: '🔒 Security & Backup Audit\n- เช็ก Firestore Security Rules\n- ตั้งรอบ Backup ทุกสิ้นสัปดาห์\n- ตรวจสอบ Token Firebase',
+        text: '📥 1. ผู้ใช้กรอกฟอร์มลงทะเบียน\n- ตรวจสอบอีเมล & รหัสผ่าน\n- เช็กรหัสทีมที่แนบมา',
         color: 'blue',
-        x: 600,
-        y: 40,
+        role: 'input',
+        step: 1,
       },
       {
-        text: '💡 ข้อเสนอแนะจากลูกค้า\n- อยากได้ระบบแชร์ความคืบหน้าให้ลูกค้าดู\n- ระบบส่งตรวจงานก่อนกด Done\n- โพสต์อิทระดมไอเดีย',
+        text: '⚙️ 2. ตรวจสอบความถูกต้อง (Validation)\n- Hash Password\n- เช็กอีเมลซ้ำในระบบ Firestore',
+        color: 'purple',
+        role: 'process',
+        step: 2,
+      },
+      {
+        text: '🗄️ 3. บันทึกข้อมูลลงฐานข้อมูล\n- สร้าง User Document ใน Firestore\n- เพิ่ม Member เข้าทีม',
+        color: 'orange',
+        role: 'database',
+        step: 3,
+      },
+      {
+        text: '📤 4. ส่งผลลัพธ์ & เข้าสู่แดชบอร์ด\n- ออก JWT Token / Session\n- นำทางเข้าหน้า Planner พร้อมซิงค์ข้อมูล',
         color: 'green',
-        x: 180,
-        y: 330,
+        role: 'output',
+        step: 4,
       },
     ];
 
@@ -209,13 +265,19 @@ export default function CanvasTab() {
       addCanvasNote({
         text: s.text,
         color: s.color,
-        x: s.x,
-        y: s.y,
+        x: 60,
+        y: 60,
         authorId: currentUser?.id,
-        authorName: currentUser?.name || 'ตัวอย่างไอเดีย',
+        authorName: currentUser?.name || 'สถาปัตยกรรมระบบ',
         authorAvatar: currentUser?.avatarId,
+        flowRole: s.role,
+        stepNumber: s.step,
       });
     });
+
+    setTimeout(() => {
+      autoLayoutDataFlow();
+    }, 150);
   };
 
   return (
@@ -241,7 +303,7 @@ export default function CanvasTab() {
           borderRadius: 14,
         }}
       >
-        {/* Left: Title & Note Count */}
+        {/* Left: Title & Info */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div className="macos-traffic-lights" aria-hidden="true">
             <span className="macos-traffic-dot red" />
@@ -251,9 +313,9 @@ export default function CanvasTab() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span
               style={{
-                width: 28,
-                height: 28,
-                borderRadius: 8,
+                width: 30,
+                height: 30,
+                borderRadius: 9,
                 background: 'rgba(255, 149, 0, 0.12)',
                 color: '#ff9500',
                 display: 'flex',
@@ -261,46 +323,87 @@ export default function CanvasTab() {
                 justifyContent: 'center',
               }}
             >
-              <StickyNoteIcon size={16} />
+              <StickyNoteIcon size={17} />
             </span>
             <div>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em' }}>
-                กระดานไอเดีย & ระดมความคิด (Visual Canvas)
+                กระดานไอเดีย & Data Flow (Visual Canvas)
               </h2>
               <small style={{ color: 'var(--mut)', fontSize: 11 }}>
-                ระดมไอเดีย แปะโพสต์อิทอิสระ และคลิกเดียวแปลงเข้าตารางงานของทีมได้ทันที
+                ระดมความคิด แปะโพสต์อิท และเชื่อมโยงเป็น Data Flow / Pipeline แปลงเป็นงานได้ทันที
               </small>
             </div>
           </div>
-          <span
-            style={{
-              padding: '2px 8px',
-              borderRadius: 999,
-              background: 'rgba(120, 120, 128, 0.08)',
-              fontSize: 11,
-              fontWeight: 600,
-              color: 'var(--mut)',
-              marginLeft: 4,
-            }}
-          >
-            {notes.length} โน้ต
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
+            <span
+              style={{
+                padding: '2px 8px',
+                borderRadius: 999,
+                background: 'rgba(120, 120, 128, 0.08)',
+                fontSize: 11,
+                fontWeight: 600,
+                color: 'var(--mut)',
+              }}
+            >
+              {notes.length} โน้ต
+            </span>
+            {connections.length > 0 && (
+              <span
+                style={{
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  background: 'rgba(0, 113, 227, 0.1)',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'var(--pri)',
+                }}
+              >
+                {connections.length} Flow
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Right: Quick Add Colors + Search */}
+        {/* Right: Quick Actions & Search */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {/* Auto Layout Data Flow Button */}
+          {notes.length >= 2 && (
+            <button
+              type="button"
+              className="btn sm"
+              onClick={() => autoLayoutDataFlow()}
+              style={{
+                borderRadius: 999,
+                padding: '5px 12px',
+                fontSize: 12,
+                fontWeight: 600,
+                background: 'rgba(0, 113, 227, 0.1)',
+                color: 'var(--pri)',
+                border: '1px solid rgba(0, 113, 227, 0.25)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                cursor: 'pointer',
+              }}
+              title="จัดเรียงตำแหน่งโพสต์อิทเป็นสาย Data Flow ซ้ายไปขวาพร้อมเชื่อมต่อเส้นอัตโนมัติ"
+            >
+              <BoltIcon size={13} color="var(--pri)" />
+              <span>⚡ จัดเรียง Data Flow</span>
+            </button>
+          )}
+
           {/* Color quick pills to add */}
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: 4,
-              padding: '3px 6px',
+              padding: '3px 8px',
               borderRadius: 999,
               background: 'rgba(120, 120, 128, 0.08)',
             }}
           >
-            <span style={{ fontSize: 11, color: 'var(--mut)', paddingLeft: 4, paddingRight: 2, fontWeight: 600 }}>
+            <span style={{ fontSize: 11, color: 'var(--mut)', paddingLeft: 2, paddingRight: 2, fontWeight: 600 }}>
               + โพสต์อิท:
             </span>
             {COLOR_KEYS.map(c => (
@@ -327,7 +430,7 @@ export default function CanvasTab() {
           </div>
 
           {/* Search Input */}
-          <div style={{ position: 'relative', width: 170 }}>
+          <div style={{ position: 'relative', width: 150 }}>
             <SearchIcon
               size={13}
               style={{
@@ -358,24 +461,63 @@ export default function CanvasTab() {
             <button
               type="button"
               className="btn sm"
-              onClick={handleAddSampleNotes}
+              onClick={handleAddSampleDataFlow}
               style={{
                 borderRadius: 999,
-                padding: '4px 12px',
+                padding: '5px 12px',
                 fontSize: 11.5,
-                background: 'rgba(0, 113, 227, 0.1)',
-                color: 'var(--pri)',
+                background: 'rgba(52, 199, 89, 0.12)',
+                color: '#15803d',
+                border: '1px solid rgba(52, 199, 89, 0.25)',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 5,
               }}
             >
-              <SparklesIcon size={12} />
-              <span>ใส่ตัวอย่างไอเดีย</span>
+              <SparklesIcon size={13} />
+              <span>ใส่ตัวอย่าง Data Flow</span>
             </button>
           )}
         </div>
       </div>
+
+      {/* Active Connecting Notice Banner */}
+      {connectingFromId && (
+        <div
+          style={{
+            background: 'linear-gradient(135deg, rgba(0, 113, 227, 0.95), rgba(59, 130, 246, 0.95))',
+            color: '#fff',
+            borderRadius: 12,
+            padding: '8px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 16px rgba(0, 113, 227, 0.3)',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
+            <span>🔗</span>
+            <span>กำลังเลือกการ์ดปลายทางสำหรับ Data Flow: คลิกที่โพสต์อิทใดก็ได้เพื่อเชื่อมโยงเส้น Flow</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setConnectingFromId(null)}
+            style={{
+              background: 'rgba(255, 255, 255, 0.25)',
+              border: 'none',
+              color: '#ffffff',
+              borderRadius: 999,
+              padding: '3px 12px',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            ยกเลิก
+          </button>
+        </div>
+      )}
 
       {/* Infinite Canvas Area with Apple Freeform Dot Grid */}
       <div
@@ -397,6 +539,142 @@ export default function CanvasTab() {
           userSelect: draggingNoteId ? 'none' : 'auto',
         }}
       >
+        {/* SVG Flow Arrows Overlay */}
+        <svg
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: 3400,
+            height: 3400,
+            pointerEvents: 'none',
+            zIndex: 10,
+          }}
+        >
+          <defs>
+            <marker
+              id="flow-arrow"
+              viewBox="0 0 10 10"
+              refX="8"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#0071e3" />
+            </marker>
+          </defs>
+
+          {connections.map(conn => {
+            const fromNote = notes.find(n => n.id === conn.fromId);
+            const toNote = notes.find(n => n.id === conn.toId);
+            if (!fromNote || !toNote) return null;
+
+            // Compute connection anchors
+            const isLeftToRight = toNote.x >= fromNote.x;
+            const x1 = isLeftToRight ? fromNote.x + 260 : fromNote.x;
+            const y1 = fromNote.y + 100;
+            const x2 = isLeftToRight ? toNote.x : toNote.x + 260;
+            const y2 = toNote.y + 100;
+
+            const dx = Math.max(50, Math.abs(x2 - x1) * 0.45);
+            const pathD = isLeftToRight
+              ? `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
+              : `M ${x1} ${y1} C ${x1 - dx} ${y1}, ${x2 + dx} ${y2}, ${x2} ${y2}`;
+
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+
+            return (
+              <g key={conn.id}>
+                {/* Background glow stroke */}
+                <path
+                  d={pathD}
+                  fill="none"
+                  stroke="rgba(0, 113, 227, 0.2)"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                />
+                {/* Main animated dashed flow line */}
+                <path
+                  d={pathD}
+                  fill="none"
+                  stroke="#0071e3"
+                  strokeWidth="2.5"
+                  className="flow-line-animated"
+                  markerEnd="url(#flow-arrow)"
+                />
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* HTML Badges for Flow Connection Delete / Label */}
+        {connections.map(conn => {
+          const fromNote = notes.find(n => n.id === conn.fromId);
+          const toNote = notes.find(n => n.id === conn.toId);
+          if (!fromNote || !toNote) return null;
+
+          const isLeftToRight = toNote.x >= fromNote.x;
+          const x1 = isLeftToRight ? fromNote.x + 260 : fromNote.x;
+          const y1 = fromNote.y + 100;
+          const x2 = isLeftToRight ? toNote.x : toNote.x + 260;
+          const y2 = toNote.y + 100;
+
+          const midX = (x1 + x2) / 2;
+          const midY = (y1 + y2) / 2;
+
+          return (
+            <div
+              key={`badge-${conn.id}`}
+              className="flow-connector-badge"
+              style={{
+                position: 'absolute',
+                left: midX - 16,
+                top: midY - 12,
+                zIndex: 15,
+                pointerEvents: 'auto',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => deleteCanvasConnection(conn.id)}
+                title="คลิกเพื่อตัดการเชื่อมต่อ Flow นี้"
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: '50%',
+                  background: '#ffffff',
+                  border: '1.5px solid #0071e3',
+                  color: '#0071e3',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  boxShadow: '0 2px 8px rgba(0, 113, 227, 0.25)',
+                  padding: 0,
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#dc2626';
+                  e.currentTarget.style.borderColor = '#dc2626';
+                  e.currentTarget.style.color = '#ffffff';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = '#ffffff';
+                  e.currentTarget.style.borderColor = '#0071e3';
+                  e.currentTarget.style.color = '#0071e3';
+                }}
+              >
+                ×
+              </button>
+            </div>
+          );
+        })}
+
+        {/* Empty Canvas Notice */}
         {filteredNotes.length === 0 && notes.length === 0 && (
           <div
             style={{
@@ -411,10 +689,10 @@ export default function CanvasTab() {
           >
             <div style={{ fontSize: 44, marginBottom: 10 }}>🎨</div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--txt)' }}>
-              กระดานไอเดียยังว่างอยู่
+              กระดานไอเดีย & Data Flow ยังว่างอยู่
             </h3>
             <p style={{ margin: '6px 0 14px', fontSize: 13 }}>
-              คลิกเลือกสีโพสต์อิทด้านบน เพื่อแปะไอเดียแรกของคุณกับทีมได้เลย
+              คลิกเลือกสีโพสต์อิทด้านบน หรือกดปุ่ม "ใส่ตัวอย่าง Data Flow" เพื่อเริ่มต้นได้เลย
             </p>
           </div>
         )}
@@ -425,6 +703,10 @@ export default function CanvasTab() {
           const isDragging = draggingNoteId === note.id;
           const isConverted = Boolean(note.convertedTaskId);
           const convertedTask = isConverted ? tasks.find(t => t.id === note.convertedTaskId) : null;
+          const isConnectingSource = connectingFromId === note.id;
+          const isRoleEditing = editingRoleNoteId === note.id;
+
+          const currentRoleObj = FLOW_ROLES.find(r => r.id === note.flowRole);
 
           return (
             <div
@@ -434,16 +716,20 @@ export default function CanvasTab() {
                 left: note.x,
                 top: note.y,
                 width: 260,
-                minHeight: 210,
+                minHeight: 220,
                 borderRadius: 14,
                 background: theme.bg,
-                border: `1.5px solid ${theme.border}`,
+                border: isConnectingSource
+                  ? '2px solid #0071e3'
+                  : `1.5px solid ${theme.border}`,
                 boxShadow: isDragging
                   ? '0 20px 40px rgba(0,0,0,0.2), 0 0 0 2px var(--pri)'
+                  : isConnectingSource
+                  ? '0 0 0 4px rgba(0, 113, 227, 0.25), 0 8px 22px rgba(0, 0, 0, 0.12)'
                   : '0 8px 22px -4px rgba(0, 0, 0, 0.12), 0 4px 8px -2px rgba(0, 0, 0, 0.06)',
                 display: 'flex',
                 flexDirection: 'column',
-                zIndex: isDragging ? 100 : 1,
+                zIndex: isDragging ? 100 : isRoleEditing ? 90 : 20,
                 transform: isDragging
                   ? 'scale(1.03) rotate(0deg)'
                   : idx % 2 === 0
@@ -467,7 +753,7 @@ export default function CanvasTab() {
               <div
                 onMouseDown={e => handleStartDrag(e, note)}
                 style={{
-                  padding: '8px 12px',
+                  padding: '7px 10px',
                   background: theme.header,
                   borderTopLeftRadius: 12,
                   borderTopRightRadius: 12,
@@ -486,7 +772,7 @@ export default function CanvasTab() {
                       fontSize: 11,
                       fontWeight: 700,
                       color: theme.text,
-                      maxWidth: 110,
+                      maxWidth: 100,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -496,7 +782,7 @@ export default function CanvasTab() {
                   </span>
                 </div>
 
-                {/* Right controls: Color swatches & Delete */}
+                {/* Right controls: Delete */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <button
                     type="button"
@@ -520,22 +806,211 @@ export default function CanvasTab() {
                 </div>
               </div>
 
+              {/* Data Flow Role & Step Badge Row */}
+              <div
+                style={{
+                  padding: '5px 10px',
+                  background: 'rgba(255, 255, 255, 0.4)',
+                  borderBottom: `1px dashed ${theme.border}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  position: 'relative',
+                }}
+              >
+                {/* Role Pill */}
+                <div style={{ position: 'relative' }}>
+                  {currentRoleObj ? (
+                    <button
+                      type="button"
+                      onClick={() => setEditingRoleNoteId(isRoleEditing ? null : note.id)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '2px 8px',
+                        borderRadius: 999,
+                        background: currentRoleObj.bg,
+                        color: currentRoleObj.color,
+                        border: `1px solid ${currentRoleObj.border}`,
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                      title="คลิกเพื่อเปลี่ยน Role ใน Data Flow"
+                    >
+                      <span>{currentRoleObj.icon}</span>
+                      <span>{currentRoleObj.label.split(' ')[0]}</span>
+                      {note.stepNumber && <span>#{note.stepNumber}</span>}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setEditingRoleNoteId(isRoleEditing ? null : note.id)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        padding: '2px 7px',
+                        borderRadius: 999,
+                        background: 'rgba(120, 120, 128, 0.1)',
+                        color: 'var(--mut)',
+                        border: '1px dashed rgba(120, 120, 128, 0.3)',
+                        fontSize: 10,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                      title="กำหนดบทบาทใน Data Flow (Input / Process / Output / DB)"
+                    >
+                      <span>+ Role Flow</span>
+                    </button>
+                  )}
+
+                  {/* Role Selector Popover */}
+                  {isRoleEditing && (
+                    <div
+                      className="note-role-popover"
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        marginTop: 4,
+                        minWidth: 170,
+                        background: '#ffffff',
+                        border: '1px solid var(--line)',
+                        borderRadius: 12,
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                        padding: 4,
+                        zIndex: 200,
+                      }}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {FLOW_ROLES.map(r => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => {
+                            updateCanvasNote(note.id, {
+                              flowRole: r.id,
+                              stepNumber: note.stepNumber || notes.filter(n => n.flowRole).length + 1,
+                            });
+                            setEditingRoleNoteId(null);
+                          }}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '5px 8px',
+                            border: 'none',
+                            borderRadius: 8,
+                            background: note.flowRole === r.id ? r.bg : 'transparent',
+                            color: note.flowRole === r.id ? r.color : '#1d1d1f',
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <span>{r.icon}</span>
+                          <span>{r.label}</span>
+                        </button>
+                      ))}
+                      {note.flowRole && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateCanvasNote(note.id, { flowRole: undefined, stepNumber: undefined });
+                            setEditingRoleNoteId(null);
+                          }}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '5px 8px',
+                            border: 'none',
+                            borderRadius: 8,
+                            background: 'transparent',
+                            color: '#dc2626',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            marginTop: 2,
+                            borderTop: '1px solid var(--line)',
+                          }}
+                        >
+                          <span>🚫</span>
+                          <span>เอาบทบาทออก</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Step number badge / adjuster */}
+                {note.flowRole && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <button
+                      type="button"
+                      onClick={() => updateCanvasNote(note.id, { stepNumber: Math.max(1, (note.stepNumber || 1) - 1) })}
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: 4,
+                        border: 'none',
+                        background: 'rgba(0,0,0,0.06)',
+                        cursor: 'pointer',
+                        fontSize: 10,
+                        lineHeight: 1,
+                        padding: 0,
+                      }}
+                      title="ลดขั้นตอน"
+                    >
+                      -
+                    </button>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: theme.text }}>
+                      ขั้นที่ {note.stepNumber || 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => updateCanvasNote(note.id, { stepNumber: (note.stepNumber || 1) + 1 })}
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: 4,
+                        border: 'none',
+                        background: 'rgba(0,0,0,0.06)',
+                        cursor: 'pointer',
+                        fontSize: 10,
+                        lineHeight: 1,
+                        padding: 0,
+                      }}
+                      title="เพิ่มขั้นตอน"
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* Note Content (Textarea) */}
-              <div style={{ padding: '10px 12px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '8px 10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <textarea
                   value={note.text}
                   onChange={e => updateCanvasNote(note.id, { text: e.target.value })}
-                  placeholder="พิมพ์ไอเดียของคุณที่นี่..."
+                  placeholder="พิมพ์ความคิดเห็น หรือไอเดีย Data Flow..."
                   style={{
                     width: '100%',
                     flex: 1,
-                    minHeight: 100,
+                    minHeight: 85,
                     background: 'transparent',
                     border: 'none',
                     outline: 'none',
                     resize: 'none',
                     color: theme.text,
-                    fontSize: 13,
+                    fontSize: 12.5,
                     lineHeight: 1.5,
                     fontFamily: 'inherit',
                     padding: 0,
@@ -544,17 +1019,18 @@ export default function CanvasTab() {
                 />
               </div>
 
-              {/* Note Footer: Convert to Task Button & Color Selector */}
+              {/* Note Footer: Color Dots & Action Buttons */}
               <div
                 style={{
-                  padding: '6px 10px',
+                  padding: '6px 8px',
                   borderTop: `1px solid ${theme.border}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  background: 'rgba(255, 255, 255, 0.3)',
+                  background: 'rgba(255, 255, 255, 0.4)',
                   borderBottomLeftRadius: 12,
                   borderBottomRightRadius: 12,
+                  gap: 4,
                 }}
               >
                 {/* Color Selector */}
@@ -565,8 +1041,8 @@ export default function CanvasTab() {
                       type="button"
                       onClick={() => updateCanvasNote(note.id, { color: c })}
                       style={{
-                        width: 14,
-                        height: 14,
+                        width: 13,
+                        height: 13,
                         borderRadius: '50%',
                         background: STICKY_THEMES[c].bg,
                         border: `1.5px solid ${STICKY_THEMES[c].border}`,
@@ -580,51 +1056,88 @@ export default function CanvasTab() {
                   ))}
                 </div>
 
-                {/* Convert to Task Button */}
-                {isConverted ? (
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      background: 'rgba(52, 199, 89, 0.2)',
-                      color: '#15803d',
-                      fontSize: 10.5,
-                      fontWeight: 700,
-                    }}
-                    title={convertedTask ? `งาน: ${convertedTask.title} (${convertedTask.status})` : 'แปลงเป็นงานแล้ว'}
-                  >
-                    <CheckIcon size={10} strokeWidth={3} />
-                    <span>แปลงแล้ว</span>
-                  </span>
-                ) : (
+                {/* Flow Connector & Convert Buttons */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {/* Connect Flow Button */}
                   <button
                     type="button"
-                    onClick={() => openConvertModal(note)}
-                    disabled={!note.text.trim()}
+                    onClick={() => handleNoteConnectClick(note.id)}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: 4,
-                      padding: '3px 9px',
+                      gap: 3,
+                      padding: '3px 7px',
                       borderRadius: 999,
-                      background: '#ffffff',
-                      color: theme.text,
-                      border: `1px solid ${theme.border}`,
-                      fontSize: 11,
+                      background: isConnectingSource
+                        ? '#0071e3'
+                        : connectingFromId
+                        ? 'rgba(0, 113, 227, 0.15)'
+                        : '#ffffff',
+                      color: isConnectingSource ? '#ffffff' : 'var(--pri)',
+                      border: '1px solid rgba(0, 113, 227, 0.3)',
+                      fontSize: 10.5,
                       fontWeight: 700,
-                      cursor: note.text.trim() ? 'pointer' : 'default',
-                      opacity: note.text.trim() ? 1 : 0.5,
+                      cursor: 'pointer',
                       boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                      transition: 'all 0.15s ease',
                     }}
+                    title={
+                      isConnectingSource
+                        ? 'กำลังเชื่อมต่อ (คลิกเพื่อยกเลิก)'
+                        : connectingFromId
+                        ? 'คลิกเพื่อเชื่อมต่อมาที่นี่'
+                        : 'เชื่อมต่อ Flow ไปยังโพสต์อิทอื่น'
+                    }
                   >
-                    <BoltIcon size={11} color="var(--pri)" />
-                    <span>แปลงเป็นงาน</span>
+                    <span>{isConnectingSource ? '⚡' : connectingFromId ? '➔' : '🔗'}</span>
+                    <span>{isConnectingSource ? 'ยกเลิก' : connectingFromId ? 'ต่อที่นี่' : 'เชื่อม Flow'}</span>
                   </button>
-                )}
+
+                  {/* Convert to Task Button */}
+                  {isConverted ? (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        padding: '2px 6px',
+                        borderRadius: 999,
+                        background: 'rgba(52, 199, 89, 0.2)',
+                        color: '#15803d',
+                        fontSize: 10,
+                        fontWeight: 700,
+                      }}
+                      title={convertedTask ? `งาน: ${convertedTask.title}` : 'แปลงเป็นงานแล้ว'}
+                    >
+                      <CheckIcon size={9} strokeWidth={3} />
+                      <span>แปลงแล้ว</span>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => openConvertModal(note)}
+                      disabled={!note.text.trim()}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        padding: '3px 7px',
+                        borderRadius: 999,
+                        background: '#ffffff',
+                        color: theme.text,
+                        border: `1px solid ${theme.border}`,
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        cursor: note.text.trim() ? 'pointer' : 'default',
+                        opacity: note.text.trim() ? 1 : 0.5,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                      }}
+                      title="แปลงความคิดเห็นนี้เป็นการ์ดงานจริง"
+                    >
+                      <BoltIcon size={10} color="var(--pri)" />
+                      <span>แปลงงาน</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );

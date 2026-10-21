@@ -2383,3 +2383,90 @@ tbody tr:hover td {
     break-inside: avoid;
   }
 }
+
+/* ==========================================================================
+   Data Flow SVG & Canvas Interactive Connectors
+   ========================================================================== */
+@keyframes flowDash {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.flow-line-animated {
+  stroke-dasharray: 6 5;
+  animation: flowDash 1.2s linear infinite;
+}
+
+.flow-connector-badge {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s;
+}
+.flow-connector-badge:hover {
+  transform: scale(1.1);
+}
+
+/* ==========================================================================
+   macOS Quick Action Menu Popover
+   ========================================================================== */
+.quick-menu-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 270px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  padding: 6px;
+  z-index: 100;
+  animation: quickMenuPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes quickMenuPop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.quick-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--txt);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+
+.quick-menu-item:hover {
+  background: rgba(0, 113, 227, 0.08);
+  color: var(--pri);
+}
+
+.quick-menu-item:active {
+  transform: scale(0.98);
+}
+
+.quick-menu-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 5px 6px;
+}
+
