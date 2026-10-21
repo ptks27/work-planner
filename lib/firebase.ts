@@ -739,7 +739,6 @@ export async function uploadToFirebase(
       deletedTags: data.deletedTags || [],
       notifications: data.notifications || [],
       canvasNotes: data.canvasNotes || [],
-      clientPortal: data.clientPortal || null,
       updatedAt: Date.now(),
     });
 
@@ -789,7 +788,6 @@ export async function downloadFromFirebase(
         deletedTags: val.deletedTags || [],
         notifications: val.notifications || [],
         canvasNotes: val.canvasNotes || [],
-        clientPortal: val.clientPortal || undefined,
       },
     };
   } catch (err) {
@@ -824,7 +822,6 @@ export function subscribePlannerLive(
           deletedTags: val.deletedTags || [],
           notifications: val.notifications || [],
           canvasNotes: val.canvasNotes || [],
-          clientPortal: val.clientPortal || undefined,
         });
       }
     });

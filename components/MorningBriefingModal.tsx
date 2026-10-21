@@ -423,14 +423,14 @@ export default function MorningBriefingModal({
               gap: 10,
             }}
           >
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--mut)', cursor: 'pointer' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--mut)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
               <input
                 type="checkbox"
                 checked={dontShowAgainToday}
                 onChange={e => setDontShowAgainToday(e.target.checked)}
-                style={{ accentColor: 'var(--pri)' }}
+                style={{ accentColor: 'var(--pri)', margin: 0, width: 14, height: 14 }}
               />
-              <span>ไม่แสดงหน้านี้อัตโนมัติอีกในวันนี้</span>
+              <span style={{ whiteSpace: 'nowrap' }}>ไม่แสดงหน้านี้อัตโนมัติอีกในวันนี้</span>
             </label>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

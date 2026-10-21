@@ -10,8 +10,6 @@ import CanvasTab from '@/components/CanvasTab';
 import DashboardTab from '@/components/DashboardTab';
 import SettingsTab from '@/components/SettingsTab';
 import NotificationCenter from '@/components/NotificationCenter';
-import ClientPortalModal from '@/components/ClientPortalModal';
-import ClientPortalView from '@/components/ClientPortalView';
 import MemberScorecardModal from '@/components/MemberScorecardModal';
 import SearchModal from '@/components/SearchModal';
 import EditTaskModal from '@/components/EditTaskModal';
@@ -44,7 +42,6 @@ import {
   LogOutIcon,
   ChevronDownIcon,
   UsersIcon,
-  Share2Icon,
   AwardIcon,
 } from '@/components/Icons';
 
@@ -56,10 +53,7 @@ export default function App() {
   const [isTeamMembersOpen, setIsTeamMembersOpen] = useState(false);
   const [isMorningBriefingOpen, setIsMorningBriefingOpen] = useState(false);
   const [isAchievementsOpen, setIsAchievementsOpen] = useState(false);
-  const [isClientPortalOpen, setIsClientPortalOpen] = useState(false);
-  const [isClientPortalPreview, setIsClientPortalPreview] = useState(false);
   const [isScorecardOpen, setIsScorecardOpen] = useState(false);
-  const [isStandalonePortal, setIsStandalonePortal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [reportCopied, setReportCopied] = useState(false);
   const [teamCodeCopied, setTeamCodeCopied] = useState(false);
@@ -71,12 +65,6 @@ export default function App() {
 
   useEffect(() => {
     setMounted(true);
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('portal')) {
-        setIsStandalonePortal(true);
-      }
-    }
   }, []);
 
   // โหลดรายชื่อสมาชิกในทีมเมื่อเข้าสู่ระบบ
@@ -207,15 +195,6 @@ export default function App() {
     return <div className="loading">กำลังเตรียมระบบ...</div>;
   }
 
-  // ถ้าเข้าชมผ่านลิงก์พอร์ทัลลูกค้า (?portal=xxx) ให้แสดงหน้า Client Portal ทันทีโดยไม่ต้องล็อกอิน
-  if (isStandalonePortal) {
-    return (
-      <div data-theme={s.theme || 'light'}>
-        <ClientPortalView isStandalone={true} />
-      </div>
-    );
-  }
-
   // ถ้ายังไม่ Login ให้แสดงหน้า Login / Register เป็นหน้าแรก
   if (!currentUser) {
     return (
@@ -327,17 +306,6 @@ export default function App() {
               </span>
             </button>
 
-            {/* Client Portal Button */}
-            <button
-              className="nav-action-btn"
-              onClick={() => setIsClientPortalOpen(true)}
-              title="แชร์พอร์ทัลความคืบหน้าให้ลูกค้าดู"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              <Share2Icon size={14} color="var(--pri)" />
-              <span>พอร์ทัลลูกค้า</span>
-            </button>
-
             {/* Member Scorecard Button */}
             <button
               className="nav-action-btn"
@@ -438,23 +406,6 @@ export default function App() {
         isOpen={isAchievementsOpen}
         onClose={() => setIsAchievementsOpen(false)}
       />
-
-      {isClientPortalOpen && (
-        <ClientPortalModal
-          isOpen={isClientPortalOpen}
-          onClose={() => setIsClientPortalOpen(false)}
-          onOpenPreview={() => {
-            setIsClientPortalOpen(false);
-            setIsClientPortalPreview(true);
-          }}
-        />
-      )}
-
-      {isClientPortalPreview && (
-        <ClientPortalView
-          onClose={() => setIsClientPortalPreview(false)}
-        />
-      )}
 
       {isScorecardOpen && (
         <MemberScorecardModal

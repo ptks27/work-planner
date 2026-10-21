@@ -185,18 +185,6 @@ export interface CanvasNote {
   convertedTaskId?: string; // ID ของงานที่ถูกแปลงไป
 }
 
-export interface ClientPortalSettings {
-  enabled: boolean;
-  shareKey: string;           // รหัสคีย์เฉพาะของลิงก์ เช่น 'portal-xyz123'
-  title: string;              // ชื่อโปรเจกต์ที่แสดงให้ลูกค้าเห็น
-  clientName?: string;        // ชื่อลูกค้า / บริษัท
-  welcomeMessage?: string;    // ข้อความต้อนรับ
-  password?: string;          // รหัสผ่านเข้าชม (ไม่บังคับ)
-  hideInternalComments?: boolean; // ซ่อนคอมเมนต์และโน้ตภายใน
-  showOnlyDone?: boolean;     // แสดงเฉพาะงานที่เสร็จแล้ว หรือแสดงทั้งหมด
-  updatedAt: number;
-}
-
 export interface MemberScorecard {
   memberId: string;
   memberName: string;
@@ -224,7 +212,6 @@ export interface PlannerData {
   deletedTags?: string[];
   notifications?: AppNotification[];
   canvasNotes?: CanvasNote[];
-  clientPortal?: ClientPortalSettings;
 }
 
 export const PRIORITY: Record<Priority, { label: string; color: string; order: number }> = {

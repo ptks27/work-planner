@@ -600,6 +600,13 @@ input[type=file] {
   padding: 8px;
   background: rgba(0, 0, 0, 0.03);
 }
+input[type="checkbox"], input[type="radio"] {
+  width: auto;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--pri);
+  cursor: pointer;
+}
 label {
   display: block;
   font-size: 12.5px;

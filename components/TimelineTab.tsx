@@ -257,20 +257,37 @@ export default function TimelineTab() {
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 6,
+              gap: 8,
               fontSize: 12.5,
               color: 'var(--txt)',
               cursor: 'pointer',
               marginLeft: 6,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              userSelect: 'none',
+              padding: '6px 14px',
+              borderRadius: 999,
+              background: hideDone ? 'rgba(0, 113, 227, 0.1)' : 'var(--card-solid)',
+              border: `1px solid ${hideDone ? 'var(--pri)' : 'var(--line)'}`,
+              transition: 'all 0.15s ease',
             }}
           >
             <input
               type="checkbox"
               checked={hideDone}
               onChange={e => setHideDone(e.target.checked)}
-              style={{ accentColor: 'var(--pri)' }}
+              style={{
+                width: 15,
+                height: 15,
+                accentColor: 'var(--pri)',
+                margin: 0,
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
             />
-            <span>ซ่อนงานที่เสร็จแล้ว</span>
+            <span style={{ whiteSpace: 'nowrap', fontWeight: hideDone ? 700 : 500 }}>
+              ซ่อนงานที่เสร็จแล้ว
+            </span>
           </label>
         </div>
 
