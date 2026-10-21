@@ -15,6 +15,8 @@ import type {
   TaskAssignee,
   TaskAttachment,
   AppNotification,
+  CanvasNote,
+  ClientPortalSettings,
 } from './types';
 import { uid } from './utils';
 import { DEFAULT_FIREBASE_CONFIG } from './firebaseDefaultConfig';
@@ -83,6 +85,13 @@ interface PlannerState extends PlannerData {
   addCustomTag: (tag: string) => void;
   deleteCustomTag: (tag: string) => void;
   resetDefaultTags: () => void;
+  canvasNotes: CanvasNote[];
+  addCanvasNote: (note: Omit<CanvasNote, 'id' | 'createdAt'>) => void;
+  updateCanvasNote: (id: string, patch: Partial<CanvasNote>) => void;
+  deleteCanvasNote: (id: string) => void;
+  convertNoteToTask: (noteId: string, taskData: { title: string; date: string; priority: Priority; assigneeId?: string; detail?: string }) => void;
+  clientPortal?: ClientPortalSettings;
+  updateClientPortalSettings: (patch: Partial<ClientPortalSettings>) => void;
   restore: (d: Partial<PlannerData>) => void;
 }
 
@@ -92,7 +101,7 @@ const parseVirtual = (id: string) => { const [, ruleId, date] = id.split(':'); r
 export const usePlanner = create<PlannerState>()(
   persist(
     (set, get) => ({
-      tasks: [], rules: [], events: [], customTags: [], deletedTags: [], notifications: [], notified: [], remindBefore: 10,
+      tasks: [], rules: [], events: [], customTags: [], deletedTags: [], notifications: [], canvasNotes: [], clientPortal: undefined, notified: [], remindBefore: 10,
       theme: 'light',
       setTheme: theme => set({ theme }),
       soundEnabled: true,
@@ -654,6 +663,88 @@ export const usePlanner = create<PlannerState>()(
         triggerCloudSync();
       },
 
+      addCanvasNote: note => {
+        const newNote: CanvasNote = {
+          ...note,
+          id: uid(),
+          createdAt: Date.now(),
+        };
+        set(s => ({ canvasNotes: [...(s.canvasNotes || []), newNote] }));
+        triggerCloudSync();
+      },
+
+      updateCanvasNote: (id, patch) => {
+        set(s => ({
+          canvasNotes: (s.canvasNotes || []).map(n => (n.id === id ? { ...n, ...patch } : n)),
+        }));
+        triggerCloudSync();
+      },
+
+      deleteCanvasNote: id => {
+        set(s => ({
+          canvasNotes: (s.canvasNotes || []).filter(n => n.id !== id),
+        }));
+        triggerCloudSync();
+      },
+
+      convertNoteToTask: (noteId, taskData) => {
+        const taskId = uid();
+        const newTask: Task = {
+          id: taskId,
+          title: taskData.title,
+          detail: taskData.detail || '',
+          date: taskData.date,
+          priority: taskData.priority,
+          done: false,
+          doneAt: null,
+          status: 'todo',
+          userId: taskData.assigneeId,
+          assigneeIds: taskData.assigneeId ? [taskData.assigneeId] : [],
+          tags: ['IdeaToTask'],
+          createdAt: Date.now(),
+          activities: [
+            {
+              id: uid(),
+              type: 'created',
+              userId: taskData.assigneeId || 'system',
+              userName: 'แปลงจากกระดานไอเดีย',
+              text: `สร้างงานจากการแปลงโน้ตโพสต์อิทบน Canvas`,
+              timestamp: Date.now(),
+            },
+          ],
+        };
+
+        set(s => ({
+          tasks: [newTask, ...s.tasks],
+          canvasNotes: (s.canvasNotes || []).map(n =>
+            n.id === noteId ? { ...n, convertedTaskId: taskId } : n
+          ),
+        }));
+        triggerCloudSync();
+      },
+
+      updateClientPortalSettings: patch => {
+        set(s => {
+          const current: ClientPortalSettings = s.clientPortal || {
+            enabled: false,
+            shareKey: `portal-${uid().slice(0, 8)}`,
+            title: 'โครงการและแผนงานของทีม',
+            welcomeMessage: 'ยินดีต้อนรับสู่แดชบอร์ดติดตามความคืบหน้าโครงการแบบเรียลไทม์',
+            hideInternalComments: true,
+            showOnlyDone: false,
+            updatedAt: Date.now(),
+          };
+          return {
+            clientPortal: {
+              ...current,
+              ...patch,
+              updatedAt: Date.now(),
+            },
+          };
+        });
+        triggerCloudSync();
+      },
+
       restore: d => set(s => ({
         tasks: (d.tasks ?? s.tasks).map(t => ({ ...t, priority: t.priority ?? 'medium' })), // รองรับ backup จากเวอร์ชัน HTML
         rules: d.rules ?? s.rules,
@@ -661,6 +752,8 @@ export const usePlanner = create<PlannerState>()(
         customTags: d.customTags !== undefined ? d.customTags : (s.customTags || []),
         deletedTags: d.deletedTags !== undefined ? d.deletedTags : (s.deletedTags || []),
         notifications: d.notifications !== undefined ? d.notifications : (s.notifications || []),
+        canvasNotes: d.canvasNotes !== undefined ? d.canvasNotes : (s.canvasNotes || []),
+        clientPortal: d.clientPortal !== undefined ? d.clientPortal : s.clientPortal,
       })),
     }),
     {
@@ -705,6 +798,8 @@ export const syncPlannerToFirebase = async () => {
         customTags: state.customTags || [],
         deletedTags: state.deletedTags || [],
         notifications: state.notifications || [],
+        canvasNotes: state.canvasNotes || [],
+        clientPortal: state.clientPortal,
       },
       cfg,
       user?.teamId
@@ -737,6 +832,8 @@ let previousRules = usePlanner.getState().rules;
 let previousCustomTags = usePlanner.getState().customTags;
 let previousDeletedTags = usePlanner.getState().deletedTags;
 let previousNotifications = usePlanner.getState().notifications;
+let previousCanvasNotes = usePlanner.getState().canvasNotes;
+let previousClientPortal = usePlanner.getState().clientPortal;
 
 if (typeof window !== 'undefined') {
   usePlanner.subscribe(state => {
@@ -750,7 +847,9 @@ if (typeof window !== 'undefined') {
       state.rules !== previousRules ||
       state.customTags !== previousCustomTags ||
       state.deletedTags !== previousDeletedTags ||
-      state.notifications !== previousNotifications
+      state.notifications !== previousNotifications ||
+      state.canvasNotes !== previousCanvasNotes ||
+      state.clientPortal !== previousClientPortal
     ) {
       previousTasks = state.tasks;
       previousEvents = state.events;
@@ -758,6 +857,8 @@ if (typeof window !== 'undefined') {
       previousCustomTags = state.customTags;
       previousDeletedTags = state.deletedTags;
       previousNotifications = state.notifications;
+      previousCanvasNotes = state.canvasNotes;
+      previousClientPortal = state.clientPortal;
       triggerCloudSync();
     }
   });

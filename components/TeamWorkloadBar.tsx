@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { usePlanner } from '@/lib/store';
 import { useAuth } from '@/lib/authStore';
 import { AvatarIcon } from './Avatars';
-import { UsersIcon, SparklesIcon, CheckIcon } from './Icons';
+import { UsersIcon, SparklesIcon, CheckIcon, AwardIcon } from './Icons';
 import { Task } from '@/lib/types';
+import MemberScorecardModal from './MemberScorecardModal';
 
 interface MemberWorkload {
   userId: string;
@@ -28,6 +29,7 @@ export default function TeamWorkloadBar({
 }) {
   const { tasks } = usePlanner();
   const { teamMembers, users, currentUser } = useAuth();
+  const [scorecardMemberId, setScorecardMemberId] = useState<string | null>(null);
 
   // สร้างรายชื่อสมาชิกทั้งหมด (ผสานทั้ง teamMembers, users และ currentUser แบบไม่ซ้ำ)
   const memberMap = new Map<string, { userId: string; name: string; avatarId: any; role?: string; department?: string }>();
@@ -311,12 +313,43 @@ export default function TeamWorkloadBar({
                   <span>รอทำ: <b style={{ color: 'var(--txt)' }}>{member.todoCount}</b></span>
                   <span>เสร็จแล้ว: <b style={{ color: '#34c759' }}>{member.doneCount}</b></span>
                 </div>
-                <span>รวมทั้งหมด {totalTasks} งาน</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>รวม {totalTasks} งาน</span>
+                  <button
+                    type="button"
+                    onClick={() => setScorecardMemberId(member.userId)}
+                    style={{
+                      background: 'rgba(255, 149, 0, 0.1)',
+                      border: '1px solid rgba(255, 149, 0, 0.25)',
+                      color: '#ff9500',
+                      padding: '2px 8px',
+                      borderRadius: 999,
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                    title={`ดูบัตรประเมิน KPI ของ ${member.name}`}
+                  >
+                    <AwardIcon size={11} color="#ff9500" />
+                    <span>บัตร KPI</span>
+                  </button>
+                </div>
               </div>
             </div>
           );
         })}
       </div>
+
+      {scorecardMemberId && (
+        <MemberScorecardModal
+          isOpen={true}
+          defaultMemberId={scorecardMemberId}
+          onClose={() => setScorecardMemberId(null)}
+        />
+      )}
     </div>
   );
 }

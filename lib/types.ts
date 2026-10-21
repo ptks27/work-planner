@@ -168,6 +168,54 @@ export interface PlannerEvent {
   userAvatar?: AvatarId; // รูปประจำตัวผู้ลา
 }
 
+export type StickyColor = 'yellow' | 'blue' | 'green' | 'pink' | 'purple' | 'orange';
+
+export interface CanvasNote {
+  id: string;
+  text: string;
+  color: StickyColor;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  authorId?: string;
+  authorName?: string;
+  authorAvatar?: AvatarId;
+  createdAt: number;
+  convertedTaskId?: string; // ID ของงานที่ถูกแปลงไป
+}
+
+export interface ClientPortalSettings {
+  enabled: boolean;
+  shareKey: string;           // รหัสคีย์เฉพาะของลิงก์ เช่น 'portal-xyz123'
+  title: string;              // ชื่อโปรเจกต์ที่แสดงให้ลูกค้าเห็น
+  clientName?: string;        // ชื่อลูกค้า / บริษัท
+  welcomeMessage?: string;    // ข้อความต้อนรับ
+  password?: string;          // รหัสผ่านเข้าชม (ไม่บังคับ)
+  hideInternalComments?: boolean; // ซ่อนคอมเมนต์และโน้ตภายใน
+  showOnlyDone?: boolean;     // แสดงเฉพาะงานที่เสร็จแล้ว หรือแสดงทั้งหมด
+  updatedAt: number;
+}
+
+export interface MemberScorecard {
+  memberId: string;
+  memberName: string;
+  avatarId?: AvatarId;
+  role?: string;
+  department?: string;
+  periodLabel: string;
+  totalAssigned: number;
+  totalCompleted: number;
+  completionRate: number;      // %
+  onTimeCompleted: number;
+  onTimeRate: number;          // %
+  avgTurnaroundDays: number;   // วันเฉลี่ยในการปิดงาน
+  highPriorityClosed: number;  // งานด่วนที่ปิดได้
+  currentStreak: number;       // วันติดต่อกัน
+  grade: 'A+' | 'A' | 'B+' | 'B' | 'C';
+  strengths: string[];
+}
+
 export interface PlannerData {
   tasks: Task[];
   rules: RecurringRule[];
@@ -175,6 +223,8 @@ export interface PlannerData {
   customTags?: string[];
   deletedTags?: string[];
   notifications?: AppNotification[];
+  canvasNotes?: CanvasNote[];
+  clientPortal?: ClientPortalSettings;
 }
 
 export const PRIORITY: Record<Priority, { label: string; color: string; order: number }> = {
