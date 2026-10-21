@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+
+import React, { useState } from 'react';
 import { usePlanner } from '@/lib/store';
 import { parseFirebaseConfig, getFirebaseInstance, resetFirebaseInstance } from '@/lib/firebase';
 import { DEFAULT_FIREBASE_CONFIG, DEFAULT_FIREBASE_CONFIG_OBJ } from '@/lib/firebaseDefaultConfig';
@@ -20,11 +21,12 @@ interface FirebaseConfigModalProps {
 export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigModalProps) {
   const { firebaseConfig, setFirebaseConfig } = usePlanner();
   const [customInput, setCustomInput] = useState(firebaseConfig || DEFAULT_FIREBASE_CONFIG);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showCustomConfig, setShowCustomConfig] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copiedProject, setCopiedProject] = useState(false);
+  const [copiedConfig, setCopiedConfig] = useState(false);
 
   if (!isOpen) return null;
 
@@ -50,17 +52,16 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
       if (!inst) {
         throw new Error('ไม่สามารถเริ่มต้น Firebase App ได้ กรุณาตรวจสอบ apiKey และ projectId');
       }
-      // ทดสอบการเชื่อมต่อ
       const { doc, getDoc } = await import('firebase/firestore');
       await getDoc(doc(inst.db, 'work_planner', 'ping')).catch(() => null);
       setTestResult({
         ok: true,
-        msg: `เชื่อมต่อกับ Firebase Project "${currentProject}" สำเร็จ! ซิงค์ข้อมูลทีมได้ตามปกติ`,
+        msg: `เชื่อมต่อกับ Cloud Project "${currentProject}" เรียบร้อยแล้ว พร้อมซิงค์งานในทีมอัตโนมัติ`,
       });
     } catch (err: any) {
       setTestResult({
         ok: false,
-        msg: `เชื่อมต่อไม่สำเร็จ: ${err.message || 'โปรดตรวจสอบสิทธิ์ Firestore หรืออินเทอร์เน็ต'}`,
+        msg: `เชื่อมต่อไม่สำเร็จ: ${err.message || 'โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'}`,
       });
     } finally {
       setTesting(false);
@@ -71,7 +72,6 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
     setSaveMsg(null);
     try {
       if (!customInput.trim()) {
-        // ถ้าเว้นว่างให้ใช้ Default
         setFirebaseConfig(DEFAULT_FIREBASE_CONFIG);
         setCustomInput(DEFAULT_FIREBASE_CONFIG);
         resetFirebaseInstance();
@@ -87,6 +87,7 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
       setCustomInput(formatted);
       resetFirebaseInstance();
       setSaveMsg({ ok: true, text: 'บันทึกการตั้งค่า Firebase เรียบร้อยแล้ว' });
+      setShowCustomConfig(false);
     } catch (err: any) {
       setSaveMsg({ ok: false, text: err.message || 'รูปแบบ Config ไม่ถูกต้อง' });
     }
@@ -96,41 +97,65 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
     setFirebaseConfig(DEFAULT_FIREBASE_CONFIG);
     setCustomInput(DEFAULT_FIREBASE_CONFIG);
     resetFirebaseInstance();
-    setSaveMsg({ ok: true, text: 'รีเซ็ตกลับเป็น Cloud กลาง (work-planner-9caf4) สำเร็จ' });
+    setSaveMsg({ ok: true, text: 'รีเซ็ตกลับเป็น Cloud กลาง (work-planner-9caf4) เรียบร้อย' });
     setTestResult(null);
+    setShowCustomConfig(false);
+  };
+
+  const handleCopyProject = () => {
+    navigator.clipboard.writeText(currentProject);
+    setCopiedProject(true);
+    setTimeout(() => setCopiedProject(false), 2000);
   };
 
   const handleCopyConfig = () => {
     navigator.clipboard.writeText(customInput);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedConfig(true);
+    setTimeout(() => setCopiedConfig(false), 2000);
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose} style={{ zIndex: 9999 }}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.55)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        display: 'grid',
+        placeItems: 'center',
+        padding: 16,
+        zIndex: 10000,
+        animation: 'appleFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+      }}
+    >
       <div
-        className="modal-box"
+        className="card"
         onClick={e => e.stopPropagation()}
         style={{
-          maxWidth: 560,
-          width: '94%',
-          borderRadius: 20,
-          background: 'var(--panel)',
-          border: '1px solid var(--line)',
-          boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
+          width: '100%',
+          maxWidth: 500,
+          background: 'var(--card-solid, #ffffff)',
+          borderRadius: 22,
+          boxShadow: '0 24px 70px rgba(0, 0, 0, 0.32), 0 0 0 1px var(--line)',
           overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
           padding: 0,
+          border: '1px solid var(--line)',
         }}
       >
-        {/* Modal Header */}
+        {/* Apple Window Header Bar */}
         <div
           style={{
-            padding: '18px 22px',
-            borderBottom: '1px solid var(--line)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            background: 'var(--card-solid)',
+            padding: '16px 20px',
+            borderBottom: '1px solid var(--line)',
+            background: 'rgba(120, 120, 128, 0.04)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -139,7 +164,7 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
                 width: 36,
                 height: 36,
                 borderRadius: 10,
-                background: 'rgba(0, 113, 227, 0.1)',
+                background: 'linear-gradient(135deg, rgba(0, 113, 227, 0.15), rgba(52, 199, 89, 0.15))',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -149,80 +174,182 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
               <CloudIcon size={20} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--txt)' }}>
-                การเชื่อมต่อ Firebase Cloud
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--txt)', letterSpacing: '-0.01em' }}>
+                ระบบคลาวด์ทีม (Firebase Cloud)
               </h3>
-              <small style={{ color: 'var(--mut)', fontSize: 12 }}>
-                ฐานข้อมูลคลาวด์กลางสำหรับซิงค์ข้อมูลทีมแบบ Real-time
-              </small>
+              <div style={{ color: 'var(--mut)', fontSize: 12, marginTop: 1 }}>
+                ซิงค์งานและข้อมูลทีมอัตโนมัติแบบ Real-time
+              </div>
             </div>
           </div>
+
           <button
             type="button"
             className="btn ghost sm"
             onClick={onClose}
-            style={{ borderRadius: 999, padding: '6px 8px' }}
+            aria-label="ปิดหน้าต่าง"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+              color: 'var(--mut)',
+            }}
           >
             <CloseIcon size={16} />
           </button>
         </div>
 
-        {/* Modal Content */}
-        <div style={{ padding: '20px 22px', maxHeight: '78vh', overflowY: 'auto' }}>
-          {/* Cloud Status Banner */}
+        {/* Modal Body */}
+        <div style={{ padding: '20px', maxHeight: '75vh', overflowY: 'auto' }}>
+          {/* Apple-style Inset Grouped Section */}
           <div
             style={{
-              padding: 16,
-              borderRadius: 14,
-              background: 'rgba(52, 199, 89, 0.08)',
-              border: '1px solid rgba(52, 199, 89, 0.25)',
+              background: 'rgba(120, 120, 128, 0.05)',
+              border: '1px solid var(--line)',
+              borderRadius: 16,
+              overflow: 'hidden',
               marginBottom: 16,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span
-                  style={{
-                    display: 'inline-block',
-                    width: 10,
-                    height: 10,
-                    borderRadius: '50%',
-                    background: '#34c759',
-                    boxShadow: '0 0 8px #34c759',
-                  }}
-                />
-                <span style={{ fontSize: 13.5, fontWeight: 700, color: '#34c759' }}>
-                  {isDefault ? 'Cloud กลางของระบบเปิดใช้งานอยู่' : 'เชื่อมต่อกับ Custom Firebase'}
-                </span>
-              </div>
+            {/* Row 1: Status */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 16px',
+                borderBottom: '1px solid var(--line)',
+              }}
+            >
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>
+                สถานะการเชื่อมต่อ
+              </span>
               <span
                 style={{
-                  fontSize: 11,
-                  background: 'rgba(52, 199, 89, 0.15)',
-                  color: '#34c759',
-                  padding: '2px 8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '4px 10px',
                   borderRadius: 999,
+                  background: 'rgba(52, 199, 89, 0.12)',
+                  color: '#34c759',
+                  fontSize: 12,
                   fontWeight: 600,
                 }}
               >
-                Project: {currentProject}
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: '#34c759',
+                    boxShadow: '0 0 6px #34c759',
+                  }}
+                />
+                ออนไลน์ (พร้อมใช้งาน)
               </span>
             </div>
-            <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--txt)', lineHeight: 1.5 }}>
-              สมาชิกทุกคนในทีมของคุณสามารถสมัครสมาชิกและนำ <b>รหัสทีม 6 หลัก</b> มากรอกเพื่อดึงงานและปฏิทินร่วมกันได้ทันที โดยไม่จำเป็นต้องตั้งค่า Firebase เอง
-            </p>
+
+            {/* Row 2: Project ID */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 16px',
+                borderBottom: '1px solid var(--line)',
+              }}
+            >
+              <div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>
+                  Cloud Database
+                </span>
+                <small style={{ display: 'block', fontSize: 11, color: 'var(--mut)' }}>
+                  {isDefault ? 'Cloud กลางของระบบ (แชร์อัตโนมัติ)' : 'Custom Firebase Project'}
+                </small>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyProject}
+                className="btn ghost sm"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontFamily: 'SF Mono, Menlo, monospace',
+                  fontSize: 12,
+                  background: 'var(--card-solid)',
+                  border: '1px solid var(--line)',
+                  borderRadius: 8,
+                  padding: '4px 10px',
+                }}
+                title="คลิกเพื่อคัดลอก Project ID"
+              >
+                <span>{currentProject}</span>
+                {copiedProject ? <CheckIcon size={12} color="#34c759" /> : <CopyIcon size={12} />}
+              </button>
+            </div>
+
+            {/* Row 3: Multi-device sync note */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 16px',
+              }}
+            >
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>
+                การเข้าถึงของทีม
+              </span>
+              <span style={{ fontSize: 12.5, color: 'var(--pri)', fontWeight: 600 }}>
+                ทุกเครื่องซิงค์ตรงกันทันที ⚡
+              </span>
+            </div>
           </div>
 
-          {/* Test & Actions bar */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+          {/* Friendly Guidance Card */}
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: 14,
+              background: 'rgba(0, 113, 227, 0.05)',
+              border: '1px solid rgba(0, 113, 227, 0.15)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              marginBottom: 16,
+            }}
+          >
+            <div style={{ color: 'var(--pri)', marginTop: 2, flexShrink: 0 }}>
+              <SparklesIcon size={16} />
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--txt)', lineHeight: 1.5 }}>
+              <b>ทุกคนในทีมไม่ต้องตั้งค่าอะไรเลย:</b> เมื่อคุณสร้างห้องทีมแล้ว ให้ส่งรหัส 6 หลักให้เพื่อนร่วมทีม เพื่อนเพียงสมัครสมาชิกและกรอกรหัสนั้น งานจะซิงค์ตรงกันทันทีอัตโนมัติ
+            </div>
+          </div>
+
+          {/* Test & Actions Bar */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
             <button
               type="button"
               className="btn sm"
               onClick={handleTestConnection}
               disabled={testing}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                borderRadius: 999,
+                padding: '7px 14px',
+                fontSize: 12.5,
+              }}
             >
-              <RefreshCwIcon size={14} className={testing ? 'spin' : ''} />
+              <RefreshCwIcon size={13} className={testing ? 'spin' : ''} />
               <span>{testing ? 'กำลังทดสอบ...' : 'ทดสอบการเชื่อมต่อ'}</span>
             </button>
 
@@ -230,119 +357,165 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
               type="button"
               className="btn ghost sm"
               onClick={handleCopyConfig}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                borderRadius: 999,
+                padding: '7px 14px',
+                fontSize: 12.5,
+                background: 'rgba(120, 120, 128, 0.08)',
+              }}
             >
-              {copied ? <CheckIcon size={14} color="#34c759" /> : <CopyIcon size={14} />}
-              <span>{copied ? 'คัดลอกแล้ว!' : 'คัดลอก Config JSON'}</span>
+              {copiedConfig ? <CheckIcon size={13} color="#34c759" /> : <CopyIcon size={13} />}
+              <span>{copiedConfig ? 'คัดลอก Config แล้ว' : 'คัดลอก JSON'}</span>
             </button>
 
-            {!isDefault && (
-              <button
-                type="button"
-                className="btn ghost sm"
-                onClick={handleResetDefault}
-                style={{ color: 'var(--pri)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                <SparklesIcon size={14} />
-                <span>รีเซ็ตกลับเป็น Cloud กลาง</span>
-              </button>
-            )}
+            <button
+              type="button"
+              className="btn ghost sm"
+              onClick={() => setShowCustomConfig(!showCustomConfig)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                borderRadius: 999,
+                padding: '7px 14px',
+                fontSize: 12.5,
+                marginLeft: 'auto',
+                color: 'var(--mut)',
+              }}
+            >
+              <span>{showCustomConfig ? 'ซ่อนการปรับแต่ง' : '⚙️ ปรับแต่งเอง'}</span>
+            </button>
           </div>
 
-          {/* Test connection alert result */}
+          {/* Test result alert */}
           {testResult && (
             <div
-              className={`auth-alert ${testResult.ok ? 'ok' : 'err'}`}
-              style={{ marginBottom: 16, fontSize: 12.5 }}
+              style={{
+                padding: '10px 14px',
+                borderRadius: 12,
+                fontSize: 12.5,
+                marginBottom: 14,
+                background: testResult.ok ? 'rgba(52, 199, 89, 0.1)' : 'rgba(255, 59, 48, 0.1)',
+                color: testResult.ok ? '#28a745' : '#ff3b30',
+                border: testResult.ok ? '1px solid rgba(52, 199, 89, 0.25)' : '1px solid rgba(255, 59, 48, 0.25)',
+                lineHeight: 1.45,
+              }}
             >
               {testResult.msg}
             </div>
           )}
 
-          {/* Save message */}
+          {/* Save feedback alert */}
           {saveMsg && (
             <div
-              className={`auth-alert ${saveMsg.ok ? 'ok' : 'err'}`}
-              style={{ marginBottom: 16, fontSize: 12.5 }}
+              style={{
+                padding: '10px 14px',
+                borderRadius: 12,
+                fontSize: 12.5,
+                marginBottom: 14,
+                background: saveMsg.ok ? 'rgba(52, 199, 89, 0.1)' : 'rgba(255, 59, 48, 0.1)',
+                color: saveMsg.ok ? '#28a745' : '#ff3b30',
+                border: saveMsg.ok ? '1px solid rgba(52, 199, 89, 0.25)' : '1px solid rgba(255, 59, 48, 0.25)',
+                lineHeight: 1.45,
+              }}
             >
               {saveMsg.text}
             </div>
           )}
 
-          {/* Accordion Toggle for Custom Config */}
-          <div
-            style={{
-              borderTop: '1px solid var(--line)',
-              paddingTop: 14,
-              marginTop: 10,
-            }}
-          >
-            <button
-              type="button"
-              className="btn ghost sm block"
-              onClick={() => setShowAdvanced(!showAdvanced)}
+          {/* Expandable Custom Firebase Project Section */}
+          {showCustomConfig && (
+            <div
               style={{
-                width: '100%',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '8px 10px',
-                borderRadius: 10,
-                fontSize: 12.5,
+                marginTop: 10,
+                padding: 16,
+                borderRadius: 14,
+                background: 'rgba(120, 120, 128, 0.05)',
+                border: '1px solid var(--line)',
+                animation: 'appleScaleUp 0.15s ease',
               }}
             >
-              <span style={{ fontWeight: 600 }}>⚙️ ปรับแต่ง Firebase Config ด้วยตนเอง (ขั้นสูง)</span>
-              <span>{showAdvanced ? '▲ ซ่อน' : '▼ ดู/แก้ไข'}</span>
-            </button>
-
-            {showAdvanced && (
-              <div style={{ marginTop: 12 }}>
-                <p style={{ fontSize: 12, color: 'var(--mut)', margin: '0 0 8px' }}>
-                  หากทีมของคุณต้องการแยกฐานข้อมูล Firebase Firestore เป็นของตัวเอง สามารถนำ Config JSON มาวางและบันทึกได้ที่นี่:
-                </p>
-                <textarea
-                  rows={6}
-                  value={customInput}
-                  onChange={e => setCustomInput(e.target.value)}
-                  placeholder={`{\n  "apiKey": "...",\n  "projectId": "..."\n}`}
-                  style={{
-                    fontFamily: 'SF Mono, Menlo, monospace',
-                    fontSize: 11.5,
-                    lineHeight: 1.5,
-                    width: '100%',
-                    padding: 10,
-                    borderRadius: 10,
-                    background: 'var(--bg)',
-                    border: '1px solid var(--line)',
-                  }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <b style={{ fontSize: 13, color: 'var(--txt)' }}>กำหนด Firebase Config ของคุณเอง:</b>
+                {!isDefault && (
                   <button
                     type="button"
-                    className="btn sm"
-                    onClick={handleSave}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    onClick={handleResetDefault}
+                    className="btn ghost sm"
+                    style={{ fontSize: 11.5, color: 'var(--pri)', padding: '2px 8px' }}
                   >
-                    <CheckIcon size={14} />
-                    <span>บันทึกการเปลี่ยนแปลง</span>
+                    คืนค่า Cloud กลาง
                   </button>
-                </div>
+                )}
               </div>
-            )}
-          </div>
+              <textarea
+                rows={5}
+                value={customInput}
+                onChange={e => setCustomInput(e.target.value)}
+                placeholder={`{\n  "apiKey": "...",\n  "projectId": "..."\n}`}
+                style={{
+                  fontFamily: 'SF Mono, Menlo, monospace',
+                  fontSize: 11.5,
+                  lineHeight: 1.5,
+                  width: '100%',
+                  padding: 10,
+                  borderRadius: 10,
+                  background: 'var(--card-solid)',
+                  border: '1px solid var(--line)',
+                  color: 'var(--txt)',
+                  boxSizing: 'border-box',
+                }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
+                <button
+                  type="button"
+                  className="btn ok sm"
+                  onClick={handleSave}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    borderRadius: 999,
+                    padding: '6px 14px',
+                    fontSize: 12,
+                  }}
+                >
+                  <CheckIcon size={13} />
+                  <span>บันทึกการเปลี่ยนแปลง</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Footer */}
         <div
           style={{
-            padding: '12px 22px',
+            padding: '14px 20px',
             borderTop: '1px solid var(--line)',
-            background: 'var(--card-solid)',
+            background: 'rgba(120, 120, 128, 0.03)',
             display: 'flex',
-            justifyContent: 'flex-end',
+            alignItems: 'center',
+            justifyContent: 'space-between',
           }}
         >
-          <button type="button" className="btn ok sm" onClick={onClose}>
+          <small style={{ color: 'var(--mut)', fontSize: 11.5 }}>
+            เชื่อมต่อกับ Google Firebase Firestore
+          </small>
+          <button
+            type="button"
+            className="btn ok"
+            onClick={onClose}
+            style={{
+              borderRadius: 999,
+              padding: '8px 22px',
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
             เข้าใจแล้ว
           </button>
         </div>

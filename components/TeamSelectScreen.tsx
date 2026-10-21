@@ -87,12 +87,9 @@ export default function TeamSelectScreen() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: 7,
-              background: 'rgba(52, 199, 89, 0.09)',
-              border: '1px solid rgba(52, 199, 89, 0.25)',
-              color: '#34c759',
-              fontSize: 12,
-              fontWeight: 600,
-              padding: '5px 12px',
+              background: 'rgba(52, 199, 89, 0.08)',
+              border: '1px solid rgba(52, 199, 89, 0.22)',
+              padding: '4px 12px',
               borderRadius: 999,
               cursor: 'pointer',
               transition: 'all 0.15s ease',
@@ -101,16 +98,22 @@ export default function TeamSelectScreen() {
           >
             <span
               style={{
-                width: 7,
-                height: 7,
+                width: 6,
+                height: 6,
                 borderRadius: '50%',
                 background: '#34c759',
                 boxShadow: '0 0 6px #34c759',
               }}
             />
-            <span style={{ color: 'var(--txt)' }}>Cloud ซิงค์ทีมอัตโนมัติ</span>
-            <span style={{ fontSize: 11, opacity: 0.7, color: 'var(--mut)' }}>(work-planner-9caf4)</span>
-            <span style={{ fontSize: 11, color: 'var(--pri)', marginLeft: 2 }}>⚙️ ตั้งค่า</span>
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: '#34c759' }}>
+              Cloud ซิงค์ทีมอัตโนมัติ
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--mut)', fontFamily: 'SF Mono, Menlo, monospace' }}>
+              (work-planner-9caf4)
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--pri)', fontWeight: 600, marginLeft: 2 }}>
+              ตั้งค่า &rsaquo;
+            </span>
           </button>
         </div>
 
