@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import { usePlanner, setSyncingFromCloud } from '@/lib/store';
 import { useAuth } from '@/lib/authStore';
 import { useModal } from '@/components/ModalContext';
-import { parseFirebaseConfig, resetFirebaseInstance } from '@/lib/firebase';
 import { DEFAULT_FIREBASE_CONFIG } from '@/lib/firebaseDefaultConfig';
+import FirebaseConfigModal from './FirebaseConfigModal';
 import { AvatarIcon } from './Avatars';
 import {
   BellIcon,
@@ -39,9 +39,9 @@ export default function SettingsTab() {
   const { showAlert, showConfirm } = useModal();
   const { currentUser, currentTeam } = useAuth();
 
-  const [cfgInput, setCfgInput] = useState(s.firebaseConfig || '');
   const [syncStatus, setSyncStatus] = useState<string>('');
   const [syncing, setSyncing] = useState(false);
+  const [isFirebaseModalOpen, setIsFirebaseModalOpen] = useState(false);
 
   const ask = async () => {
     if (!supported) return showAlert('แจ้งเตือน', 'เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน');
@@ -60,41 +60,8 @@ export default function SettingsTab() {
     });
   };
 
-  const handleSaveFirebaseConfig = () => {
-    try {
-      if (!cfgInput.trim()) {
-        s.setFirebaseConfig(DEFAULT_FIREBASE_CONFIG);
-        setCfgInput(DEFAULT_FIREBASE_CONFIG);
-        resetFirebaseInstance();
-        showAlert('สำเร็จ', 'คืนค่าเป็น Cloud กลาง (work-planner-9caf4) เรียบร้อย');
-        return;
-      }
-      const parsed = parseFirebaseConfig(cfgInput);
-      if (!parsed || !parsed.apiKey || !parsed.projectId) {
-        throw new Error('Missing apiKey or projectId');
-      }
-      const formatted = JSON.stringify(parsed, null, 2);
-      s.setFirebaseConfig(formatted);
-      setCfgInput(formatted);
-      resetFirebaseInstance();
-      showAlert('สำเร็จ', 'บันทึกการตั้งค่า Firebase Config เรียบร้อย');
-    } catch {
-      showAlert(
-        'ข้อผิดพลาด',
-        'รูปแบบ Firebase Config ไม่ถูกต้อง กรุณาคัดลอกข้อมูล firebaseConfig JSON มาวางใหม่'
-      );
-    }
-  };
-
-  const handleResetDefaultFirebase = () => {
-    s.setFirebaseConfig(DEFAULT_FIREBASE_CONFIG);
-    setCfgInput(DEFAULT_FIREBASE_CONFIG);
-    resetFirebaseInstance();
-    showAlert('สำเร็จ', 'รีเซ็ตกลับเป็น Cloud กลาง (work-planner-9caf4) เรียบร้อย');
-  };
-
   const handleUploadCloud = async () => {
-    if (!s.firebaseConfig) return showAlert('แจ้งเตือน', 'กรุณาใส่ Firebase Config ก่อน');
+    const cfg = s.firebaseConfig || DEFAULT_FIREBASE_CONFIG;
     setSyncing(true);
     setSyncStatus('กำลังอัปโหลดข้อมูล...');
     const { uploadToFirebase } = await import('@/lib/firebase');
@@ -106,7 +73,7 @@ export default function SettingsTab() {
         customTags: s.customTags || [],
         deletedTags: s.deletedTags || [],
       },
-      s.firebaseConfig,
+      cfg,
       currentUser?.teamId
     );
     setSyncing(false);
@@ -120,7 +87,7 @@ export default function SettingsTab() {
   };
 
   const handleDownloadCloud = async () => {
-    if (!s.firebaseConfig) return showAlert('แจ้งเตือน', 'กรุณาใส่ Firebase Config ก่อน');
+    const cfg = s.firebaseConfig || DEFAULT_FIREBASE_CONFIG;
     showConfirm(
       'ดึงข้อมูลจาก Cloud',
       'ข้อมูลในเครื่องปัจจุบันจะถูกแทนที่ด้วยข้อมูลจาก Firebase Cloud ยืนยันไหม?',
@@ -128,7 +95,7 @@ export default function SettingsTab() {
         setSyncing(true);
         setSyncStatus('กำลังดาวน์โหลดข้อมูล...');
         const { downloadFromFirebase } = await import('@/lib/firebase');
-        const res = await downloadFromFirebase(s.firebaseConfig, currentUser?.teamId);
+        const res = await downloadFromFirebase(cfg, currentUser?.teamId);
         setSyncing(false);
         if (res.success && res.data) {
           setSyncingFromCloud(true);
@@ -404,118 +371,119 @@ export default function SettingsTab() {
         </div>
       </div>
 
-      {/* Cloud Sync Database (Firebase Firestore) Section */}
-      <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid var(--line)', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <CloudIcon size={18} color="var(--pri)" strokeWidth={2.5} />
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>
-              ระบบคลาวด์ทีมแบบ Real-time (Firebase Cloud)
-            </h3>
-          </div>
-          <span
+      {/* Cloud Sync Database (Apple Clean Status Bar) */}
+      <div
+        className="card"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 14,
+          padding: '16px 20px',
+          borderRadius: 18,
+          background: 'var(--card-solid)',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 260 }}>
+          <div
             style={{
-              fontSize: 11.5,
-              fontWeight: 600,
-              padding: '3px 10px',
-              borderRadius: 999,
-              background: s.firebaseConfig ? 'rgba(52, 199, 89, 0.12)' : 'rgba(120, 120, 128, 0.08)',
-              color: s.firebaseConfig ? '#34c759' : 'var(--mut)',
-              border: s.firebaseConfig ? '1px solid rgba(52, 199, 89, 0.25)' : '1px solid var(--line)',
-            }}
-          >
-            {s.firebaseConfig ? '● เชื่อมต่อ Cloud สำเร็จ' : '○ ยังไม่ได้เชื่อมต่อ'}
-          </span>
-        </div>
-
-        <p style={{ fontSize: 13, color: 'var(--mut)', margin: '0 0 12px' }}>
-          เชื่อมต่อกับ Firebase เพื่อซิงค์งาน วันหยุด วันลา และข้อมูลทีมทั้งหมดแบบ Real-time ข้ามอุปกรณ์
-        </p>
-
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 12, marginBottom: 6 }}>วางข้อมูล Firebase Config JSON ของคุณ:</label>
-          <textarea
-            rows={5}
-            placeholder={`{\n  "apiKey": "AIzaSy...",\n  "authDomain": "your-app.firebaseapp.com",\n  "projectId": "your-project-id",\n  "storageBucket": "...",\n  "messagingSenderId": "...",\n  "appId": "..."\n}`}
-            value={cfgInput}
-            onChange={e => setCfgInput(e.target.value)}
-            style={{
-              fontFamily: 'SF Mono, Menlo, monospace',
-              fontSize: 12,
+              width: 40,
+              height: 40,
               borderRadius: 12,
-              padding: 12,
-              lineHeight: 1.5,
+              background: 'rgba(52, 199, 89, 0.12)',
+              color: '#34c759',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
             }}
-          />
+          >
+            <CloudIcon size={22} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)' }}>
+                Cloud Database:
+              </span>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '3px 10px',
+                  borderRadius: 999,
+                  background: 'rgba(52, 199, 89, 0.12)',
+                  color: '#34c759',
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    background: '#34c759',
+                    boxShadow: '0 0 6px #34c759',
+                  }}
+                />
+                เชื่อมต่อ work-planner-9caf4 แล้ว (ซิงค์อัตโนมัติ)
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--mut)', marginTop: 3 }}>
+              ระบบซิงค์งาน วันหยุด และข้อมูลทีมให้อัตโนมัติแบบ Real-time ข้ามอุปกรณ์
+            </div>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             type="button"
-            className="btn"
-            onClick={handleSaveFirebaseConfig}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 999 }}
-          >
-            <CheckIcon size={14} />
-            <span>บันทึก Firebase Config</span>
-          </button>
-          <button
-            type="button"
-            className="btn ok"
+            className="btn ok sm"
             onClick={handleUploadCloud}
             disabled={syncing}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 999 }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              borderRadius: 999,
+              padding: '7px 16px',
+              fontSize: 12.5,
+              fontWeight: 600,
+            }}
           >
-            <CloudUploadIcon size={14} />
-            <span>ซิงค์ขึ้น Cloud ทันที</span>
+            <CloudUploadIcon size={14} className={syncing ? 'spin' : ''} />
+            <span>{syncing ? 'กำลังซิงค์...' : '🔄 ซิงค์ทันที'}</span>
           </button>
+
           <button
             type="button"
-            className="btn ghost"
-            onClick={handleDownloadCloud}
-            disabled={syncing}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 999 }}
+            className="btn ghost sm"
+            onClick={() => setIsFirebaseModalOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              borderRadius: 999,
+              padding: '7px 16px',
+              fontSize: 12.5,
+              fontWeight: 600,
+              background: 'rgba(120, 120, 128, 0.08)',
+            }}
           >
-            <CloudDownloadIcon size={14} />
-            <span>ดึงข้อมูลจาก Cloud</span>
+            <SettingsIcon size={13} />
+            <span>⚙️ จัดการการเชื่อมต่อ</span>
           </button>
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={handleResetDefaultFirebase}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 999, color: 'var(--pri)' }}
-          >
-            <SparklesIcon size={14} />
-            <span>รีเซ็ตเป็น Cloud กลาง</span>
-          </button>
-        </div>
-
-        {syncStatus && (
-          <p style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: 'var(--pri)' }}>
-            สถานะ: {syncStatus}
-          </p>
-        )}
-
-        <div
-          style={{
-            marginTop: 16,
-            padding: '12px 16px',
-            borderRadius: 14,
-            background: 'rgba(120, 120, 128, 0.04)',
-            border: '1px solid var(--line)',
-          }}
-        >
-          <b style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--txt)', marginBottom: 6 }}>
-            <SparklesIcon size={15} color="var(--pri)" />
-            <span>ขั้นตอนการขอ Firebase Config ฟรี (ไม่มีค่าใช้จ่าย):</span>
-          </b>
-          <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--mut)', lineHeight: 1.6 }}>
-            <li>เข้าเว็บไซต์ <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" style={{ color: 'var(--pri)', fontWeight: 600 }}>console.firebase.google.com</a> แล้วกด <b>Create a project</b></li>
-            <li>ไปที่เมนู <b>Firestore Database</b> &gt; กด <b>Create database</b> (เลือกโหมด Test mode)</li>
-            <li>ไปที่ <b>Project settings</b> &gt; General &gt; Your apps &gt; Add app (Web) &gt; คัดลอกโค้ด <code>firebaseConfig</code> มาวางในช่องด้านบน</li>
-          </ol>
         </div>
       </div>
+
+      <FirebaseConfigModal
+        isOpen={isFirebaseModalOpen}
+        onClose={() => setIsFirebaseModalOpen(false)}
+      />
     </div>
   );
 }
