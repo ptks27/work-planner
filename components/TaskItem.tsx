@@ -20,6 +20,8 @@ import { playCompletionSound, triggerConfetti } from '@/lib/audio';
 import { AvatarIcon } from './Avatars';
 import { useAuth } from '@/lib/authStore';
 import ImageLightboxModal from './ImageLightboxModal';
+import { canUserEditTaskDirectly } from '@/lib/permissions';
+import { sendTaskEditRequest } from '@/lib/notifications';
 
 export default function TaskItem({
   t,
@@ -30,7 +32,7 @@ export default function TaskItem({
   onEdit?: (t: Task) => void;
   showDate?: boolean;
 }) {
-  const { users, currentUser } = useAuth();
+  const { users, currentUser, currentTeam } = useAuth();
   const [quickSubtask, setQuickSubtask] = useState('');
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [isAddingLink, setIsAddingLink] = useState(false);
@@ -57,10 +59,41 @@ export default function TaskItem({
   const del = usePlanner(s => s.deleteTask);
   const soundEnabled = usePlanner(s => s.soundEnabled);
   const tasks = usePlanner(s => s.tasks);
-  const { showConfirm } = useModal();
+  const { showConfirm, showAlert } = useModal();
   const p = PRIORITY[t.priority];
 
   const handleToggle = () => {
+    // ถ้าไม่ใช่หัวห้อง และไม่ใช่งานของตนเอง ต้องส่งคำขอแก้ไขสถานะไปยังเจ้าของงาน
+    if (!canUserEditTaskDirectly(currentUser, currentTeam, t)) {
+      const nextDone = !t.done;
+      const statusLabel = nextDone ? 'เสร็จสิ้น' : 'รอทำ';
+      showConfirm(
+        'ขอสิทธิ์เปลี่ยนสถานะงาน',
+        `งานนี้เป็นของคุณ ${t.userName || 'สมาชิกคนอื่น'} คุณต้องการส่งคำขอเปลี่ยนสถานะเป็น "${statusLabel}" ไปยังเจ้าของงานใช่หรือไม่?`,
+        () => {
+          if (!currentUser) return;
+          sendTaskEditRequest({
+            task: t,
+            proposedPatch: {
+              done: nextDone,
+              status: nextDone ? 'done' : 'todo',
+            },
+            requestNote: `ขอทำเครื่องหมายงานเป็น "${statusLabel}"`,
+            actor: {
+              id: currentUser.id,
+              name: currentUser.name,
+              avatarId: currentUser.avatarId,
+            },
+          });
+          showAlert(
+            'ส่งคำขอเรียบร้อยแล้ว',
+            `คำขอเปลี่ยนสถานะถูกส่งไปยังกล่องข้อความเตือนของ ${t.userName || 'เจ้าของงาน'} เรียบร้อยแล้ว เมื่อได้รับการอนุมัติ งานจะถูกปรับสถานะทันที`
+          );
+        }
+      );
+      return;
+    }
+
     if (!t.done) {
       if (soundEnabled) playCompletionSound();
       // Check if this was the last remaining unfinished task of the date
@@ -78,6 +111,10 @@ export default function TaskItem({
   };
 
   const handleToggleSubtask = (stId: string, currentDone: boolean) => {
+    if (!canUserEditTaskDirectly(currentUser, currentTeam, t)) {
+      showAlert('ไม่มีสิทธิ์แก้ไขงานนี้', 'เฉพาะเจ้าของงานหรือหัวห้องเท่านั้นที่สามารถปรับสถานะงานย่อยได้');
+      return;
+    }
     if (!currentDone && soundEnabled) {
       playCompletionSound();
     }
@@ -85,12 +122,20 @@ export default function TaskItem({
   };
 
   const handleAddQuickSubtask = () => {
+    if (!canUserEditTaskDirectly(currentUser, currentTeam, t)) {
+      showAlert('ไม่มีสิทธิ์แก้ไขงานนี้', 'เฉพาะเจ้าของงานหรือหัวห้องเท่านั้นที่สามารถเพิ่มงานย่อยได้ หากต้องการเสนอ ให้เปิดดูงานและส่งคำขอแก้ไข');
+      return;
+    }
     if (!quickSubtask.trim()) return;
     addSub(t.id, quickSubtask.trim());
     setQuickSubtask('');
   };
 
   const handleAddQuickLink = () => {
+    if (!canUserEditTaskDirectly(currentUser, currentTeam, t)) {
+      showAlert('ไม่มีสิทธิ์แก้ไขงานนี้', 'เฉพาะเจ้าของงานหรือหัวห้องเท่านั้นที่สามารถแนบลิงก์ได้');
+      return;
+    }
     if (!linkUrl.trim()) return;
     addLink(t.id, { url: linkUrl.trim(), title: linkTitle.trim() || undefined });
     setLinkUrl('');
@@ -99,6 +144,10 @@ export default function TaskItem({
   };
 
   const onDelete = () => {
+    if (!canUserEditTaskDirectly(currentUser, currentTeam, t)) {
+      showAlert('ไม่มีสิทธิ์ลบงานนี้', 'เฉพาะเจ้าของงานหรือหัวห้องเท่านั้นที่สามารถลบงานนี้ได้');
+      return;
+    }
     const isVirtual = t.id.startsWith('r:');
     const msg = isVirtual
       ? 'ข้ามงานประจำนี้เฉพาะวันนี้ใช่ไหม?'

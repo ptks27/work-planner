@@ -1,6 +1,7 @@
-import { AppNotification, AvatarId, Task, TaskStatus } from './types';
+import { AppNotification, AvatarId, Task, TaskStatus, Priority } from './types';
 import { usePlanner } from './store';
 import { useAuth } from './authStore';
+import { getTaskOwnerUserIds } from './permissions';
 
 /**
  * ดึงชื่อที่ถูก @Mention ในข้อความคอมเมนต์ เช่น "@สมชาย ช่วยดูงานนี้ที @มินท์"
@@ -142,4 +143,98 @@ export function formatRelativeTime(timestamp: number): string {
 
   const d = new Date(timestamp);
   return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear() + 543}`;
+}
+
+/**
+ * สรุปรายการเปลี่ยนแปลงที่เสนอมาใน proposedPatch เป็นข้อความอ่านง่าย
+ */
+export function formatPatchSummary(patch?: Partial<Omit<Task, 'id'>>): string[] {
+  if (!patch) return [];
+  const items: string[] = [];
+
+  if (patch.status) {
+    const statusLabel =
+      patch.status === 'done' ? 'เสร็จสิ้น' : patch.status === 'in_progress' ? 'กำลังทำ' : 'รอทำ';
+    items.push(`สถานะ ➔ ${statusLabel}`);
+  }
+  if (patch.priority) {
+    const pLabel =
+      patch.priority === 'high' ? 'สูง' : patch.priority === 'medium' ? 'ปานกลาง' : 'ต่ำ';
+    items.push(`ความสำคัญ ➔ ${pLabel}`);
+  }
+  if (patch.title) {
+    items.push(`ชื่อ ➔ "${patch.title.length > 20 ? patch.title.slice(0, 20) + '...' : patch.title}"`);
+  }
+  if (patch.date) {
+    items.push(`วันที่ ➔ ${patch.date}`);
+  }
+  if (patch.endDate) {
+    items.push(`สิ้นสุด ➔ ${patch.endDate}`);
+  }
+  if (patch.detail !== undefined) {
+    items.push(`รายละเอียด`);
+  }
+  if (patch.subtasks) {
+    items.push(`งานย่อย (${patch.subtasks.length} ข้อ)`);
+  }
+  if (patch.attachments) {
+    items.push(`ไฟล์แนบ (${patch.attachments.length} ไฟล์)`);
+  }
+  if (patch.tags && patch.tags.length > 0) {
+    items.push(`แท็ก: ${patch.tags.slice(0, 2).join(', ')}${patch.tags.length > 2 ? '...' : ''}`);
+  }
+
+  return items;
+}
+
+/**
+ * ส่งคำขอแก้ไขงานไปยังเจ้าของงาน / ผู้รับผิดชอบงาน
+ */
+export function sendTaskEditRequest({
+  task,
+  proposedPatch,
+  requestNote,
+  actor,
+}: {
+  task: Task;
+  proposedPatch: Partial<Omit<Task, 'id'>>;
+  requestNote?: string;
+  actor: { id: string; name: string; avatarId?: AvatarId };
+}) {
+  let targetUserIds = getTaskOwnerUserIds(task).filter(id => id !== actor.id);
+
+  // หากไม่มีเจ้าของงานที่เป็นคนอื่น ให้ส่งไปหาหัวห้องแทน
+  if (targetUserIds.length === 0) {
+    const { currentTeam } = useAuth.getState();
+    if (currentTeam?.createdBy && currentTeam.createdBy !== actor.id) {
+      targetUserIds.push(currentTeam.createdBy);
+    }
+  }
+
+  // ส่งการแจ้งเตือนไปยังทุกคนที่เป็นเจ้าของ/ผู้รับผิดชอบงาน
+  targetUserIds.forEach(targetUserId => {
+    usePlanner.getState().addNotification({
+      type: 'edit_request',
+      taskId: task.id,
+      taskTitle: task.title,
+      targetUserId,
+      actorId: actor.id,
+      actorName: actor.name,
+      actorAvatar: actor.avatarId,
+      text: 'ได้ส่งคำขอแก้ไขงานนี้',
+      proposedPatch,
+      requestStatus: 'pending',
+      requestNote: requestNote?.trim() || undefined,
+    });
+  });
+
+  // บันทึกกิจกรรมลงในการ์ดงาน
+  const noteSnippet = requestNote?.trim() ? `: "${requestNote.trim()}"` : '';
+  usePlanner.getState().addTaskActivity(task.id, {
+    type: 'edit',
+    userId: actor.id,
+    userName: actor.name,
+    userAvatar: actor.avatarId,
+    text: `ส่งคำขอแก้ไขงาน${noteSnippet}`,
+  });
 }

@@ -8,6 +8,9 @@ import { EditIcon, ChevronLeftIcon, ChevronRightIcon, CalendarIcon, ClockIcon, P
 import { playCompletionSound, triggerConfetti } from '@/lib/audio';
 import { AvatarIcon } from './Avatars';
 import { useAuth } from '@/lib/authStore';
+import { useModal } from './ModalContext';
+import { canUserEditTaskDirectly } from '@/lib/permissions';
+import { sendTaskEditRequest } from '@/lib/notifications';
 
 interface WeeklyViewProps {
   currentDate: string;
@@ -27,15 +30,52 @@ export default function WeeklyView({ currentDate, onEditTask }: WeeklyViewProps)
   const monday = addDays(curr, diff);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
+  const { showConfirm, showAlert } = useModal();
+  const { currentUser, currentTeam, users } = useAuth();
+
   const handleToggle = (task: Task) => {
+    // ถ้าไม่ใช่หัวห้อง และไม่ใช่งานของตนเอง ต้องส่งคำขอแก้ไขสถานะไปยังเจ้าของงาน
+    if (!canUserEditTaskDirectly(currentUser, currentTeam, task)) {
+      const nextDone = !task.done;
+      const statusLabel = nextDone ? 'เสร็จสิ้น' : 'รอทำ';
+      showConfirm(
+        'ขอสิทธิ์เปลี่ยนสถานะงาน',
+        `งานนี้เป็นของคุณ ${task.userName || 'สมาชิกคนอื่น'} คุณต้องการส่งคำขอเปลี่ยนสถานะเป็น "${statusLabel}" ไปยังเจ้าของงานใช่หรือไม่?`,
+        () => {
+          if (!currentUser) return;
+          sendTaskEditRequest({
+            task,
+            proposedPatch: {
+              done: nextDone,
+              status: nextDone ? 'done' : 'todo',
+            },
+            requestNote: `ขอเปลี่ยนสถานะเป็น "${statusLabel}"`,
+            actor: {
+              id: currentUser.id,
+              name: currentUser.name,
+              avatarId: currentUser.avatarId,
+            },
+          });
+          showAlert(
+            'ส่งคำขอเรียบร้อยแล้ว',
+            `คำขอเปลี่ยนสถานะถูกส่งไปยังกล่องข้อความเตือนของ ${task.userName || 'เจ้าของงาน'} เรียบร้อยแล้ว เมื่อได้รับการอนุมัติ งานจะถูกปรับสถานะทันที`
+          );
+        }
+      );
+      return;
+    }
+
     if (!task.done) {
       if (s.soundEnabled) playCompletionSound();
       triggerConfetti();
     }
-    s.toggleTask(task.id);
+    s.toggleTask(
+      task.id,
+      currentUser
+        ? { id: currentUser.id, name: currentUser.name, avatarId: currentUser.avatarId }
+        : undefined
+    );
   };
-
-  const { currentUser, users } = useAuth();
 
   const handleQuickAdd = (dateStr: string) => {
     const val = quickInput[dateStr]?.trim();

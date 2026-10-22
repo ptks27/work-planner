@@ -5,7 +5,7 @@ import { usePlanner } from '@/lib/store';
 import { useAuth } from '@/lib/authStore';
 import { AvatarIcon } from './Avatars';
 import { AppNotification, Task } from '@/lib/types';
-import { formatRelativeTime } from '@/lib/notifications';
+import { formatRelativeTime, formatPatchSummary } from '@/lib/notifications';
 import {
   BellIcon,
   CloseIcon,
@@ -32,6 +32,7 @@ export default function NotificationCenter({ onOpenTask }: NotificationCenterPro
     markNotificationRead,
     markAllNotificationsRead,
     clearNotifications,
+    respondToEditRequest,
   } = usePlanner();
 
   // กรองเฉพาะการแจ้งเตือนที่ส่งถึง currentUser
@@ -131,6 +132,72 @@ export default function NotificationCenter({ onOpenTask }: NotificationCenterPro
             }}
           >
             ⚡
+          </span>
+        );
+      case 'edit_request':
+        return (
+          <span
+            style={{
+              position: 'absolute',
+              bottom: -2,
+              right: -2,
+              width: 16,
+              height: 16,
+              borderRadius: '50%',
+              background: '#af52de',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 9,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+            }}
+          >
+            📝
+          </span>
+        );
+      case 'edit_approved':
+        return (
+          <span
+            style={{
+              position: 'absolute',
+              bottom: -2,
+              right: -2,
+              width: 16,
+              height: 16,
+              borderRadius: '50%',
+              background: '#34c759',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 9,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+            }}
+          >
+            ✓
+          </span>
+        );
+      case 'edit_rejected':
+        return (
+          <span
+            style={{
+              position: 'absolute',
+              bottom: -2,
+              right: -2,
+              width: 16,
+              height: 16,
+              borderRadius: '50%',
+              background: '#ff3b30',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 9,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+            }}
+          >
+            ✕
           </span>
         );
     }
@@ -373,6 +440,157 @@ export default function NotificationCenter({ onOpenTask }: NotificationCenterPro
                     >
                       📌 {item.taskTitle}
                     </div>
+
+                    {/* Note if edit_request */}
+                    {item.requestNote && (
+                      <div
+                        style={{
+                          marginTop: 4,
+                          padding: '4px 8px',
+                          borderRadius: 6,
+                          background: 'rgba(175, 82, 222, 0.08)',
+                          border: '1px solid rgba(175, 82, 222, 0.2)',
+                          fontSize: 11,
+                          color: 'var(--txt)',
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        💬 &ldquo;{item.requestNote}&rdquo;
+                      </div>
+                    )}
+
+                    {/* Proposed changes summary chips */}
+                    {item.type === 'edit_request' && item.proposedPatch && (
+                      <div
+                        style={{
+                          marginTop: 4,
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: 4,
+                        }}
+                      >
+                        {formatPatchSummary(item.proposedPatch).map((summary, idx) => (
+                          <span
+                            key={idx}
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              padding: '1px 6px',
+                              borderRadius: 4,
+                              background: 'rgba(0, 113, 227, 0.08)',
+                              border: '1px solid rgba(0, 113, 227, 0.2)',
+                              color: 'var(--pri)',
+                            }}
+                          >
+                            {summary}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Action buttons for edit_request */}
+                    {item.type === 'edit_request' && (
+                      <div
+                        style={{
+                          marginTop: 6,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        {item.requestStatus === 'pending' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={e => {
+                                e.stopPropagation();
+                                respondToEditRequest(item.id, true, {
+                                  id: currentUser?.id || 'owner',
+                                  name: currentUser?.name || 'หัวหน้า/เจ้าของงาน',
+                                  avatarId: currentUser?.avatarId,
+                                });
+                              }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                padding: '4px 10px',
+                                borderRadius: 999,
+                                background: '#34c759',
+                                color: '#ffffff',
+                                border: 'none',
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(52, 199, 89, 0.3)',
+                              }}
+                              title="อนุมัติและปรับปรุงงานนี้ทันที"
+                            >
+                              <CheckIcon size={12} strokeWidth={2.5} /> อนุญาต
+                            </button>
+                            <button
+                              type="button"
+                              onClick={e => {
+                                e.stopPropagation();
+                                respondToEditRequest(item.id, false, {
+                                  id: currentUser?.id || 'owner',
+                                  name: currentUser?.name || 'หัวหน้า/เจ้าของงาน',
+                                  avatarId: currentUser?.avatarId,
+                                });
+                              }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                padding: '4px 10px',
+                                borderRadius: 999,
+                                background: 'rgba(120, 120, 128, 0.15)',
+                                color: 'var(--txt)',
+                                border: 'none',
+                                fontSize: 11,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                              }}
+                              title="ปฏิเสธคำขอนี้"
+                            >
+                              <CloseIcon size={12} /> ปฏิเสธ
+                            </button>
+                          </>
+                        ) : item.requestStatus === 'approved' ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: '2px 8px',
+                              borderRadius: 999,
+                              background: 'rgba(52, 199, 89, 0.12)',
+                              color: '#34c759',
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                            }}
+                          >
+                            ✓ อนุมัติแล้ว
+                          </span>
+                        ) : item.requestStatus === 'rejected' ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: '2px 8px',
+                              borderRadius: 999,
+                              background: 'rgba(255, 59, 48, 0.12)',
+                              color: '#ff3b30',
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                            }}
+                          >
+                            ✕ ปฏิเสธแล้ว
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
 
                     <div style={{ fontSize: 10.5, color: 'var(--mut)', marginTop: 4 }}>
                       {formatRelativeTime(item.createdAt)}

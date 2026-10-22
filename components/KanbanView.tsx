@@ -23,6 +23,8 @@ import { playCompletionSound, triggerConfetti } from '@/lib/audio';
 import { AvatarIcon } from './Avatars';
 import { useAuth } from '@/lib/authStore';
 import ThaiDatePicker from './ThaiDatePicker';
+import { canUserEditTaskDirectly } from '@/lib/permissions';
+import { sendTaskEditRequest } from '@/lib/notifications';
 
 interface KanbanViewProps {
   currentDate: string;
@@ -33,7 +35,8 @@ export default function KanbanView({ currentDate, onEditTask }: KanbanViewProps)
   const s = usePlanner();
   const [filterDate, setFilterDate] = useState<string>(currentDate);
   const [newTitle, setNewTitle] = useState('');
-  const { showConfirm } = useModal();
+  const { showConfirm, showAlert } = useModal();
+  const { currentUser, currentTeam, users } = useAuth();
 
   const COLUMNS: { key: TaskStatus; label: string; icon: React.ReactNode; color: string }[] = [
     { key: 'todo', label: 'รอทำ', icon: <FileTextIcon size={15} color="#64748b" />, color: '#64748b' },
@@ -53,20 +56,62 @@ export default function KanbanView({ currentDate, onEditTask }: KanbanViewProps)
   };
 
   const handleMove = (task: Task, nextStatus: TaskStatus) => {
+    const currentStatus: TaskStatus = task.status ?? (task.done ? 'done' : 'todo');
+    if (currentStatus === nextStatus) return;
+
+    // ถ้าไม่ใช่หัวห้อง และไม่ใช่งานของตัวเอง ต้องส่งคำขอแก้ไขไปยังเจ้าของงาน
+    if (!canUserEditTaskDirectly(currentUser, currentTeam, task)) {
+      const statusLabel =
+        nextStatus === 'done' ? 'เสร็จสิ้น' : nextStatus === 'in_progress' ? 'กำลังทำ' : 'รอทำ';
+      showConfirm(
+        'ขอสิทธิ์เปลี่ยนสถานะงาน',
+        `งานนี้เป็นของคุณ ${task.userName || 'สมาชิกคนอื่น'} คุณต้องการส่งคำขอเปลี่ยนสถานะเป็น "${statusLabel}" ไปยังเจ้าของงานใช่หรือไม่?`,
+        () => {
+          if (!currentUser) return;
+          sendTaskEditRequest({
+            task,
+            proposedPatch: {
+              status: nextStatus,
+              done: nextStatus === 'done',
+            },
+            requestNote: `ขอเปลี่ยนสถานะงานเป็น "${statusLabel}"`,
+            actor: {
+              id: currentUser.id,
+              name: currentUser.name,
+              avatarId: currentUser.avatarId,
+            },
+          });
+          showAlert(
+            'ส่งคำขอเรียบร้อยแล้ว',
+            `คำขอเปลี่ยนสถานะถูกส่งไปยังกล่องข้อความเตือนของ ${task.userName || 'เจ้าของงาน'} เรียบร้อยแล้ว เมื่อได้รับการอนุมัติ งานจะถูกปรับสถานะทันที`
+          );
+        }
+      );
+      return;
+    }
+
     if (nextStatus === 'done' && !task.done) {
       if (s.soundEnabled) playCompletionSound();
       triggerConfetti();
     }
-    s.updateTaskStatus(task.id, nextStatus);
+    s.updateTaskStatus(
+      task.id,
+      nextStatus,
+      currentUser
+        ? { id: currentUser.id, name: currentUser.name, avatarId: currentUser.avatarId }
+        : undefined
+    );
   };
 
   const handleDelete = (t: Task) => {
+    if (!canUserEditTaskDirectly(currentUser, currentTeam, t)) {
+      showAlert('ไม่มีสิทธิ์ลบงานนี้', 'เฉพาะเจ้าของงานหรือหัวห้องเท่านั้นที่สามารถลบงานนี้ได้');
+      return;
+    }
     showConfirm('ยืนยันการลบ', `ต้องการลบ "${t.title}" ใช่ไหม?`, () => {
       s.deleteTask(t.id);
     });
   };
-
-  const { currentUser, users } = useAuth();
 
   const handleQuickAdd = () => {
     if (!newTitle.trim()) return;

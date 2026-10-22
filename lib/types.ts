@@ -77,9 +77,17 @@ export interface TaskAttachment {
   createdAt: number;
 }
 
+export type NotificationType =
+  | 'mention'
+  | 'assigned'
+  | 'status_change'
+  | 'edit_request'
+  | 'edit_approved'
+  | 'edit_rejected';
+
 export interface AppNotification {
   id: string;
-  type: 'mention' | 'assigned' | 'status_change';
+  type: NotificationType;
   taskId: string;
   taskTitle: string;
   targetUserId: string; // ผู้รับการแจ้งเตือน
@@ -89,6 +97,10 @@ export interface AppNotification {
   text: string;
   createdAt: number;
   read: boolean;
+  // สำหรับระบบขอสิทธิ์แก้ไขงานของคนอื่น
+  proposedPatch?: Partial<Omit<Task, 'id'>>;
+  requestStatus?: 'pending' | 'approved' | 'rejected';
+  requestNote?: string;
 }
 
 export interface TaskComment {

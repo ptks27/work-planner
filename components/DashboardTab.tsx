@@ -27,6 +27,9 @@ import {
 import ThaiDatePicker from './ThaiDatePicker';
 import ExecutiveReportModal from './ExecutiveReportModal';
 import TeamWorkloadBar from './TeamWorkloadBar';
+import { useModal } from './ModalContext';
+import { canUserEditTaskDirectly } from '@/lib/permissions';
+import { sendTaskEditRequest } from '@/lib/notifications';
 
 const MODE_TITLE: Record<Mode, string> = {
   day: 'สรุปงานรายวัน',
@@ -48,9 +51,49 @@ const APPLE_TAG_COLORS = [
 
 export default function DashboardTab() {
   const s = usePlanner();
-  const { users, currentUser } = useAuth();
+  const { users, currentUser, currentTeam } = useAuth();
+  const { showConfirm, showAlert } = useModal();
   const today = useToday();
   const [mode, setMode] = useState<Mode>('week');
+
+  const handleToggleTask = (t: any) => {
+    if (!canUserEditTaskDirectly(currentUser, currentTeam, t)) {
+      const nextDone = !t.done;
+      const statusLabel = nextDone ? 'เสร็จสิ้น' : 'รอทำ';
+      showConfirm(
+        'ขอสิทธิ์เปลี่ยนสถานะงาน',
+        `งานนี้เป็นของคุณ ${t.userName || 'สมาชิกคนอื่น'} คุณต้องการส่งคำขอเปลี่ยนสถานะเป็น "${statusLabel}" ไปยังเจ้าของงานใช่หรือไม่?`,
+        () => {
+          if (!currentUser) return;
+          sendTaskEditRequest({
+            task: t,
+            proposedPatch: {
+              done: nextDone,
+              status: nextDone ? 'done' : 'todo',
+            },
+            requestNote: `ขอเปลี่ยนสถานะเป็น "${statusLabel}"`,
+            actor: {
+              id: currentUser.id,
+              name: currentUser.name,
+              avatarId: currentUser.avatarId,
+            },
+          });
+          showAlert(
+            'ส่งคำขอเรียบร้อยแล้ว',
+            `คำขอเปลี่ยนสถานะถูกส่งไปยังกล่องข้อความเตือนของ ${t.userName || 'เจ้าของงาน'} เรียบร้อยแล้ว เมื่อได้รับการอนุมัติ งานจะถูกปรับสถานะทันที`
+          );
+        }
+      );
+      return;
+    }
+
+    s.toggleTask(
+      t.id,
+      currentUser
+        ? { id: currentUser.id, name: currentUser.name, avatarId: currentUser.avatarId }
+        : undefined
+    );
+  };
   const [date, setDate] = useState(today);
   const [activeTagFilter, setActiveTagFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'done'>('all');
@@ -1006,14 +1049,7 @@ export default function DashboardTab() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
                             <button
                               type="button"
-                              onClick={() =>
-                                s.toggleTask(
-                                  t.id,
-                                  currentUser
-                                    ? { id: currentUser.id, name: currentUser.name, avatarId: currentUser.avatarId }
-                                    : undefined
-                                )
-                              }
+                              onClick={() => handleToggleTask(t)}
                               style={{
                                 background: 'transparent',
                                 border: 'none',

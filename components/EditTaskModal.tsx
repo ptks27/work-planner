@@ -38,7 +38,13 @@ import ThaiDatePicker from './ThaiDatePicker';
 import SmartSubtasksModal from './SmartSubtasksModal';
 import ImageLightboxModal from './ImageLightboxModal';
 import { compressImageFile, getImageFilesFromClipboard, formatFileSize } from '@/lib/attachments';
-import { notifyMentionsInComment, notifyTaskAssignment, notifyTaskStatusChange } from '@/lib/notifications';
+import {
+  notifyMentionsInComment,
+  notifyTaskAssignment,
+  notifyTaskStatusChange,
+  sendTaskEditRequest,
+} from '@/lib/notifications';
+import { canUserEditTaskDirectly } from '@/lib/permissions';
 
 interface EditTaskModalProps {
   task: Task | null;
@@ -49,9 +55,11 @@ interface EditTaskModalProps {
 type ModalTab = 'details' | 'comments' | 'activity';
 
 export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
-  const { users, currentUser } = useAuth();
+  const { users, currentUser, currentTeam } = useAuth();
   const planner = usePlanner();
-  const { showConfirm } = useModal();
+  const { showConfirm, showAlert } = useModal();
+  const canEditDirectly = !task ? true : canUserEditTaskDirectly(currentUser, currentTeam, task);
+  const [requestNote, setRequestNote] = useState('');
   const [activeTab, setActiveTab] = useState<ModalTab>('details');
   const [title, setTitle] = useState('');
   const [detail, setDetail] = useState('');
@@ -266,6 +274,46 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
 
     const primaryAssignee = assignees[0];
 
+    // หากไม่มีสิทธิ์แก้ไขโดยตรง ให้ส่งเป็นคำขอแก้ไข (Edit Request) ไปยังเจ้าของงาน
+    if (!canEditDirectly) {
+      if (!currentUser) return;
+      sendTaskEditRequest({
+        task,
+        proposedPatch: {
+          title: title.trim(),
+          detail: detail.trim(),
+          date,
+          endDate: endDate && endDate > date ? endDate : undefined,
+          priority,
+          status,
+          done: status === 'done',
+          subtasks,
+          attachments,
+          time: time || undefined,
+          userId: primaryAssignee?.id,
+          userName: primaryAssignee?.name,
+          userAvatar: primaryAssignee?.avatarId,
+          assigneeIds: assignedUserIds,
+          assignees,
+          tags,
+          links: task.links,
+        },
+        requestNote: requestNote.trim() || undefined,
+        actor: {
+          id: currentUser.id,
+          name: currentUser.name,
+          avatarId: currentUser.avatarId,
+        },
+      });
+
+      showAlert(
+        'ส่งคำขอแก้ไขเรียบร้อยแล้ว',
+        `คำขอของคุณถูกส่งไปยังกล่องการแจ้งเตือนของ ${task.userName || 'เจ้าของงาน'} เรียบร้อยแล้ว เมื่อได้รับการอนุมัติ งานจะถูกอัปเดตให้อัตโนมัติ`
+      );
+      onClose();
+      return;
+    }
+
     // แจ้งเตือนเมื่อมีการมอบหมายงานใหม่
     const previousAssignees = task.assigneeIds || (task.userId ? [task.userId] : []);
     const newlyAssigned = assignedUserIds.filter(id => !previousAssignees.includes(id));
@@ -441,6 +489,31 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
             paddingBottom: 16,
           }}
         >
+          {!canEditDirectly && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                padding: '12px 14px',
+                borderRadius: 14,
+                background: 'rgba(255, 149, 0, 0.08)',
+                border: '1px solid rgba(255, 149, 0, 0.25)',
+                marginBottom: 14,
+              }}
+            >
+              <div style={{ fontSize: 20, lineHeight: 1, marginTop: 1 }}>🔒</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
+                  โหมดส่งคำขอแก้ไข (งานของผู้อื่น)
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--mut)', marginTop: 2, lineHeight: 1.4 }}>
+                  งานนี้เป็นของคุณ <b>{task.userName || 'สมาชิกคนอื่น'}</b> • คุณสามารถระบุสิ่งที่ต้องการปรับเปลี่ยน และส่งคำขอไปยังเจ้าของงานเพื่อรอการอนุมัติได้ (หัวห้องเท่านั้นที่มีสิทธิ์แก้ไขได้โดยตรง)
+                </div>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div
               style={{
@@ -483,6 +556,29 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
                   onChange={e => setDetail(e.target.value)}
                 />
               </div>
+
+              {!canEditDirectly && (
+                <div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--txt)' }}>
+                    <span>💬 เหตุผลหรือข้อความถึงเจ้าของงาน (ไม่บังคับ)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="เช่น ขอเลื่อนเดดไลน์เป็นวันศุกร์, ทำส่วนนี้เสร็จแล้วขอเปลี่ยนสถานะ"
+                    value={requestNote}
+                    onChange={e => setRequestNote(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 10,
+                      border: '1px solid var(--line)',
+                      background: 'var(--card-solid)',
+                      fontSize: 13,
+                      color: 'var(--txt)',
+                    }}
+                  />
+                </div>
+              )}
 
               {/* Multiple Assignees Selector */}
               <div>
@@ -1319,9 +1415,24 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
           <button
             className="btn"
             onClick={handleSave}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: !canEditDirectly ? '#af52de' : undefined,
+              borderColor: !canEditDirectly ? '#af52de' : undefined,
+              color: '#ffffff',
+            }}
           >
-            <CheckIcon size={14} /> บันทึกการแก้ไข
+            {!canEditDirectly ? (
+              <>
+                <span style={{ fontSize: 14 }}>📨</span> ส่งคำขอแก้ไขไปยังเจ้าของงาน
+              </>
+            ) : (
+              <>
+                <CheckIcon size={14} /> บันทึกการแก้ไข
+              </>
+            )}
           </button>
         </div>
       </div>

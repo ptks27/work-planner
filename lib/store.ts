@@ -74,6 +74,11 @@ interface PlannerState extends PlannerData {
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: (userId?: string) => void;
   clearNotifications: (userId?: string) => void;
+  respondToEditRequest: (
+    notificationId: string,
+    approved: boolean,
+    responder: { id: string; name: string; avatarId?: AvatarId }
+  ) => void;
   addRule: (r: Omit<RecurringRule, 'id' | 'skips'>) => void;
   deleteRule: (id: string) => void;
   addEvents: (list: Omit<PlannerEvent, 'id'>[]) => void;
@@ -437,6 +442,97 @@ export const usePlanner = create<PlannerState>()(
           ? (s.notifications || []).filter(n => n.targetUserId !== targetUserId)
           : [],
       })),
+
+      respondToEditRequest: (notificationId, approved, responder) => {
+        let proposedPatchToApply: Partial<Omit<Task, 'id'>> | null = null;
+        let targetTaskId: string | null = null;
+        let targetTaskTitle = '';
+        let requesterId = '';
+        let requesterName = '';
+
+        set(s => {
+          const notif = (s.notifications || []).find(n => n.id === notificationId);
+          if (!notif || notif.type !== 'edit_request' || notif.requestStatus !== 'pending') {
+            return {};
+          }
+
+          requesterId = notif.actorId;
+          requesterName = notif.actorName;
+          targetTaskId = notif.taskId;
+          targetTaskTitle = notif.taskTitle;
+
+          const updatedNotifications = (s.notifications || []).map(n => {
+            if (n.id === notificationId) {
+              return {
+                ...n,
+                requestStatus: (approved ? 'approved' : 'rejected') as 'approved' | 'rejected',
+                read: true,
+              };
+            }
+            return n;
+          });
+
+          if (approved && notif.proposedPatch) {
+            proposedPatchToApply = notif.proposedPatch;
+          }
+
+          return { notifications: updatedNotifications };
+        });
+
+        const s = get();
+        if (approved && targetTaskId && proposedPatchToApply) {
+          s.updateTask(targetTaskId, proposedPatchToApply, {
+            id: responder.id,
+            name: responder.name,
+            avatarId: responder.avatarId,
+          });
+
+          s.addTaskActivity(targetTaskId, {
+            type: 'edit',
+            userId: responder.id,
+            userName: responder.name,
+            userAvatar: responder.avatarId,
+            text: `อนุมัติคำขอแก้ไขงานจากคุณ ${requesterName || 'สมาชิก'}`,
+          });
+
+          if (requesterId && requesterId !== responder.id) {
+            s.addNotification({
+              type: 'edit_approved',
+              taskId: targetTaskId,
+              taskTitle: targetTaskTitle,
+              targetUserId: requesterId,
+              actorId: responder.id,
+              actorName: responder.name,
+              actorAvatar: responder.avatarId,
+              text: `ได้อนุมัติคำขอแก้ไขงานของคุณแล้ว ข้อมูลงานได้รับการอัปเดตเรียบร้อย`,
+            });
+          }
+        } else if (!approved && targetTaskId) {
+          s.addTaskActivity(targetTaskId, {
+            type: 'edit',
+            userId: responder.id,
+            userName: responder.name,
+            userAvatar: responder.avatarId,
+            text: `ปฏิเสธคำขอแก้ไขงานจากคุณ ${requesterName || 'สมาชิก'}`,
+          });
+
+          if (requesterId && requesterId !== responder.id) {
+            s.addNotification({
+              type: 'edit_rejected',
+              taskId: targetTaskId,
+              taskTitle: targetTaskTitle,
+              targetUserId: requesterId,
+              actorId: responder.id,
+              actorName: responder.name,
+              actorAvatar: responder.avatarId,
+              text: `ได้ปฏิเสธคำขอแก้ไขงานของคุณ`,
+            });
+          }
+        }
+
+        triggerCloudSync();
+        syncPlannerToFirebase();
+      },
 
       updateTask: (id, patch, actor) => set(s => {
         if (id.startsWith('r:')) {
