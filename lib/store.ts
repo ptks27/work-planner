@@ -18,6 +18,8 @@ import type {
   CanvasNote,
   CanvasConnection,
   CanvasBoard,
+  CanvasStroke,
+  CanvasSection,
 } from './types';
 import { uid } from './utils';
 import { DEFAULT_FIREBASE_CONFIG } from './firebaseDefaultConfig';
@@ -94,6 +96,8 @@ interface PlannerState extends PlannerData {
   canvasNotes: CanvasNote[];
   canvasConnections: CanvasConnection[];
   canvasBoards: CanvasBoard[];
+  canvasStrokes: CanvasStroke[];
+  canvasSections: CanvasSection[];
   activeBoardId: string;
   addCanvasNote: (note: Omit<CanvasNote, 'id' | 'createdAt'>) => void;
   updateCanvasNote: (id: string, patch: Partial<CanvasNote>) => void;
@@ -102,6 +106,13 @@ interface PlannerState extends PlannerData {
   deleteCanvasConnection: (id: string) => void;
   autoLayoutDataFlow: () => void;
   setCanvasData: (notes: CanvasNote[], connections: CanvasConnection[]) => void;
+  addCanvasStroke: (stroke: Omit<CanvasStroke, 'id' | 'createdAt'>) => void;
+  deleteCanvasStroke: (id: string) => void;
+  undoLastStroke: () => void;
+  clearCanvasStrokes: () => void;
+  addCanvasSection: (section: Omit<CanvasSection, 'id' | 'createdAt'>) => void;
+  updateCanvasSection: (id: string, patch: Partial<CanvasSection>) => void;
+  deleteCanvasSection: (id: string) => void;
   createCanvasBoard: (title?: string) => string;
   switchCanvasBoard: (boardId: string) => void;
   renameCanvasBoard: (boardId: string, title: string) => void;
@@ -118,7 +129,9 @@ const updateActiveBoardInList = (
   boards: CanvasBoard[],
   activeId: string,
   notes: CanvasNote[],
-  connections: CanvasConnection[]
+  connections: CanvasConnection[],
+  strokes?: CanvasStroke[],
+  sections?: CanvasSection[]
 ): CanvasBoard[] => {
   const list = boards && boards.length > 0 ? [...boards] : [];
   const idx = list.findIndex(b => b.id === activeId);
@@ -127,6 +140,8 @@ const updateActiveBoardInList = (
       ...list[idx],
       notes,
       connections,
+      strokes: strokes !== undefined ? strokes : (list[idx].strokes || []),
+      sections: sections !== undefined ? sections : (list[idx].sections || []),
       updatedAt: Date.now(),
     };
   } else {
@@ -135,6 +150,8 @@ const updateActiveBoardInList = (
       title: 'กระดานเริ่มต้น (Main Flow)',
       notes,
       connections,
+      strokes: strokes || [],
+      sections: sections || [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -145,7 +162,7 @@ const updateActiveBoardInList = (
 export const usePlanner = create<PlannerState>()(
   persist(
     (set, get) => ({
-      tasks: [], rules: [], events: [], customTags: [], deletedTags: [], notifications: [], canvasNotes: [], canvasConnections: [], canvasBoards: [], activeBoardId: 'default-board', notified: [], remindBefore: 10,
+      tasks: [], rules: [], events: [], customTags: [], deletedTags: [], notifications: [], canvasNotes: [], canvasConnections: [], canvasBoards: [], canvasStrokes: [], canvasSections: [], activeBoardId: 'default-board', notified: [], remindBefore: 10,
       theme: 'light',
       setTheme: theme => set({ theme }),
       soundEnabled: true,
@@ -812,7 +829,9 @@ export const usePlanner = create<PlannerState>()(
               s.canvasBoards || [],
               s.activeBoardId || 'default-board',
               newNotes,
-              s.canvasConnections || []
+              s.canvasConnections || [],
+              s.canvasStrokes || [],
+              s.canvasSections || []
             ),
           };
         });
@@ -829,7 +848,9 @@ export const usePlanner = create<PlannerState>()(
               s.canvasBoards || [],
               s.activeBoardId || 'default-board',
               newNotes,
-              s.canvasConnections || []
+              s.canvasConnections || [],
+              s.canvasStrokes || [],
+              s.canvasSections || []
             ),
           };
         });
@@ -847,7 +868,9 @@ export const usePlanner = create<PlannerState>()(
               s.canvasBoards || [],
               s.activeBoardId || 'default-board',
               newNotes,
-              newConns
+              newConns,
+              s.canvasStrokes || [],
+              s.canvasSections || []
             ),
           };
         });
@@ -873,7 +896,9 @@ export const usePlanner = create<PlannerState>()(
               s.canvasBoards || [],
               s.activeBoardId || 'default-board',
               s.canvasNotes || [],
-              newConns
+              newConns,
+              s.canvasStrokes || [],
+              s.canvasSections || []
             ),
           };
         });
@@ -890,7 +915,9 @@ export const usePlanner = create<PlannerState>()(
               s.canvasBoards || [],
               s.activeBoardId || 'default-board',
               s.canvasNotes || [],
-              newConns
+              newConns,
+              s.canvasStrokes || [],
+              s.canvasSections || []
             ),
           };
         });
@@ -951,9 +978,154 @@ export const usePlanner = create<PlannerState>()(
             s.canvasBoards || [],
             s.activeBoardId || 'default-board',
             notes,
-            connections
+            connections,
+            s.canvasStrokes || [],
+            s.canvasSections || []
           ),
         }));
+        triggerCloudSync();
+        syncPlannerToFirebase();
+      },
+
+      addCanvasStroke: stroke => {
+        const newStroke: CanvasStroke = {
+          ...stroke,
+          id: uid(),
+          createdAt: Date.now(),
+        };
+        set(s => {
+          const newStrokes = [...(s.canvasStrokes || []), newStroke];
+          return {
+            canvasStrokes: newStrokes,
+            canvasBoards: updateActiveBoardInList(
+              s.canvasBoards || [],
+              s.activeBoardId || 'default-board',
+              s.canvasNotes || [],
+              s.canvasConnections || [],
+              newStrokes,
+              s.canvasSections || []
+            ),
+          };
+        });
+        triggerCloudSync();
+        syncPlannerToFirebase();
+      },
+
+      deleteCanvasStroke: id => {
+        set(s => {
+          const newStrokes = (s.canvasStrokes || []).filter(st => st.id !== id);
+          return {
+            canvasStrokes: newStrokes,
+            canvasBoards: updateActiveBoardInList(
+              s.canvasBoards || [],
+              s.activeBoardId || 'default-board',
+              s.canvasNotes || [],
+              s.canvasConnections || [],
+              newStrokes,
+              s.canvasSections || []
+            ),
+          };
+        });
+        triggerCloudSync();
+        syncPlannerToFirebase();
+      },
+
+      undoLastStroke: () => {
+        set(s => {
+          const current = s.canvasStrokes || [];
+          if (current.length === 0) return s;
+          const newStrokes = current.slice(0, current.length - 1);
+          return {
+            canvasStrokes: newStrokes,
+            canvasBoards: updateActiveBoardInList(
+              s.canvasBoards || [],
+              s.activeBoardId || 'default-board',
+              s.canvasNotes || [],
+              s.canvasConnections || [],
+              newStrokes,
+              s.canvasSections || []
+            ),
+          };
+        });
+        triggerCloudSync();
+        syncPlannerToFirebase();
+      },
+
+      clearCanvasStrokes: () => {
+        set(s => ({
+          canvasStrokes: [],
+          canvasBoards: updateActiveBoardInList(
+            s.canvasBoards || [],
+            s.activeBoardId || 'default-board',
+            s.canvasNotes || [],
+            s.canvasConnections || [],
+            [],
+            s.canvasSections || []
+          ),
+        }));
+        triggerCloudSync();
+        syncPlannerToFirebase();
+      },
+
+      addCanvasSection: section => {
+        const newSection: CanvasSection = {
+          ...section,
+          id: uid(),
+          createdAt: Date.now(),
+        };
+        set(s => {
+          const newSections = [...(s.canvasSections || []), newSection];
+          return {
+            canvasSections: newSections,
+            canvasBoards: updateActiveBoardInList(
+              s.canvasBoards || [],
+              s.activeBoardId || 'default-board',
+              s.canvasNotes || [],
+              s.canvasConnections || [],
+              s.canvasStrokes || [],
+              newSections
+            ),
+          };
+        });
+        triggerCloudSync();
+        syncPlannerToFirebase();
+      },
+
+      updateCanvasSection: (id, patch) => {
+        set(s => {
+          const newSections = (s.canvasSections || []).map(sec =>
+            sec.id === id ? { ...sec, ...patch } : sec
+          );
+          return {
+            canvasSections: newSections,
+            canvasBoards: updateActiveBoardInList(
+              s.canvasBoards || [],
+              s.activeBoardId || 'default-board',
+              s.canvasNotes || [],
+              s.canvasConnections || [],
+              s.canvasStrokes || [],
+              newSections
+            ),
+          };
+        });
+        triggerCloudSync();
+      },
+
+      deleteCanvasSection: id => {
+        set(s => {
+          const newSections = (s.canvasSections || []).filter(sec => sec.id !== id);
+          return {
+            canvasSections: newSections,
+            canvasBoards: updateActiveBoardInList(
+              s.canvasBoards || [],
+              s.activeBoardId || 'default-board',
+              s.canvasNotes || [],
+              s.canvasConnections || [],
+              s.canvasStrokes || [],
+              newSections
+            ),
+          };
+        });
         triggerCloudSync();
         syncPlannerToFirebase();
       },
@@ -965,7 +1137,9 @@ export const usePlanner = create<PlannerState>()(
           s.canvasBoards || [],
           s.activeBoardId || 'default-board',
           s.canvasNotes || [],
-          s.canvasConnections || []
+          s.canvasConnections || [],
+          s.canvasStrokes || [],
+          s.canvasSections || []
         );
         const count = savedBoards.length + 1;
         const newBoard: CanvasBoard = {
@@ -973,6 +1147,8 @@ export const usePlanner = create<PlannerState>()(
           title: title?.trim() || `Flow ใหม่ #${count}`,
           notes: [],
           connections: [],
+          strokes: [],
+          sections: [],
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
@@ -980,6 +1156,8 @@ export const usePlanner = create<PlannerState>()(
           activeBoardId: newId,
           canvasNotes: [],
           canvasConnections: [],
+          canvasStrokes: [],
+          canvasSections: [],
           canvasBoards: [...savedBoards, newBoard],
         });
         triggerCloudSync();
@@ -995,7 +1173,9 @@ export const usePlanner = create<PlannerState>()(
           s.canvasBoards || [],
           s.activeBoardId || 'default-board',
           s.canvasNotes || [],
-          s.canvasConnections || []
+          s.canvasConnections || [],
+          s.canvasStrokes || [],
+          s.canvasSections || []
         );
 
         const target = savedBoards.find(b => b.id === boardId);
@@ -1004,6 +1184,8 @@ export const usePlanner = create<PlannerState>()(
             activeBoardId: boardId,
             canvasNotes: target.notes || [],
             canvasConnections: target.connections || [],
+            canvasStrokes: target.strokes || [],
+            canvasSections: target.sections || [],
             canvasBoards: savedBoards,
           });
         } else {
@@ -1037,6 +1219,8 @@ export const usePlanner = create<PlannerState>()(
             title: 'กระดานเริ่มต้น (Main Flow)',
             notes: [],
             connections: [],
+            strokes: [],
+            sections: [],
             createdAt: Date.now(),
             updatedAt: Date.now(),
           };
@@ -1044,6 +1228,8 @@ export const usePlanner = create<PlannerState>()(
             activeBoardId: newId,
             canvasNotes: [],
             canvasConnections: [],
+            canvasStrokes: [],
+            canvasSections: [],
             canvasBoards: [defaultBoard],
           });
         } else if (s.activeBoardId === boardId) {
@@ -1052,6 +1238,8 @@ export const usePlanner = create<PlannerState>()(
             activeBoardId: next.id,
             canvasNotes: next.notes || [],
             canvasConnections: next.connections || [],
+            canvasStrokes: next.strokes || [],
+            canvasSections: next.sections || [],
             canvasBoards: remaining,
           });
         } else {
@@ -1084,12 +1272,26 @@ export const usePlanner = create<PlannerState>()(
           toId: idMap.get(c.toId) || c.toId,
         }));
 
+        const duplicatedStrokes: CanvasStroke[] = (target.strokes || []).map(st => ({
+          ...st,
+          id: uid(),
+          createdAt: Date.now(),
+        }));
+
+        const duplicatedSections: CanvasSection[] = (target.sections || []).map(sec => ({
+          ...sec,
+          id: uid(),
+          createdAt: Date.now(),
+        }));
+
         const newId = uid();
         const clonedBoard: CanvasBoard = {
           id: newId,
           title: `${target.title} (สำเนา)`,
           notes: duplicatedNotes,
           connections: duplicatedConnections,
+          strokes: duplicatedStrokes,
+          sections: duplicatedSections,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
@@ -1099,6 +1301,8 @@ export const usePlanner = create<PlannerState>()(
           activeBoardId: newId,
           canvasNotes: duplicatedNotes,
           canvasConnections: duplicatedConnections,
+          canvasStrokes: duplicatedStrokes,
+          canvasSections: duplicatedSections,
           canvasBoards: updatedBoards,
         });
         triggerCloudSync();
@@ -1147,21 +1351,27 @@ export const usePlanner = create<PlannerState>()(
         let activeId = d.activeBoardId || s.activeBoardId || 'default-board';
         let notes = d.canvasNotes !== undefined ? d.canvasNotes : (s.canvasNotes || []);
         let connections = d.canvasConnections !== undefined ? d.canvasConnections : (s.canvasConnections || []);
+        let strokes = d.canvasStrokes !== undefined ? d.canvasStrokes : (s.canvasStrokes || []);
+        let sections = d.canvasSections !== undefined ? d.canvasSections : (s.canvasSections || []);
 
-        if (boards.length === 0 && (notes.length > 0 || connections.length > 0)) {
+        if (boards.length === 0 && (notes.length > 0 || connections.length > 0 || strokes.length > 0 || sections.length > 0)) {
           boards = [{
             id: activeId,
             title: 'กระดานเริ่มต้น (Main Flow)',
             notes,
             connections,
+            strokes,
+            sections,
             createdAt: Date.now(),
             updatedAt: Date.now(),
           }];
-        } else if (boards.length > 0 && notes.length === 0 && connections.length === 0) {
+        } else if (boards.length > 0 && notes.length === 0 && connections.length === 0 && strokes.length === 0 && sections.length === 0) {
           const currentBoard = boards.find(b => b.id === activeId) || boards[0];
           if (currentBoard) {
             notes = currentBoard.notes || [];
             connections = currentBoard.connections || [];
+            strokes = currentBoard.strokes || [];
+            sections = currentBoard.sections || [];
             activeId = currentBoard.id;
           }
         }
@@ -1176,6 +1386,8 @@ export const usePlanner = create<PlannerState>()(
           canvasNotes: notes,
           canvasConnections: connections,
           canvasBoards: boards,
+          canvasStrokes: strokes,
+          canvasSections: sections,
           activeBoardId: activeId,
         };
       }),
@@ -1225,6 +1437,8 @@ export const syncPlannerToFirebase = async () => {
         canvasNotes: state.canvasNotes || [],
         canvasConnections: state.canvasConnections || [],
         canvasBoards: state.canvasBoards || [],
+        canvasStrokes: state.canvasStrokes || [],
+        canvasSections: state.canvasSections || [],
         activeBoardId: state.activeBoardId || 'default-board',
       },
       cfg,
@@ -1261,6 +1475,8 @@ let previousNotifications = usePlanner.getState().notifications;
 let previousCanvasNotes = usePlanner.getState().canvasNotes;
 let previousCanvasConnections = usePlanner.getState().canvasConnections;
 let previousCanvasBoards = usePlanner.getState().canvasBoards;
+let previousCanvasStrokes = usePlanner.getState().canvasStrokes;
+let previousCanvasSections = usePlanner.getState().canvasSections;
 let previousActiveBoardId = usePlanner.getState().activeBoardId;
 
 if (typeof window !== 'undefined') {
@@ -1279,6 +1495,8 @@ if (typeof window !== 'undefined') {
       state.canvasNotes !== previousCanvasNotes ||
       state.canvasConnections !== previousCanvasConnections ||
       state.canvasBoards !== previousCanvasBoards ||
+      state.canvasStrokes !== previousCanvasStrokes ||
+      state.canvasSections !== previousCanvasSections ||
       state.activeBoardId !== previousActiveBoardId
     ) {
       previousTasks = state.tasks;
@@ -1290,6 +1508,8 @@ if (typeof window !== 'undefined') {
       previousCanvasNotes = state.canvasNotes;
       previousCanvasConnections = state.canvasConnections;
       previousCanvasBoards = state.canvasBoards;
+      previousCanvasStrokes = state.canvasStrokes;
+      previousCanvasSections = state.canvasSections;
       previousActiveBoardId = state.activeBoardId;
       triggerCloudSync();
     }

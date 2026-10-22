@@ -207,11 +207,42 @@ export interface CanvasNote {
   flowRole?: 'input' | 'process' | 'output' | 'database'; // บทบาทใน Data Flow
 }
 
+export interface CanvasPoint {
+  x: number;
+  y: number;
+}
+
+export interface CanvasStroke {
+  id: string;
+  points: CanvasPoint[];
+  color: string;
+  width: number;
+  isHighlighter?: boolean;
+  createdAt: number;
+}
+
+export type SectionType = 'horizontal_line' | 'vertical_line' | 'zone';
+
+export interface CanvasSection {
+  id: string;
+  title: string;
+  type: SectionType;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color?: string; // hex หรือ theme accent เช่น '#0071e3', '#af52de', '#ff9500', '#10b981', '#64748b'
+  style?: 'solid' | 'dashed';
+  createdAt: number;
+}
+
 export interface CanvasBoard {
   id: string;
   title: string;
   notes: CanvasNote[];
   connections: CanvasConnection[];
+  strokes?: CanvasStroke[];
+  sections?: CanvasSection[];
   createdAt: number;
   updatedAt: number;
 }
@@ -245,6 +276,8 @@ export interface PlannerData {
   canvasNotes?: CanvasNote[];
   canvasConnections?: CanvasConnection[];
   canvasBoards?: CanvasBoard[];
+  canvasStrokes?: CanvasStroke[];
+  canvasSections?: CanvasSection[];
   activeBoardId?: string;
 }
 

@@ -4,7 +4,19 @@ import React, { useState, useRef } from 'react';
 import { usePlanner } from '@/lib/store';
 import { useAuth } from '@/lib/authStore';
 import { useToday } from '@/lib/hooks';
-import { CanvasNote, CanvasConnection, CanvasBoard, StickyColor, Priority, PRIORITIES, PRIORITY } from '@/lib/types';
+import {
+  CanvasNote,
+  CanvasConnection,
+  CanvasBoard,
+  CanvasStroke,
+  CanvasSection,
+  CanvasPoint,
+  SectionType,
+  StickyColor,
+  Priority,
+  PRIORITIES,
+  PRIORITY,
+} from '@/lib/types';
 import { AvatarIcon } from './Avatars';
 import {
   StickyNoteIcon,
@@ -87,11 +99,38 @@ const FLOW_ROLES: Array<{
   { id: 'database', label: 'Database (ฐานข้อมูล)', icon: '🗄️', color: '#ea580c', bg: 'rgba(234, 88, 12, 0.14)', border: 'rgba(234, 88, 12, 0.35)' },
 ];
 
+const DRAWING_COLORS = [
+  { color: '#1c1c1e', label: 'สีดำเข้ม' },
+  { color: '#0071e3', label: 'สีน้ำเงิน Apple Blue' },
+  { color: '#ff3b30', label: 'สีแดง Apple Red' },
+  { color: '#34c759', label: 'สีเขียว Apple Green' },
+  { color: '#ff9500', label: 'สีส้ม Apple Orange' },
+  { color: '#af52de', label: 'สีม่วง Apple Purple' },
+  { color: '#eab308', label: 'สีเหลืองไฮไลท์' },
+];
+
+function pointsToSvgPath(points?: CanvasPoint[]): string {
+  if (!points || points.length === 0) return '';
+  if (points.length === 1) {
+    return `M ${points[0].x} ${points[0].y} L ${points[0].x + 0.5} ${points[0].y + 0.5}`;
+  }
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const xc = (points[i].x + points[i + 1].x) / 2;
+    const yc = (points[i].y + points[i + 1].y) / 2;
+    d += ` Q ${points[i].x} ${points[i].y}, ${xc} ${yc}`;
+  }
+  d += ` L ${points[points.length - 1].x} ${points[points.length - 1].y}`;
+  return d;
+}
+
 export default function CanvasTab() {
   const {
     canvasNotes,
     canvasConnections,
     canvasBoards,
+    canvasStrokes,
+    canvasSections,
     activeBoardId,
     addCanvasNote,
     updateCanvasNote,
@@ -100,6 +139,13 @@ export default function CanvasTab() {
     deleteCanvasConnection,
     autoLayoutDataFlow,
     setCanvasData,
+    addCanvasStroke,
+    deleteCanvasStroke,
+    undoLastStroke,
+    clearCanvasStrokes,
+    addCanvasSection,
+    updateCanvasSection,
+    deleteCanvasSection,
     createCanvasBoard,
     switchCanvasBoard,
     renameCanvasBoard,
@@ -117,6 +163,21 @@ export default function CanvasTab() {
   const [selectedColorFilter, setSelectedColorFilter] = useState<StickyColor | 'all'>('all');
   const [connectingFromId, setConnectingFromId] = useState<string | null>(null);
   const [editingRoleNoteId, setEditingRoleNoteId] = useState<string | null>(null);
+
+  // Drawing Tools state (Select / Pencil / Highlighter / Eraser)
+  const [toolMode, setToolMode] = useState<'select' | 'pencil' | 'highlighter' | 'eraser'>('select');
+  const [pencilColor, setPencilColor] = useState<string>('#0071e3');
+  const [pencilWidth, setPencilWidth] = useState<number>(4);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [currentStrokePoints, setCurrentStrokePoints] = useState<CanvasPoint[]>([]);
+
+  // Sections and Dividers state
+  const [draggingSectionId, setDraggingSectionId] = useState<string | null>(null);
+  const dragSectionOffsetRef = useRef<{ offsetX: number; offsetY: number }>({ offsetX: 0, offsetY: 0 });
+  const [resizingSectionId, setResizingSectionId] = useState<string | null>(null);
+  const resizeSectionStartRef = useRef<{ startX: number; startY: number }>({ startX: 0, startY: 0 });
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
+  const [editingSectionTitle, setEditingSectionTitle] = useState('');
 
   // Board Manager state
   const [isBoardManagerOpen, setIsBoardManagerOpen] = useState(false);
@@ -142,6 +203,8 @@ export default function CanvasTab() {
 
   const notes = canvasNotes || [];
   const connections = canvasConnections || [];
+  const strokes = canvasStrokes || [];
+  const sections = canvasSections || [];
 
   // Compute Active Board & Board list
   const boards: CanvasBoard[] =
@@ -153,11 +216,23 @@ export default function CanvasTab() {
             title: 'กระดานเริ่มต้น (Main Flow)',
             notes,
             connections,
+            strokes,
+            sections,
             createdAt: Date.now(),
             updatedAt: Date.now(),
           },
         ];
   const currentBoard = boards.find(b => b.id === (activeBoardId || 'default-board')) || boards[0];
+
+  // Helper to get absolute canvas coordinate considering scroll
+  const getCanvasCoords = (e: React.MouseEvent) => {
+    if (!canvasRef.current) return { x: 0, y: 0 };
+    const rect = canvasRef.current.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left + canvasRef.current.scrollLeft,
+      y: e.clientY - rect.top + canvasRef.current.scrollTop,
+    };
+  };
 
   // Filter notes on current board
   const filteredNotes = notes.filter(n => {
@@ -194,7 +269,108 @@ export default function CanvasTab() {
     });
   };
 
+  // Sections & Dividers actions
+  const handleCreateHorizontalDivider = () => {
+    const scrollY = canvasRef.current?.scrollTop || 0;
+    const initialY = Math.max(80, scrollY + 160);
+    addCanvasSection({
+      title: '📌 เส้นแบ่งเฟส / Phase',
+      type: 'horizontal_line',
+      x: 40,
+      y: initialY,
+      width: 2400,
+      height: 4,
+      color: '#0071e3',
+      style: 'dashed',
+    });
+  };
+
+  const handleCreateVerticalDivider = () => {
+    const scrollX = canvasRef.current?.scrollLeft || 0;
+    const initialX = Math.max(100, scrollX + 380);
+    addCanvasSection({
+      title: '▎ คอลัมน์สมาชิก / แผนก',
+      type: 'vertical_line',
+      x: initialX,
+      y: 40,
+      width: 4,
+      height: 1800,
+      color: '#af52de',
+      style: 'dashed',
+    });
+  };
+
+  const handleCreateSectionZone = (color: string = '#0071e3') => {
+    const scrollX = canvasRef.current?.scrollLeft || 0;
+    const scrollY = canvasRef.current?.scrollTop || 0;
+    const initialX = Math.max(60, scrollX + 120);
+    const initialY = Math.max(80, scrollY + 120);
+    addCanvasSection({
+      title: '🔲 โซนงาน (Section Frame)',
+      type: 'zone',
+      x: initialX,
+      y: initialY,
+      width: 580,
+      height: 420,
+      color,
+      style: 'dashed',
+    });
+  };
+
+  const handleStartDragSection = (e: React.MouseEvent, sec: CanvasSection) => {
+    e.stopPropagation();
+    if (toolMode !== 'select') return;
+    setDraggingSectionId(sec.id);
+    const coords = getCanvasCoords(e);
+    dragSectionOffsetRef.current = {
+      offsetX: coords.x - sec.x,
+      offsetY: coords.y - sec.y,
+    };
+  };
+
+  const handleStartResizeSection = (e: React.MouseEvent, sec: CanvasSection) => {
+    e.stopPropagation();
+    if (toolMode !== 'select') return;
+    setResizingSectionId(sec.id);
+    resizeSectionStartRef.current = {
+      startX: sec.x,
+      startY: sec.y,
+    };
+  };
+
+  const handleStartEditSectionTitle = (sec: CanvasSection) => {
+    setEditingSectionId(sec.id);
+    setEditingSectionTitle(sec.title);
+  };
+
+  const handleSaveSectionTitle = (secId: string) => {
+    if (editingSectionTitle.trim()) {
+      updateCanvasSection(secId, { title: editingSectionTitle.trim() });
+    }
+    setEditingSectionId(null);
+  };
+
+  // Mouse Handlers for Drawing and Dragging
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    if (toolMode === 'pencil' || toolMode === 'highlighter') {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'BUTTON' ||
+        target.closest('button') ||
+        target.closest('.canvas-section-handle')
+      ) {
+        return;
+      }
+      const coords = getCanvasCoords(e);
+      setIsDrawing(true);
+      setCurrentStrokePoints([{ x: Math.round(coords.x), y: Math.round(coords.y) }]);
+    }
+  };
+
   const handleStartDrag = (e: React.MouseEvent, note: CanvasNote) => {
+    if (toolMode !== 'select') return;
     if (
       (e.target as HTMLElement).tagName === 'TEXTAREA' ||
       (e.target as HTMLElement).tagName === 'BUTTON' ||
@@ -204,31 +380,73 @@ export default function CanvasTab() {
       return;
     }
     setDraggingNoteId(note.id);
-    const canvasRect = canvasRef.current?.getBoundingClientRect();
-    if (canvasRect) {
-      dragOffsetRef.current = {
-        offsetX: e.clientX - canvasRect.left - note.x,
-        offsetY: e.clientY - canvasRect.top - note.y,
-      };
-    }
+    const coords = getCanvasCoords(e);
+    dragOffsetRef.current = {
+      offsetX: coords.x - note.x,
+      offsetY: coords.y - note.y,
+    };
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!draggingNoteId) return;
-    const canvasRect = canvasRef.current?.getBoundingClientRect();
-    if (!canvasRect) return;
+    // 1. Freehand drawing mode
+    if (isDrawing && (toolMode === 'pencil' || toolMode === 'highlighter')) {
+      const coords = getCanvasCoords(e);
+      const rounded = { x: Math.round(coords.x), y: Math.round(coords.y) };
+      const last = currentStrokePoints[currentStrokePoints.length - 1];
+      if (!last || Math.hypot(rounded.x - last.x, rounded.y - last.y) >= 2) {
+        setCurrentStrokePoints(prev => [...prev, rounded]);
+      }
+      return;
+    }
 
-    let newX = Math.max(10, e.clientX - canvasRect.left - dragOffsetRef.current.offsetX);
-    let newY = Math.max(10, e.clientY - canvasRect.top - dragOffsetRef.current.offsetY);
+    // 2. Dragging note
+    if (draggingNoteId) {
+      const coords = getCanvasCoords(e);
+      let newX = Math.max(10, coords.x - dragOffsetRef.current.offsetX);
+      let newY = Math.max(10, coords.y - dragOffsetRef.current.offsetY);
+      newX = Math.min(newX, 3200);
+      newY = Math.min(newY, 3200);
+      updateCanvasNote(draggingNoteId, { x: newX, y: newY });
+      return;
+    }
 
-    newX = Math.min(newX, 3200);
-    newY = Math.min(newY, 3200);
+    // 3. Dragging section or divider
+    if (draggingSectionId) {
+      const coords = getCanvasCoords(e);
+      let newX = Math.max(10, coords.x - dragSectionOffsetRef.current.offsetX);
+      let newY = Math.max(10, coords.y - dragSectionOffsetRef.current.offsetY);
+      newX = Math.min(newX, 3200);
+      newY = Math.min(newY, 3200);
+      updateCanvasSection(draggingSectionId, { x: newX, y: newY });
+      return;
+    }
 
-    updateCanvasNote(draggingNoteId, { x: newX, y: newY });
+    // 4. Resizing section zone
+    if (resizingSectionId) {
+      const coords = getCanvasCoords(e);
+      const newWidth = Math.max(240, Math.min(2400, coords.x - resizeSectionStartRef.current.startX));
+      const newHeight = Math.max(160, Math.min(2400, coords.y - resizeSectionStartRef.current.startY));
+      updateCanvasSection(resizingSectionId, { width: newWidth, height: newHeight });
+      return;
+    }
   };
 
   const handleMouseUp = () => {
+    if (isDrawing) {
+      setIsDrawing(false);
+      if (currentStrokePoints.length >= 2) {
+        addCanvasStroke({
+          points: currentStrokePoints,
+          color: pencilColor,
+          width: toolMode === 'highlighter' ? 14 : pencilWidth,
+          isHighlighter: toolMode === 'highlighter',
+        });
+      }
+      setCurrentStrokePoints([]);
+    }
     setDraggingNoteId(null);
+    setDraggingSectionId(null);
+    setResizingSectionId(null);
   };
 
   // Connection Click Handler
@@ -594,6 +812,36 @@ export default function CanvasTab() {
                 {connections.length} Flow
               </span>
             )}
+            {strokes.length > 0 && (
+              <span
+                style={{
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  background: 'rgba(255, 149, 0, 0.1)',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: '#ea580c',
+                }}
+                title={`${strokes.length} เส้นวาดและไฮไลท์`}
+              >
+                ✏️ {strokes.length} เส้นวาด
+              </span>
+            )}
+            {sections.length > 0 && (
+              <span
+                style={{
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  background: 'rgba(175, 82, 222, 0.1)',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: '#af52de',
+                }}
+                title={`${sections.length} เส้นคั่นและกรอบโซน`}
+              >
+                📏 {sections.length} เส้นคั่น
+              </span>
+            )}
           </div>
         </div>
 
@@ -754,89 +1002,555 @@ export default function CanvasTab() {
 
       {/* Infinite Canvas Area with Apple Freeform Dot Grid */}
       <div
-        ref={canvasRef}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
         style={{
           flex: 1,
           position: 'relative',
-          overflow: 'auto',
-          borderRadius: 16,
-          background: 'var(--bg)',
-          backgroundImage:
-            'radial-gradient(rgba(120, 120, 128, 0.22) 1.5px, transparent 1.5px)',
-          backgroundSize: '24px 24px',
-          border: '1px solid var(--line)',
           minHeight: 520,
-          cursor: draggingNoteId ? 'grabbing' : 'default',
-          userSelect: draggingNoteId ? 'none' : 'auto',
+          borderRadius: 16,
+          overflow: 'hidden',
+          border: '1px solid var(--line)',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        {/* SVG Flow Arrows Overlay */}
-        <svg
+        <div
+          ref={canvasRef}
+          onMouseDown={handleCanvasMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
           style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: 3400,
-            height: 3400,
-            pointerEvents: 'none',
-            zIndex: 10,
+            width: '100%',
+            height: '100%',
+            position: 'relative',
+            overflow: 'auto',
+            background: 'var(--bg)',
+            backgroundImage:
+              'radial-gradient(rgba(120, 120, 128, 0.22) 1.5px, transparent 1.5px)',
+            backgroundSize: '24px 24px',
+            cursor:
+              toolMode === 'pencil' || toolMode === 'highlighter'
+                ? 'crosshair'
+                : toolMode === 'eraser'
+                ? 'cell'
+                : draggingNoteId || draggingSectionId
+                ? 'grabbing'
+                : 'default',
+            userSelect: draggingNoteId || draggingSectionId || isDrawing ? 'none' : 'auto',
           }}
         >
-          <defs>
-            <marker
-              id="flow-arrow"
-              viewBox="0 0 10 10"
-              refX="8"
-              refY="5"
-              markerWidth="7"
-              markerHeight="7"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#0071e3" />
-            </marker>
-          </defs>
+          {/* Sections, Partitions & Divider Lines */}
+          {sections.map(sec => {
+            if (sec.type === 'horizontal_line') {
+              return (
+                <div
+                  key={sec.id}
+                  style={{
+                    position: 'absolute',
+                    left: sec.x,
+                    top: sec.y,
+                    width: sec.width || 2400,
+                    zIndex: 5,
+                    pointerEvents: toolMode === 'pencil' || toolMode === 'highlighter' ? 'none' : 'auto',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {/* Draggable Header Badge */}
+                    <div
+                      onMouseDown={e => handleStartDragSection(e, sec)}
+                      className="canvas-section-handle"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '4px 12px',
+                        borderRadius: 999,
+                        background: 'var(--card-solid)',
+                        border: `1.5px solid ${sec.color || '#0071e3'}`,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                        cursor: toolMode === 'select' ? 'grab' : 'default',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <span style={{ color: 'var(--mut)', fontSize: 13, cursor: 'grab' }}>⋮⋮</span>
+                      {editingSectionId === sec.id ? (
+                        <input
+                          type="text"
+                          value={editingSectionTitle}
+                          autoFocus
+                          onChange={e => setEditingSectionTitle(e.target.value)}
+                          onBlur={() => handleSaveSectionTitle(sec.id)}
+                          onKeyDown={e => e.key === 'Enter' && handleSaveSectionTitle(sec.id)}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            fontWeight: 700,
+                            fontSize: 12,
+                            color: 'var(--txt)',
+                            outline: 'none',
+                            minWidth: 120,
+                          }}
+                        />
+                      ) : (
+                        <span
+                          onClick={() => handleStartEditSectionTitle(sec)}
+                          title="คลิกเพื่อแก้ไขชื่อเส้นคั่น"
+                          style={{
+                            fontWeight: 700,
+                            fontSize: 12,
+                            color: sec.color || 'var(--txt)',
+                            cursor: 'text',
+                          }}
+                        >
+                          {sec.title || 'เส้นคั่นแนวนอน'}
+                        </span>
+                      )}
 
-          {connections.map(conn => {
-            const fromNote = notes.find(n => n.id === conn.fromId);
-            const toNote = notes.find(n => n.id === conn.toId);
-            if (!fromNote || !toNote) return null;
+                      {/* Color switcher button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const colors = ['#0071e3', '#af52de', '#ff9500', '#10b981', '#64748b'];
+                          const nextColor = colors[(colors.indexOf(sec.color || '#0071e3') + 1) % colors.length];
+                          updateCanvasSection(sec.id, { color: nextColor });
+                        }}
+                        style={{
+                          width: 13,
+                          height: 13,
+                          borderRadius: '50%',
+                          background: sec.color || '#0071e3',
+                          border: '1.5px solid #ffffff',
+                          boxShadow: '0 0 0 1px rgba(0,0,0,0.2)',
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                        title="เปลี่ยนสีเส้นคั่น"
+                      />
 
-            const isLeftToRight = toNote.x >= fromNote.x;
-            const x1 = isLeftToRight ? fromNote.x + 260 : fromNote.x;
-            const y1 = fromNote.y + 100;
-            const x2 = isLeftToRight ? toNote.x : toNote.x + 260;
-            const y2 = toNote.y + 100;
+                      {/* Style toggle (solid / dashed) */}
+                      <button
+                        type="button"
+                        onClick={() => updateCanvasSection(sec.id, { style: sec.style === 'solid' ? 'dashed' : 'solid' })}
+                        style={{
+                          border: 'none',
+                          background: 'none',
+                          fontSize: 11,
+                          color: 'var(--mut)',
+                          cursor: 'pointer',
+                          padding: '1px 3px',
+                        }}
+                        title="สลับรูปแบบเส้น (เส้นประ / เส้นทึบ)"
+                      >
+                        {sec.style === 'solid' ? '━' : '┄'}
+                      </button>
 
-            const dx = Math.max(50, Math.abs(x2 - x1) * 0.45);
-            const pathD = isLeftToRight
-              ? `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
-              : `M ${x1} ${y1} C ${x1 - dx} ${y1}, ${x2 + dx} ${y2}, ${x2} ${y2}`;
+                      {/* Delete button */}
+                      <button
+                        type="button"
+                        onClick={() => deleteCanvasSection(sec.id)}
+                        style={{
+                          border: 'none',
+                          background: 'none',
+                          color: 'var(--mut)',
+                          cursor: 'pointer',
+                          padding: '1px 4px',
+                          fontSize: 11,
+                          lineHeight: 1,
+                        }}
+                        title="ลบเส้นคั่นนี้"
+                      >
+                        ✕
+                      </button>
+                    </div>
 
-            return (
-              <g key={conn.id}>
-                {/* Background glow stroke */}
-                <path
-                  d={pathD}
-                  fill="none"
-                  stroke="rgba(0, 113, 227, 0.2)"
-                  strokeWidth="6"
-                  strokeLinecap="round"
-                />
-                {/* Main animated dashed flow line */}
-                <path
-                  d={pathD}
-                  fill="none"
-                  stroke="#0071e3"
-                  strokeWidth="2.5"
-                  className="flow-line-animated"
-                  markerEnd="url(#flow-arrow)"
-                />
-              </g>
-            );
+                    {/* Horizontal line */}
+                    <div
+                      style={{
+                        flex: 1,
+                        height: 0,
+                        borderTop: `2px ${sec.style === 'solid' ? 'solid' : 'dashed'} ${sec.color || '#0071e3'}`,
+                        opacity: 0.8,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            }
+
+            if (sec.type === 'vertical_line') {
+              return (
+                <div
+                  key={sec.id}
+                  style={{
+                    position: 'absolute',
+                    left: sec.x,
+                    top: sec.y,
+                    height: sec.height || 1800,
+                    width: 200,
+                    zIndex: 5,
+                    pointerEvents: toolMode === 'pencil' || toolMode === 'highlighter' ? 'none' : 'auto',
+                  }}
+                >
+                  <div style={{ position: 'relative', height: '100%' }}>
+                    {/* Draggable Header Badge at top */}
+                    <div
+                      onMouseDown={e => handleStartDragSection(e, sec)}
+                      className="canvas-section-handle"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '4px 12px',
+                        borderRadius: 999,
+                        background: 'var(--card-solid)',
+                        border: `1.5px solid ${sec.color || '#af52de'}`,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                        cursor: toolMode === 'select' ? 'grab' : 'default',
+                        userSelect: 'none',
+                        position: 'absolute',
+                        top: 0,
+                        left: -50,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <span style={{ color: 'var(--mut)', fontSize: 13, cursor: 'grab' }}>⋮⋮</span>
+                      {editingSectionId === sec.id ? (
+                        <input
+                          type="text"
+                          value={editingSectionTitle}
+                          autoFocus
+                          onChange={e => setEditingSectionTitle(e.target.value)}
+                          onBlur={() => handleSaveSectionTitle(sec.id)}
+                          onKeyDown={e => e.key === 'Enter' && handleSaveSectionTitle(sec.id)}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            fontWeight: 700,
+                            fontSize: 12,
+                            color: 'var(--txt)',
+                            outline: 'none',
+                            minWidth: 100,
+                          }}
+                        />
+                      ) : (
+                        <span
+                          onClick={() => handleStartEditSectionTitle(sec)}
+                          title="คลิกเพื่อแก้ไขชื่อคอลัมน์"
+                          style={{
+                            fontWeight: 700,
+                            fontSize: 12,
+                            color: sec.color || 'var(--txt)',
+                            cursor: 'text',
+                          }}
+                        >
+                          {sec.title || 'คอลัมน์แบ่งงาน'}
+                        </span>
+                      )}
+
+                      {/* Color switcher button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const colors = ['#af52de', '#0071e3', '#ff9500', '#10b981', '#64748b'];
+                          const nextColor = colors[(colors.indexOf(sec.color || '#af52de') + 1) % colors.length];
+                          updateCanvasSection(sec.id, { color: nextColor });
+                        }}
+                        style={{
+                          width: 13,
+                          height: 13,
+                          borderRadius: '50%',
+                          background: sec.color || '#af52de',
+                          border: '1.5px solid #ffffff',
+                          boxShadow: '0 0 0 1px rgba(0,0,0,0.2)',
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                        title="เปลี่ยนสีเส้นคั่น"
+                      />
+
+                      {/* Delete button */}
+                      <button
+                        type="button"
+                        onClick={() => deleteCanvasSection(sec.id)}
+                        style={{
+                          border: 'none',
+                          background: 'none',
+                          color: 'var(--mut)',
+                          cursor: 'pointer',
+                          padding: '1px 4px',
+                          fontSize: 11,
+                          lineHeight: 1,
+                        }}
+                        title="ลบเส้นคั่นนี้"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    {/* Vertical line stretching downwards */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 36,
+                        left: 0,
+                        width: 0,
+                        height: 'calc(100% - 36px)',
+                        borderLeft: `2px ${sec.style === 'solid' ? 'solid' : 'dashed'} ${sec.color || '#af52de'}`,
+                        opacity: 0.8,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            }
+
+            if (sec.type === 'zone') {
+              return (
+                <div
+                  key={sec.id}
+                  style={{
+                    position: 'absolute',
+                    left: sec.x,
+                    top: sec.y,
+                    width: sec.width || 580,
+                    height: sec.height || 420,
+                    borderRadius: 20,
+                    background: 'rgba(120, 120, 128, 0.04)',
+                    border: `2px dashed ${sec.color || '#0071e3'}`,
+                    boxShadow: 'inset 0 0 30px rgba(0,0,0,0.015)',
+                    zIndex: 2,
+                    pointerEvents: toolMode === 'pencil' || toolMode === 'highlighter' ? 'none' : 'auto',
+                  }}
+                >
+                  {/* Zone Header Badge */}
+                  <div
+                    onMouseDown={e => handleStartDragSection(e, sec)}
+                    className="canvas-section-handle"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '6px 14px',
+                      borderRadius: '18px 0 14px 0',
+                      background: 'var(--card-solid)',
+                      borderBottom: `1.5px solid ${sec.color || '#0071e3'}`,
+                      borderRight: `1.5px solid ${sec.color || '#0071e3'}`,
+                      cursor: toolMode === 'select' ? 'grab' : 'default',
+                      userSelect: 'none',
+                    }}
+                  >
+                    <span style={{ color: 'var(--mut)', fontSize: 13, cursor: 'grab' }}>⋮⋮</span>
+                    <span style={{ fontSize: 14 }}>🔲</span>
+                    {editingSectionId === sec.id ? (
+                      <input
+                        type="text"
+                        value={editingSectionTitle}
+                        autoFocus
+                        onChange={e => setEditingSectionTitle(e.target.value)}
+                        onBlur={() => handleSaveSectionTitle(sec.id)}
+                        onKeyDown={e => e.key === 'Enter' && handleSaveSectionTitle(sec.id)}
+                        style={{
+                          border: 'none',
+                          background: 'transparent',
+                          fontWeight: 700,
+                          fontSize: 12.5,
+                          color: 'var(--txt)',
+                          outline: 'none',
+                          minWidth: 120,
+                        }}
+                      />
+                    ) : (
+                      <span
+                        onClick={() => handleStartEditSectionTitle(sec)}
+                        title="คลิกเพื่อแก้ไขชื่อโซน"
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 12.5,
+                          color: 'var(--txt)',
+                          cursor: 'text',
+                        }}
+                      >
+                        {sec.title || 'กรอบแบ่งโซน'}
+                      </span>
+                    )}
+
+                    {/* Color switcher button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const colors = ['#0071e3', '#af52de', '#10b981', '#ff9500', '#64748b'];
+                        const nextColor = colors[(colors.indexOf(sec.color || '#0071e3') + 1) % colors.length];
+                        updateCanvasSection(sec.id, { color: nextColor });
+                      }}
+                      style={{
+                        width: 13,
+                        height: 13,
+                        borderRadius: '50%',
+                        background: sec.color || '#0071e3',
+                        border: '1.5px solid #ffffff',
+                        boxShadow: '0 0 0 1px rgba(0,0,0,0.2)',
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                      title="เปลี่ยนสีธีมของโซนนี้"
+                    />
+
+                    {/* Delete button */}
+                    <button
+                      type="button"
+                      onClick={() => deleteCanvasSection(sec.id)}
+                      style={{
+                        border: 'none',
+                        background: 'none',
+                        color: 'var(--mut)',
+                        cursor: 'pointer',
+                        padding: '1px 4px',
+                        fontSize: 12,
+                        lineHeight: 1,
+                      }}
+                      title="ลบกรอบโซนนี้"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Resize Handle at Bottom-Right */}
+                  <div
+                    onMouseDown={e => handleStartResizeSection(e, sec)}
+                    style={{
+                      position: 'absolute',
+                      right: 2,
+                      bottom: 2,
+                      width: 20,
+                      height: 20,
+                      cursor: 'nwse-resize',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: sec.color || '#0071e3',
+                      fontSize: 14,
+                      fontWeight: 'bold',
+                      opacity: 0.6,
+                      userSelect: 'none',
+                    }}
+                    title="ลากเพื่อปรับขนาดกรอบโซน"
+                  >
+                    ⌟
+                  </div>
+                </div>
+              );
+            }
+            return null;
           })}
-        </svg>
+
+          {/* SVG Flow Arrows & Freehand Pencil Strokes Overlay */}
+          <svg
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: 3400,
+              height: 3400,
+              pointerEvents: toolMode === 'eraser' ? 'auto' : 'none',
+              zIndex: 10,
+            }}
+          >
+            <defs>
+              <marker
+                id="flow-arrow"
+                viewBox="0 0 10 10"
+                refX="8"
+                refY="5"
+                markerWidth="7"
+                markerHeight="7"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#0071e3" />
+              </marker>
+            </defs>
+
+            {/* Flow Connections */}
+            {connections.map(conn => {
+              const fromNote = notes.find(n => n.id === conn.fromId);
+              const toNote = notes.find(n => n.id === conn.toId);
+              if (!fromNote || !toNote) return null;
+
+              const isLeftToRight = toNote.x >= fromNote.x;
+              const x1 = isLeftToRight ? fromNote.x + 260 : fromNote.x;
+              const y1 = fromNote.y + 100;
+              const x2 = isLeftToRight ? toNote.x : toNote.x + 260;
+              const y2 = toNote.y + 100;
+
+              const dx = Math.max(50, Math.abs(x2 - x1) * 0.45);
+              const pathD = isLeftToRight
+                ? `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
+                : `M ${x1} ${y1} C ${x1 - dx} ${y1}, ${x2 + dx} ${y2}, ${x2} ${y2}`;
+
+              return (
+                <g key={conn.id}>
+                  {/* Background glow stroke */}
+                  <path
+                    d={pathD}
+                    fill="none"
+                    stroke="rgba(0, 113, 227, 0.2)"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                  />
+                  {/* Main animated dashed flow line */}
+                  <path
+                    d={pathD}
+                    fill="none"
+                    stroke="#0071e3"
+                    strokeWidth="2.5"
+                    className="flow-line-animated"
+                    markerEnd="url(#flow-arrow)"
+                  />
+                </g>
+              );
+            })}
+
+            {/* Saved Freehand Pencil & Highlighter Strokes */}
+            {strokes.map(st => {
+              const pathD = pointsToSvgPath(st.points);
+              if (!pathD) return null;
+              return (
+                <path
+                  key={st.id}
+                  d={pathD}
+                  fill="none"
+                  stroke={st.color}
+                  strokeWidth={st.width}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity={st.isHighlighter ? 0.45 : 1}
+                  style={{
+                    pointerEvents: toolMode === 'eraser' ? 'stroke' : 'none',
+                    cursor: toolMode === 'eraser' ? 'pointer' : 'default',
+                    transition: 'opacity 0.15s ease',
+                  }}
+                  onClick={e => {
+                    if (toolMode === 'eraser') {
+                      e.stopPropagation();
+                      deleteCanvasStroke(st.id);
+                    }
+                  }}
+                />
+              );
+            })}
+
+            {/* Active Drawing Stroke (Live while mouse is dragging) */}
+            {isDrawing && currentStrokePoints.length >= 2 && (
+              <path
+                d={pointsToSvgPath(currentStrokePoints)}
+                fill="none"
+                stroke={pencilColor}
+                strokeWidth={toolMode === 'highlighter' ? 14 : pencilWidth}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity={toolMode === 'highlighter' ? 0.45 : 1}
+              />
+            )}
+          </svg>
 
         {/* HTML Badges for Flow Connection Delete / Label */}
         {connections.map(conn => {
@@ -1372,6 +2086,281 @@ export default function CanvasTab() {
           );
         })}
       </div>
+
+      {/* Floating Apple Freeform Tool Palette */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          maxWidth: '95%',
+          zIndex: 40,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+          padding: '6px 12px',
+          borderRadius: 999,
+          background: 'var(--card-solid)',
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--line)',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+        }}
+      >
+        {/* 1. Mode Selectors */}
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            background: 'rgba(120, 120, 128, 0.08)',
+            padding: 3,
+            borderRadius: 999,
+            gap: 2,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setToolMode('select')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              borderRadius: 999,
+              border: 'none',
+              background: toolMode === 'select' ? 'var(--pri)' : 'transparent',
+              color: toolMode === 'select' ? '#ffffff' : 'var(--txt)',
+              fontWeight: toolMode === 'select' ? 700 : 500,
+              fontSize: 11.5,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="โหมดเลือกและลากย้าย (Select & Move)"
+          >
+            <span>👆</span>
+            <span>เลือก/ย้าย</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setToolMode('pencil')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              borderRadius: 999,
+              border: 'none',
+              background: toolMode === 'pencil' ? 'var(--pri)' : 'transparent',
+              color: toolMode === 'pencil' ? '#ffffff' : 'var(--txt)',
+              fontWeight: toolMode === 'pencil' ? 700 : 500,
+              fontSize: 11.5,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="โหมดดินสอ/ขีดเขียน (Pencil Freehand)"
+          >
+            <span>✏️</span>
+            <span>ดินสอเขียน</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setToolMode('highlighter')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              borderRadius: 999,
+              border: 'none',
+              background: toolMode === 'highlighter' ? 'var(--pri)' : 'transparent',
+              color: toolMode === 'highlighter' ? '#ffffff' : 'var(--txt)',
+              fontWeight: toolMode === 'highlighter' ? 700 : 500,
+              fontSize: 11.5,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="โหมดปากกาเน้นข้อความ (Highlighter)"
+          >
+            <span>🖌️</span>
+            <span>ไฮไลท์</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setToolMode('eraser')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              borderRadius: 999,
+              border: 'none',
+              background: toolMode === 'eraser' ? '#ff3b30' : 'transparent',
+              color: toolMode === 'eraser' ? '#ffffff' : 'var(--txt)',
+              fontWeight: toolMode === 'eraser' ? 700 : 500,
+              fontSize: 11.5,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="โหมดยางลบ (คลิกที่เส้นวาดเพื่อลบ)"
+          >
+            <span>🧹</span>
+            <span>ยางลบ</span>
+          </button>
+        </div>
+
+        {/* 2. Color Palette & Size (Visible in Pencil or Highlighter mode) */}
+        {(toolMode === 'pencil' || toolMode === 'highlighter') && (
+          <>
+            <div style={{ width: 1, height: 18, background: 'var(--line)', margin: '0 2px' }} />
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {DRAWING_COLORS.map(c => (
+                <button
+                  key={c.color}
+                  type="button"
+                  onClick={() => setPencilColor(c.color)}
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    background: c.color,
+                    border: pencilColor === c.color ? '2px solid #ffffff' : '1px solid rgba(0,0,0,0.2)',
+                    boxShadow: pencilColor === c.color ? `0 0 0 2px ${c.color}` : 'none',
+                    cursor: 'pointer',
+                    padding: 0,
+                  }}
+                  title={c.label}
+                />
+              ))}
+
+              <select
+                value={pencilWidth}
+                onChange={e => setPencilWidth(Number(e.target.value))}
+                style={{
+                  marginLeft: 4,
+                  padding: '2px 6px',
+                  borderRadius: 6,
+                  border: '1px solid var(--line)',
+                  background: 'var(--bg)',
+                  fontSize: 11,
+                  color: 'var(--txt)',
+                  cursor: 'pointer',
+                }}
+                title="ขนาดหัวดินสอ"
+              >
+                <option value={2}>2px บาง</option>
+                <option value={4}>4px ปกติ</option>
+                <option value={7}>7px หนา</option>
+                <option value={12}>12px หนาพิเศษ</option>
+              </select>
+            </div>
+          </>
+        )}
+
+        {/* 3. Undo / Clear buttons if strokes exist */}
+        {strokes.length > 0 && (
+          <>
+            <div style={{ width: 1, height: 18, background: 'var(--line)', margin: '0 2px' }} />
+            <button
+              type="button"
+              onClick={() => undoLastStroke()}
+              className="btn ghost sm"
+              style={{ padding: '2px 8px', fontSize: 11, borderRadius: 999 }}
+              title="เลิกทำเส้นวาดล่าสุด"
+            >
+              ↶ เลิกทำ
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                showConfirm('ล้างเส้นวาด', 'ต้องการล้างเส้นวาดทั้งหมดบน Flow นี้ใช่ไหม?', () => {
+                  clearCanvasStrokes();
+                });
+              }}
+              className="btn ghost sm"
+              style={{ padding: '2px 8px', fontSize: 11, borderRadius: 999, color: 'var(--mut)' }}
+              title="ล้างเส้นวาดและไฮไลท์ทั้งหมด"
+            >
+              ล้างวาด ({strokes.length})
+            </button>
+          </>
+        )}
+
+        <div style={{ width: 1, height: 18, background: 'var(--line)', margin: '0 2px' }} />
+
+        {/* 4. Dividers & Section Creators */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <button
+            type="button"
+            onClick={handleCreateHorizontalDivider}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '4px 10px',
+              borderRadius: 999,
+              border: '1px solid rgba(0, 113, 227, 0.25)',
+              background: 'rgba(0, 113, 227, 0.08)',
+              color: 'var(--pri)',
+              fontSize: 11.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            title="เพิ่มเส้นคั่นแนวนอน (แบ่งเฟสงานหรือสปรินต์)"
+          >
+            <span>➖</span>
+            <span>คั่นแนวนอน</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCreateVerticalDivider}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '4px 10px',
+              borderRadius: 999,
+              border: '1px solid rgba(175, 82, 222, 0.25)',
+              background: 'rgba(175, 82, 222, 0.08)',
+              color: '#af52de',
+              fontSize: 11.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            title="เพิ่มเส้นคั่นแนวตั้ง (แบ่งคอลัมน์สมาชิกหรือแผนก)"
+          >
+            <span>▎</span>
+            <span>คั่นแนวตั้ง</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleCreateSectionZone('#0071e3')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '4px 10px',
+              borderRadius: 999,
+              border: '1px solid rgba(52, 199, 89, 0.25)',
+              background: 'rgba(52, 199, 89, 0.08)',
+              color: '#15803d',
+              fontSize: 11.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            title="เพิ่มกรอบแบ่งโซน (Section Frame สำหรับจัดกลุ่มโพสต์อิท)"
+          >
+            <span>🔲</span>
+            <span>กรอบโซน</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
       {/* Board Manager Modal */}
       {isBoardManagerOpen && (

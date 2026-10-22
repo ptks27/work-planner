@@ -734,6 +734,8 @@ export async function uploadToFirebase(
       canvasNotes: data.canvasNotes || [],
       canvasConnections: data.canvasConnections || [],
       canvasBoards: data.canvasBoards || [],
+      canvasStrokes: data.canvasStrokes || [],
+      canvasSections: data.canvasSections || [],
       activeBoardId: data.activeBoardId || 'default-board',
       updatedAt: Date.now(),
     });
@@ -788,6 +790,8 @@ export async function downloadFromFirebase(
         canvasNotes: val.canvasNotes !== undefined ? val.canvasNotes : undefined,
         canvasConnections: val.canvasConnections !== undefined ? val.canvasConnections : undefined,
         canvasBoards: val.canvasBoards !== undefined ? val.canvasBoards : undefined,
+        canvasStrokes: val.canvasStrokes !== undefined ? val.canvasStrokes : undefined,
+        canvasSections: val.canvasSections !== undefined ? val.canvasSections : undefined,
         activeBoardId: val.activeBoardId !== undefined ? val.activeBoardId : undefined,
       },
     };
@@ -825,6 +829,8 @@ export function subscribePlannerLive(
           canvasNotes: val.canvasNotes !== undefined ? val.canvasNotes : undefined,
           canvasConnections: val.canvasConnections !== undefined ? val.canvasConnections : undefined,
           canvasBoards: val.canvasBoards !== undefined ? val.canvasBoards : undefined,
+          canvasStrokes: val.canvasStrokes !== undefined ? val.canvasStrokes : undefined,
+          canvasSections: val.canvasSections !== undefined ? val.canvasSections : undefined,
           activeBoardId: val.activeBoardId !== undefined ? val.activeBoardId : undefined,
         });
       }
