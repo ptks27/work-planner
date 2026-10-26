@@ -2,9 +2,9 @@
 import { useRef, useState } from 'react';
 import { usePlanner } from '@/lib/store';
 import { fmt } from '@/lib/utils';
+import { safeParseJSON } from '@/lib/security';
 import { useModal } from '@/components/ModalContext';
 import { BoltIcon, BellIcon, BellOffIcon, DownloadIcon, UploadIcon } from './Icons';
-
 
 export const TABS = [
   { id: 'tasks', label: 'ปฏิทินงาน' },
@@ -14,8 +14,6 @@ export const TABS = [
   { id: 'excel', label: 'Import Excel' },
 ] as const;
 export type TabId = (typeof TABS)[number]['id'];
-
-
 
 export default function Header({ tab, onTab }: { tab: TabId; onTab: (t: TabId) => void }) {
   const s = usePlanner();
@@ -42,13 +40,24 @@ export default function Header({ tab, onTab }: { tab: TabId; onTab: (t: TabId) =
 
   const restore = async (f?: File) => {
     if (!f) return;
+    // Security: Check file size limit (max 5MB)
+    if (f.size > 5 * 1024 * 1024) {
+      showAlert('ความปลอดภัย', 'ไฟล์มีขนาดใหญ่เกินกว่ากำหนด (จำกัดไม่เกิน 5 MB เพื่อความปลอดภัย)');
+      return;
+    }
     try {
-      const d = JSON.parse(await f.text());
-      if (!Array.isArray(d.tasks) || !Array.isArray(d.events)) throw new Error();
-      if (!confirm('ข้อมูลปัจจุบันจะถูกแทนที่ทั้งหมด ยืนยันไหม?')) return;
-      s.restore(d);
-      alert('กู้คืนข้อมูลเรียบร้อย');
-    } catch { alert('ไฟล์ไม่ถูกต้อง'); }
+      const text = await f.text();
+      const d = safeParseJSON<any>(text, null);
+      if (!d || !Array.isArray(d.tasks) || !Array.isArray(d.events)) {
+        throw new Error('รูปแบบไฟล์ JSON ไม่ถูกต้อง');
+      }
+      showConfirm('ยืนยันการกู้คืนข้อมูล', 'ข้อมูลปัจจุบันจะถูกแทนที่ทั้งหมด ยืนยันหรือไม่?', () => {
+        s.restore(d);
+        showAlert('สำเร็จ', 'กู้คืนข้อมูลเรียบร้อยแล้ว');
+      });
+    } catch {
+      showAlert('ข้อผิดพลาด', 'ไฟล์ข้อมูลไม่ถูกต้อง หรือรูปแบบไม่ตรงกับระบบ');
+    }
   };
 
   return (

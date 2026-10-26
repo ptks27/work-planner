@@ -38,7 +38,16 @@ export default function ImageLightboxModal({
 
   if (!isOpen || !actualUrl) return null;
 
+  // Security: Ensure only legitimate image URI schemes can be downloaded or rendered
+  const isSafeUri = (uri: string) => {
+    const lower = uri.trim().toLowerCase();
+    return lower.startsWith('data:image/') || lower.startsWith('blob:') || lower.startsWith('http://') || lower.startsWith('https://');
+  };
+
+  if (!isSafeUri(actualUrl)) return null;
+
   const handleDownload = () => {
+    if (!isSafeUri(actualUrl)) return;
     const a = document.createElement('a');
     a.href = actualUrl;
     a.download = actualName || `attachment-${Date.now()}.jpg`;

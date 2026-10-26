@@ -4,6 +4,7 @@ import { usePlanner } from '@/lib/store';
 import { PRIORITY, getTagStyle, type Task, type TaskAttachment } from '@/lib/types';
 import { thDate } from '@/lib/utils';
 import { extractAllLinks, getCleanDetail } from '@/lib/links';
+import { safeUrl } from '@/lib/security';
 import {
   TrashIcon,
   EditIcon,
@@ -136,8 +137,14 @@ export default function TaskItem({
       showAlert('ไม่มีสิทธิ์แก้ไขงานนี้', 'เฉพาะเจ้าของงานหรือหัวห้องเท่านั้นที่สามารถแนบลิงก์ได้');
       return;
     }
-    if (!linkUrl.trim()) return;
-    addLink(t.id, { url: linkUrl.trim(), title: linkTitle.trim() || undefined });
+    const raw = linkUrl.trim();
+    if (!raw) return;
+    const validated = safeUrl(raw);
+    if (validated === '#') {
+      showAlert('ลิงก์ไม่ปลอดภัย', 'กรุณาระบุ URL ที่ถูกต้อง (รองรับเฉพาะ http:// หรือ https://)');
+      return;
+    }
+    addLink(t.id, { url: validated, title: linkTitle.trim() || undefined });
     setLinkUrl('');
     setLinkTitle('');
     setIsAddingLink(false);
@@ -216,7 +223,7 @@ export default function TaskItem({
             {detectedLinks.map(link => (
               <a
                 key={`link-${link.url}`}
-                href={link.url.startsWith('http') ? link.url : `https://${link.url}`}
+                href={safeUrl(link.url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{

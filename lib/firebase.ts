@@ -19,6 +19,7 @@ import {
 } from 'firebase/firestore';
 import type { PlannerData, User, Team, TeamMember } from './types';
 import { DEFAULT_FIREBASE_CONFIG } from './firebaseDefaultConfig';
+import { hashPassword, verifyPassword, sanitizeForPollution } from './security';
 
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
@@ -33,13 +34,13 @@ export function parseFirebaseConfig(raw: string): any {
   }
 
   try {
-    return JSON.parse(cleaned);
+    return sanitizeForPollution(JSON.parse(cleaned));
   } catch {
     const jsonFormatted = cleaned
       .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":')
       .replace(/'/g, '"')
       .replace(/,\s*([}\]])/g, '$1');
-    return JSON.parse(jsonFormatted);
+    return sanitizeForPollution(JSON.parse(jsonFormatted));
   }
 }
 
@@ -108,11 +109,13 @@ export async function firebaseRegisterUser(
       return { success: false, error: 'อีเมลนี้ถูกใช้งานแล้วในระบบ Firebase' };
     }
 
+    const hashedPassword = await hashPassword(user.password || '123456');
+
     await setDoc(doc(instance.db, 'users', user.id), {
       id: user.id,
       name: user.name,
       email: cleanEmail,
-      password: user.password || '',
+      password: hashedPassword,
       avatarId: user.avatarId,
       role: user.role || 'Team Member',
       department: user.department || 'General',
@@ -148,12 +151,22 @@ export async function firebaseLoginUser(
       return { success: false, error: 'ไม่พบบัญชีผู้ใช้นี้ในระบบ Firebase' };
     }
 
-    const userData = snap.docs[0].data() as User;
-    if (password && userData.password && userData.password !== password) {
-      return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' };
+    const userData = sanitizeForPollution(snap.docs[0].data()) as User;
+    if (password) {
+      const isValid = await verifyPassword(password, userData.password || '');
+      if (!isValid) {
+        return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' };
+      }
+      // หากพบว่ารหัสผ่านยังเป็น plaintext อยู่ ให้ auto-upgrade เป็น salted SHA-256 hash ทันที
+      if (userData.password && !userData.password.startsWith('sha256_')) {
+        const hashed = await hashPassword(password);
+        await setDoc(doc(instance.db, 'users', userData.id), { password: hashed }, { merge: true });
+      }
     }
 
-    return { success: true, user: userData };
+    // ลบรหัสผ่านออกจาก client user object เพื่อป้องกัน data leak
+    const { password: _p, ...safeUser } = userData as any;
+    return { success: true, user: safeUser as User };
   } catch (err) {
     return {
       success: false,
@@ -169,8 +182,9 @@ export async function firebaseFetchUsers(configStr?: string): Promise<User[]> {
 
     const snap = await getDocs(collection(instance.db, 'users'));
     return snap.docs.map(d => {
-      const data = d.data();
-      return { ...data, id: data.id || d.id } as User;
+      const data = sanitizeForPollution(d.data());
+      const { password: _p, ...safeUser } = data as any;
+      return { ...safeUser, id: data.id || d.id } as User;
     });
   } catch {
     return [];
@@ -603,8 +617,9 @@ export async function firebaseFetchTeamUsers(
     const q = query(collection(instance.db, 'users'), where('teamId', '==', teamId));
     const snap = await getDocs(q);
     return snap.docs.map(d => {
-      const data = d.data();
-      return { ...data, id: data.id || d.id } as User;
+      const data = sanitizeForPollution(d.data());
+      const { password: _p, ...safeUser } = data as any;
+      return { ...safeUser, id: data.id || d.id } as User;
     });
   } catch {
     return [];
@@ -691,22 +706,23 @@ export async function firebaseFetchTeamMembers(
 
 // ----------------- Planner Data Sync (Tasks, Events/Leaves) -----------------
 
-// ฟังก์ชันทำความสะอาด objects ป้องกัน undefined values ที่ทำให้ Firestore บันทึกไม่สำเร็จ
+// ฟังก์ชันทำความสะอาด objects ป้องกัน undefined values และ Prototype Pollution
 function cleanForFirestore<T>(data: T): T {
   if (data === null || data === undefined) return data;
-  if (Array.isArray(data)) {
-    return data.map(item => cleanForFirestore(item)) as unknown as T;
+  const sanitized = sanitizeForPollution(data);
+  if (Array.isArray(sanitized)) {
+    return sanitized.map(item => cleanForFirestore(item)) as unknown as T;
   }
-  if (typeof data === 'object') {
+  if (typeof sanitized === 'object') {
     const copy: any = {};
-    for (const [key, value] of Object.entries(data)) {
+    for (const [key, value] of Object.entries(sanitized)) {
       if (value !== undefined) {
         copy[key] = cleanForFirestore(value);
       }
     }
     return copy;
   }
-  return data;
+  return sanitized;
 }
 
 export async function uploadToFirebase(
@@ -777,7 +793,7 @@ export async function downloadFromFirebase(
       return { success: false, error: 'ไม่พบข้อมูลบน Firebase Cloud' };
     }
 
-    const val = snap.data();
+    const val = sanitizeForPollution(snap.data());
     return {
       success: true,
       data: {
@@ -818,7 +834,7 @@ export function subscribePlannerLive(
 
     return onSnapshot(docRef, snap => {
       if (snap.exists()) {
-        const val = snap.data();
+        const val = sanitizeForPollution(snap.data());
         onUpdate({
           tasks: val.tasks || [],
           rules: val.rules || [],

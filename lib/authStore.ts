@@ -19,6 +19,7 @@ import {
   generateTeamCode,
 } from './firebase';
 import { usePlanner } from './store';
+import { checkRateLimit, recordFailedAttempt, clearRateLimit, hashPassword, verifyPassword } from './security';
 
 const DEFAULT_AVATARS: AvatarId[] = [
   'dev_boy',
@@ -74,10 +75,20 @@ export const useAuth = create<AuthState>()(
         const cleanEmail = email.trim().toLowerCase();
         const firebaseCfg = getFirebaseCfg();
 
+        // ตรวจสอบ Rate Limiting ป้องกันการโจมตีแบบ Brute-Force Password Guessing
+        const rl = checkRateLimit(`login_${cleanEmail}`, 5, 60000, 60000);
+        if (!rl.allowed) {
+          return {
+            success: false,
+            error: `คุณพยายามเข้าสู่ระบบผิดพลาดบ่อยเกินไป กรุณารอ ${rl.retryAfterSec || 60} วินาทีแล้วลองใหม่อีกครั้ง (ป้องกัน Brute-Force)`,
+          };
+        }
+
         // 1. ลองตรวจสอบกับ Firebase Firestore ก่อน (ถ้ามีการตั้งค่า Firebase)
         if (firebaseCfg) {
           const fbRes = await firebaseLoginUser(cleanEmail, password, firebaseCfg);
           if (fbRes.success && fbRes.user) {
+            clearRateLimit(`login_${cleanEmail}`);
             const user = fbRes.user;
             let team: Team | null = null;
             if (user.teamId) {
@@ -109,6 +120,7 @@ export const useAuth = create<AuthState>()(
             return { success: true };
           }
           if (fbRes.error && fbRes.error.includes('รหัสผ่านไม่ถูกต้อง')) {
+            recordFailedAttempt(`login_${cleanEmail}`, 5, 60000, 60000);
             return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' };
           }
         }
@@ -116,11 +128,17 @@ export const useAuth = create<AuthState>()(
         // 2. ถ้าไม่พบใน Firebase หรือไม่มี Firebase ให้ตรวจสอบกับข้อมูลในเครื่อง (Local)
         const found = get().users.find(u => (u.email || '').toLowerCase() === cleanEmail);
         if (!found) {
+          recordFailedAttempt(`login_${cleanEmail}`, 5, 60000, 60000);
           return { success: false, error: 'ไม่พบบัญชีผู้ใช้นี้ในระบบ กรุณาสมัครสมาชิก' };
         }
-        if (password && found.password && found.password !== password) {
-          return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' };
+        if (password && found.password) {
+          const isMatch = await verifyPassword(password, found.password);
+          if (!isMatch) {
+            recordFailedAttempt(`login_${cleanEmail}`, 5, 60000, 60000);
+            return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' };
+          }
         }
+        clearRateLimit(`login_${cleanEmail}`);
         set({ currentUser: found });
         await get().fetchTeamMembers(found.teamId);
         return { success: true };
@@ -140,12 +158,13 @@ export const useAuth = create<AuthState>()(
 
         // สุ่ม Avatar ให้ผู้สมัครใหม่จาก 5 แบบ
         const randomAvatar = DEFAULT_AVATARS[Math.floor(Math.random() * DEFAULT_AVATARS.length)];
+        const hashedPassword = await hashPassword(password || '123456');
 
         const newUser: User = {
           id: `u-${uid()}`,
           name: cleanName,
           email: cleanEmail,
-          password: password || '123456',
+          password: hashedPassword,
           avatarId: randomAvatar,
           role: 'Team Member',
           department: 'General',

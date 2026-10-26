@@ -23,6 +23,7 @@ import type {
 } from './types';
 import { uid } from './utils';
 import { DEFAULT_FIREBASE_CONFIG } from './firebaseDefaultConfig';
+import { sanitizeForPollution } from './security';
 
 export type NewTask = {
   date: string;
@@ -1347,12 +1348,13 @@ export const usePlanner = create<PlannerState>()(
       },
 
       restore: d => set(s => {
-        let boards = d.canvasBoards !== undefined ? d.canvasBoards : (s.canvasBoards || []);
-        let activeId = d.activeBoardId || s.activeBoardId || 'default-board';
-        let notes = d.canvasNotes !== undefined ? d.canvasNotes : (s.canvasNotes || []);
-        let connections = d.canvasConnections !== undefined ? d.canvasConnections : (s.canvasConnections || []);
-        let strokes = d.canvasStrokes !== undefined ? d.canvasStrokes : (s.canvasStrokes || []);
-        let sections = d.canvasSections !== undefined ? d.canvasSections : (s.canvasSections || []);
+        const clean = sanitizeForPollution(d);
+        let boards = clean.canvasBoards !== undefined ? clean.canvasBoards : (s.canvasBoards || []);
+        let activeId = clean.activeBoardId || s.activeBoardId || 'default-board';
+        let notes = clean.canvasNotes !== undefined ? clean.canvasNotes : (s.canvasNotes || []);
+        let connections = clean.canvasConnections !== undefined ? clean.canvasConnections : (s.canvasConnections || []);
+        let strokes = clean.canvasStrokes !== undefined ? clean.canvasStrokes : (s.canvasStrokes || []);
+        let sections = clean.canvasSections !== undefined ? clean.canvasSections : (s.canvasSections || []);
 
         if (boards.length === 0 && (notes.length > 0 || connections.length > 0 || strokes.length > 0 || sections.length > 0)) {
           boards = [{
@@ -1377,12 +1379,12 @@ export const usePlanner = create<PlannerState>()(
         }
 
         return {
-          tasks: (d.tasks ?? s.tasks).map(t => ({ ...t, priority: t.priority ?? 'medium' })), // รองรับ backup จากเวอร์ชัน HTML
-          rules: d.rules ?? s.rules,
-          events: d.events ?? s.events,
-          customTags: d.customTags !== undefined ? d.customTags : (s.customTags || []),
-          deletedTags: d.deletedTags !== undefined ? d.deletedTags : (s.deletedTags || []),
-          notifications: d.notifications !== undefined ? d.notifications : (s.notifications || []),
+          tasks: (clean.tasks ?? s.tasks).map(t => ({ ...t, priority: t.priority ?? 'medium' })), // รองรับ backup จากเวอร์ชัน HTML
+          rules: clean.rules ?? s.rules,
+          events: clean.events ?? s.events,
+          customTags: clean.customTags !== undefined ? clean.customTags : (s.customTags || []),
+          deletedTags: clean.deletedTags !== undefined ? clean.deletedTags : (s.deletedTags || []),
+          notifications: clean.notifications !== undefined ? clean.notifications : (s.notifications || []),
           canvasNotes: notes,
           canvasConnections: connections,
           canvasBoards: boards,
