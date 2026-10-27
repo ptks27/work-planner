@@ -20,16 +20,17 @@ export interface TabItem {
   id: 'tasks' | 'timeline' | 'canvas' | 'events' | 'dash' | 'settings';
   icon: React.ReactNode;
   label: string;
+  shortLabel: string;
   desc: string;
 }
 
 export const TABS: TabItem[] = [
-  { id: 'tasks', icon: <CalendarIcon size={18} />, label: 'ปฏิทินงาน', desc: 'ดูและจัดการงานของแต่ละวัน' },
-  { id: 'timeline', icon: <ColumnsIcon size={18} />, label: 'ไทม์ไลน์งาน', desc: 'แกนต์ชาร์ตและ Roadmap โครงการ' },
-  { id: 'canvas', icon: <StickyNoteIcon size={18} />, label: 'กระดานไอเดีย', desc: 'ระดมความคิดและโพสต์อิท Visual Canvas' },
-  { id: 'events', icon: <UmbrellaIcon size={18} />, label: 'วันหยุด / วันลา', desc: 'บันทึกวันหยุด วันลา และโน้ต' },
-  { id: 'dash', icon: <ChartBarIcon size={18} />, label: 'Dashboard', desc: 'สรุปผลงานและสถิติกราฟ' },
-  { id: 'settings', icon: <SettingsIcon size={18} />, label: 'ตั้งค่า', desc: 'ระบบ คลาวด์ และการแจ้งเตือน' },
+  { id: 'tasks', icon: <CalendarIcon size={18} />, label: 'ปฏิทินงาน', shortLabel: 'ปฏิทิน', desc: 'ดูและจัดการงานของแต่ละวัน' },
+  { id: 'timeline', icon: <ColumnsIcon size={18} />, label: 'ไทม์ไลน์งาน', shortLabel: 'ไทม์ไลน์', desc: 'แกนต์ชาร์ตและ Roadmap โครงการ' },
+  { id: 'canvas', icon: <StickyNoteIcon size={18} />, label: 'กระดานไอเดีย', shortLabel: 'ไอเดีย', desc: 'ระดมความคิดและโพสต์อิท Visual Canvas' },
+  { id: 'events', icon: <UmbrellaIcon size={18} />, label: 'วันหยุด / วันลา', shortLabel: 'วันลา', desc: 'บันทึกวันหยุด วันลา และโน้ต' },
+  { id: 'dash', icon: <ChartBarIcon size={18} />, label: 'Dashboard', shortLabel: 'แดชบอร์ด', desc: 'สรุปผลงานและสถิติกราฟ' },
+  { id: 'settings', icon: <SettingsIcon size={18} />, label: 'ตั้งค่า', shortLabel: 'ตั้งค่า', desc: 'ระบบ คลาวด์ และการแจ้งเตือน' },
 ];
 export type TabId = 'tasks' | 'timeline' | 'canvas' | 'events' | 'dash' | 'settings';
 
@@ -62,7 +63,8 @@ export default function Sidebar({
         {TABS.map(t => (
           <button key={t.id} className={`menu-item ${tab === t.id ? 'active' : ''}`} onClick={() => onTab(t.id)}>
             <span className="mi-icon">{t.icon}</span>
-            <span>{t.label}</span>
+            <span className="menu-label-full">{t.label}</span>
+            <span className="menu-label-short">{t.shortLabel}</span>
           </button>
         ))}
       </nav>

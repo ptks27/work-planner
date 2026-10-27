@@ -264,7 +264,7 @@ export default function TasksTab() {
 
   return (
     <section>
-      <div className="card mb row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="card mb tasks-toolbar">
         <div className="chips" style={{ margin: 0 }}>
           <button
             className={`chip ${activeView === 'calendar' ? 'on' : ''}`}

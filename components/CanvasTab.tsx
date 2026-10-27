@@ -2089,9 +2089,10 @@ export default function CanvasTab() {
 
       {/* Floating Apple Freeform Tool Palette */}
       <div
+        className="canvas-tool-palette"
         style={{
           position: 'absolute',
-          bottom: 16,
+          bottom: 'var(--canvas-palette-bottom, 16px)',
           left: '50%',
           transform: 'translateX(-50%)',
           maxWidth: '95%',

@@ -317,10 +317,21 @@ export default function App() {
 
           {/* Right: Clean Apple macOS Controls with Unified Quick Action Menu */}
           <div className="nav-right">
+            {/* Mobile Search Icon Button (visible on mobile / small screens) */}
+            <button
+              type="button"
+              className="nav-icon-btn nav-mobile-search-btn"
+              onClick={() => setIsSearchOpen(true)}
+              title="ค้นหางานทั้งหมด"
+              aria-label="ค้นหางาน"
+            >
+              <SearchIcon size={15} />
+            </button>
+
             {/* Streak & Activity Ring Trigger Chip */}
             <button
               type="button"
-              className="nav-action-btn"
+              className="nav-action-btn nav-streak-btn"
               onClick={() => setIsAchievementsOpen(true)}
               style={{
                 display: 'inline-flex',
@@ -357,7 +368,7 @@ export default function App() {
             <div ref={quickMenuRef} style={{ position: 'relative' }}>
               <button
                 type="button"
-                className="nav-action-btn"
+                className="nav-action-btn nav-quick-menu-btn"
                 onClick={() => setIsQuickMenuOpen(prev => !prev)}
                 style={{
                   display: 'inline-flex',
@@ -372,7 +383,7 @@ export default function App() {
                 title="เปิดเมนูด่วน / เครื่องมือช่วยงาน"
               >
                 <BoltIcon size={14} color="var(--pri)" />
-                <span>เมนูด่วน</span>
+                <span className="nav-quick-menu-label">เมนูด่วน</span>
                 <ChevronDownIcon
                   size={12}
                   style={{

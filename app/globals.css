@@ -39,6 +39,14 @@
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
   --shadow-hover: 0 16px 40px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
   --side: 256px;
+
+  /* Apple iOS Safe Area Insets (Dynamic Island, Notch, Home Bar & Foldables) */
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --canvas-palette-bottom: 20px;
+  --gantt-title-col: 260px;
 }
 
 * {
@@ -49,6 +57,8 @@ html, body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
 }
 
 body {
@@ -2048,73 +2058,471 @@ tbody tr:hover td {
    Responsive Adaptations
    ========================================================================== */
 
-@media (max-width: 1100px) {
+/* ==========================================================================
+   Responsive Adaptations & Multi-Device Form Factors
+   - Foldable Dual-Screen (Surface Duo / Dual Viewports)
+   - iPad & Tablets Portrait and Landscape
+   - iPhone Portrait (with iOS Frosted Tab Bar & Dynamic Safe Area)
+   - iPhone Landscape (Left Slim Icon Rail for maximum vertical canvas)
+   - Folded Narrow Phones (Galaxy Z Fold, narrow screens <= 360px)
+   ========================================================================== */
+
+.menu-label-short {
+  display: none;
+}
+.menu-label-full {
+  display: inline-block;
+}
+.nav-mobile-search-btn {
+  display: none;
+}
+
+.tasks-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.tasks-toolbar > * {
+  min-width: 0;
+}
+
+/* 1. Base Multi-Column Grids */
+@media (max-width: 1200px) {
   .g4 {
     grid-template-columns: repeat(2, 1fr);
   }
 }
-@media (max-width: 900px) {
-  .g2, .g3 {
+
+/* 2. Foldables & Dual-Screen Devices (Surface Duo, Dual-screen Viewports) */
+@media (horizontal-viewport-segments: 2), (spanning: single-fold-vertical) {
+  .layout {
+    display: grid !important;
+    grid-template-columns: env(viewport-segment-width 0 0, 50%) env(viewport-segment-width 1 0, 50%) !important;
+    column-gap: calc(env(viewport-segment-left 1 0, 50%) - env(viewport-segment-right 0 0, 50%) + 16px) !important;
+  }
+  .content {
+    margin-left: 0 !important;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .calendar-task-grid {
+    grid-template-columns: 1fr 1fr !important;
+    column-gap: 24px !important;
+  }
+  .events-layout-grid,
+  .dashboard-charts-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+@media (vertical-viewport-segments: 2), (spanning: single-fold-horizontal) {
+  /* Clamshell fold (Laptop/Tent mode) */
+  .topbar {
+    position: sticky;
+    top: 0;
+  }
+  main {
+    padding-bottom: calc(32px + var(--sab));
+  }
+}
+
+/* 3. iPad / Tablets in Portrait & Medium Screens (701px to 1024px) */
+@media (min-width: 701px) and (max-width: 1024px) {
+  :root {
+    --side: 216px;
+  }
+  .sidebar {
+    width: var(--side);
+    padding: calc(18px + var(--sat)) 12px calc(18px + var(--sab)) calc(12px + var(--sal));
+    gap: 16px;
+  }
+  .brand b {
+    font-size: 14.5px;
+  }
+  .brand small {
+    font-size: 10.5px;
+  }
+  .logo {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  .menu-item {
+    font-size: 13px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .content {
+    margin-left: var(--side);
+  }
+  .topbar {
+    padding: calc(10px + var(--sat)) calc(18px + var(--sar)) 10px calc(18px + var(--sal));
+    gap: 10px;
+  }
+  .nav-center {
+    max-width: 260px;
+  }
+  .nav-breadcrumb {
+    display: none;
+  }
+  .nav-title {
+    font-size: 17px;
+  }
+  .nav-team-members-btn {
+    display: none;
+  }
+  .nav-mobile-search-btn {
+    display: none;
+  }
+  main {
+    padding: 18px calc(18px + var(--sar)) 36px calc(18px + var(--sal));
+  }
+  .calendar-task-grid {
+    grid-template-columns: 1fr;
+  }
+  .weekly-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .kanban-grid {
+    grid-template-columns: repeat(3, minmax(210px, 1fr));
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+  }
+}
+
+/* 4. Phone Landscape Mode (Short Viewport Height <= 520px and Landscape) */
+@media (max-height: 520px) and (orientation: landscape) and (max-width: 960px) {
+  .sidebar {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    width: calc(62px + var(--sal));
+    padding: calc(6px + var(--sat)) 4px calc(6px + var(--sab)) calc(4px + var(--sal));
+    flex-direction: column;
+    gap: 6px;
+    border-right: 1px solid var(--line);
+    border-top: none;
+    z-index: 45;
+  }
+  .content {
+    margin-left: calc(62px + var(--sal)) !important;
+    padding-bottom: calc(16px + var(--sab)) !important;
+  }
+  .menu {
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+  }
+  .menu-item {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 44px;
+    padding: 3px 2px;
+    border-radius: 10px;
+    gap: 2px;
+  }
+  .menu-label-full {
+    display: none !important;
+  }
+  .menu-label-short {
+    display: inline-block !important;
+    font-size: 9px !important;
+    line-height: 1 !important;
+  }
+  .brand b, .brand small, .side-progress {
+    display: none !important;
+  }
+  .brand {
+    padding: 2px 0;
+    justify-content: center;
+  }
+  .logo {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  .topbar {
+    padding: calc(4px + var(--sat)) calc(12px + var(--sar)) 4px 12px;
+    gap: 8px;
+  }
+  .topbar h1, .nav-title {
+    font-size: 15px;
+  }
+  .nav-page-badge {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  .nav-breadcrumb {
+    display: none;
+  }
+  .nav-team-members-btn {
+    display: none;
+  }
+  .nav-center {
+    display: none;
+  }
+  .nav-mobile-search-btn {
+    display: inline-flex;
+  }
+  .nav-user-meta, .nav-user-caret {
+    display: none;
+  }
+  .nav-user-chip {
+    padding: 2px;
+    background: transparent;
+    border: none;
+  }
+  main {
+    padding: 10px calc(12px + var(--sar)) 20px calc(12px + var(--sal));
+  }
+  .calendar-task-grid,
+  .events-layout-grid,
+  .dashboard-charts-grid {
+    grid-template-columns: 1fr;
+  }
+  .toasts {
+    bottom: 20px;
+    right: 12px;
+    left: auto;
+    max-width: 320px;
+  }
+  .modal-box {
+    max-height: calc(100dvh - 16px) !important;
+  }
+}
+
+/* 5. Mobile Phones in Portrait (<= 700px) */
+@media (max-width: 700px) and (orientation: portrait), (max-width: 500px) {
+  .g2, .g3, .g4 {
     grid-template-columns: 1fr;
   }
   .sidebar {
     top: auto;
     bottom: 0;
+    left: 0;
+    right: 0;
     width: 100%;
+    height: auto;
     flex-direction: row;
-    padding: 6px;
+    padding: 5px calc(3px + var(--sar)) calc(6px + var(--sab)) calc(3px + var(--sal));
     border-right: none;
     border-top: 1px solid var(--line);
+    background: var(--topbar-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     gap: 0;
+    z-index: 50;
   }
   .brand, .side-progress {
-    display: none;
+    display: none !important;
   }
   .menu {
     flex-direction: row;
     justify-content: space-around;
+    width: 100%;
+    gap: 1px;
   }
   .menu-item {
     flex: 1;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 2px;
-    padding: 6px 2px;
+    padding: 5px 1px;
     font-size: 10px;
-    text-align: center;
+    min-height: 48px;
+    border-radius: 10px;
+  }
+  .menu-item:hover {
+    transform: none;
+  }
+  .menu-label-full {
+    display: none !important;
+  }
+  .menu-label-short {
+    display: inline-block !important;
+    font-size: 10px !important;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
   }
   .content {
-    margin-left: 0;
-    padding-bottom: 72px;
+    margin-left: 0 !important;
+    padding-bottom: calc(76px + var(--sab)) !important;
   }
   .topbar {
-    padding: 14px 16px;
+    padding: calc(8px + var(--sat)) calc(12px + var(--sar)) 8px calc(12px + var(--sal));
+    gap: 8px;
   }
-  .topbar h1 {
-    font-size: 19px;
+  .nav-left {
+    gap: 8px;
+  }
+  .nav-page-badge {
+    width: 32px;
+    height: 32px;
+    font-size: 15px;
+    border-radius: 9px;
+  }
+  .nav-title {
+    font-size: 16px;
+    max-width: 120px;
+  }
+  .nav-breadcrumb {
+    display: none;
+  }
+  .nav-team-members-btn {
+    display: none;
+  }
+  .nav-center {
+    display: none;
+  }
+  .nav-mobile-search-btn {
+    display: inline-flex;
+  }
+  .nav-right {
+    gap: 5px;
+  }
+  .nav-streak-btn {
+    padding: 3px 7px !important;
+    font-size: 11.5px !important;
+    gap: 3px !important;
+  }
+  .nav-quick-menu-label {
+    display: none;
+  }
+  .nav-quick-menu-btn {
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+  }
+  .nav-user-meta, .nav-user-caret {
+    display: none;
+  }
+  .nav-user-chip {
+    padding: 2px;
+    background: transparent;
+    border: none;
+  }
+  .nav-divider {
+    display: none;
   }
   main {
-    padding: 16px 18px 28px;
+    padding: 14px calc(12px + var(--sar)) 28px calc(12px + var(--sal));
   }
   .toasts {
-    bottom: 84px;
+    bottom: calc(84px + var(--sab));
     right: 12px;
     left: 12px;
   }
-}
-@media (max-width: 600px) {
   .day {
-    min-height: 56px;
-    padding: 4px;
+    min-height: 48px;
+    padding: 3px;
   }
   .day .tag {
     display: none;
   }
   .badge {
-    font-size: 9.5px;
+    font-size: 9px;
     padding: 0 4px;
-    top: 4px;
+    top: 3px;
     right: 3px;
+  }
+  .calendar-task-grid,
+  .events-layout-grid,
+  .dashboard-charts-grid {
+    grid-template-columns: 1fr;
+  }
+  .weekly-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .weekly-col {
+    min-height: auto;
+    padding: 10px;
+  }
+  .kanban-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .kanban-col {
+    min-height: auto;
+    padding: 12px;
+  }
+  .tasks-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .tasks-toolbar .chips {
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+  :root {
+    --gantt-title-col: 145px;
+    --canvas-palette-bottom: calc(76px + var(--sab));
+  }
+  .modal-overlay {
+    padding: 10px;
+  }
+  .modal-box {
+    width: 100% !important;
+    max-height: calc(100dvh - 32px - var(--sat) - var(--sab)) !important;
+    border-radius: 20px;
+  }
+  .modal-header {
+    padding: 14px 16px 0;
+  }
+  .modal-body {
+    padding: 12px 16px;
+    max-height: calc(100dvh - 120px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-footer {
+    padding: 12px 16px 14px;
+    flex-wrap: wrap;
+  }
+}
+
+/* 6. Ultra-Narrow Devices (<= 360px: Galaxy Z Fold Cover Screen, iPhone SE 1st gen) */
+@media (max-width: 360px) {
+  .topbar {
+    padding: calc(6px + var(--sat)) calc(8px + var(--sar)) 6px calc(8px + var(--sal));
+    gap: 6px;
+  }
+  .nav-title {
+    font-size: 14.5px;
+    max-width: 95px;
+  }
+  .nav-page-badge {
+    width: 28px;
+    height: 28px;
+    font-size: 13px;
+  }
+  .menu-item {
+    font-size: 9px;
+  }
+  .menu-label-short {
+    font-size: 9px !important;
+  }
+  main {
+    padding: 10px calc(8px + var(--sar)) 20px calc(8px + var(--sal));
+  }
+  .card {
+    padding: 14px 12px;
+    border-radius: 14px;
+  }
+  .macos-form-card {
+    padding: 14px 12px;
   }
 }
 

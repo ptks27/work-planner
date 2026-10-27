@@ -311,7 +311,7 @@ export default function TimelineTab() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '260px 1fr',
+              gridTemplateColumns: 'var(--gantt-title-col, 260px) 1fr',
               borderBottom: '1px solid var(--line)',
               background: 'rgba(120, 120, 128, 0.04)',
             }}
@@ -319,6 +319,10 @@ export default function TimelineTab() {
             {/* Left Header */}
             <div
               style={{
+                position: 'sticky',
+                left: 0,
+                zIndex: 6,
+                background: 'var(--card-solid)',
                 padding: '12px 16px',
                 fontWeight: 700,
                 fontSize: 13,
@@ -396,7 +400,7 @@ export default function TimelineTab() {
                   key={t.id}
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '260px 1fr',
+                    gridTemplateColumns: 'var(--gantt-title-col, 260px) 1fr',
                     borderBottom: '1px solid var(--line)',
                     minHeight: 46,
                     alignItems: 'center',
@@ -408,6 +412,10 @@ export default function TimelineTab() {
                   <div
                     onClick={() => setEditingTask(t)}
                     style={{
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 5,
+                      background: 'var(--card-solid)',
                       padding: '8px 16px',
                       borderRight: '1px solid var(--line)',
                       cursor: 'pointer',
