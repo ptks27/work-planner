@@ -133,7 +133,7 @@ export default function KanbanView({ currentDate, onEditTask }: KanbanViewProps)
 
   return (
     <div>
-      <div className="card mb row" style={{ justifyContent: 'space-between' }}>
+      <div className="card mb tasks-toolbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <b>กรองตามวันที่:</b>
           <div style={{ width: 170 }}>

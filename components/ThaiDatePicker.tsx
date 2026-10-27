@@ -235,12 +235,14 @@ export default function ThaiDatePicker({
 
       {isOpen && (
         <div
+          className="thai-datepicker-popover"
           style={{
             position: 'absolute',
             top: 'calc(100% + 6px)',
             left: 0,
             zIndex: 1000,
-            minWidth: 290,
+            width: 290,
+            maxWidth: 'calc(100vw - 32px)',
             background: 'var(--card)',
             border: '1px solid var(--line)',
             borderRadius: 14,

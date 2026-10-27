@@ -349,7 +349,7 @@ export default function App() {
               title={`ดูวงแหวนกิจกรรมและความสำเร็จ (Streak ${activityStats.currentStreak} วัน, ปิดงานวันนี้ ${activityStats.todayPct}%)`}
             >
               <span>🔥</span>
-              <span>{activityStats.currentStreak > 0 ? `${activityStats.currentStreak} วัน` : 'Streak'}</span>
+              <span className="streak-label">{activityStats.currentStreak > 0 ? `${activityStats.currentStreak} วัน` : 'Streak'}</span>
               <span
                 style={{
                   fontSize: 10.5,
@@ -505,7 +505,7 @@ export default function App() {
 
             {/* Theme Toggle Button */}
             <button
-              className="nav-icon-btn"
+              className="nav-icon-btn nav-theme-btn"
               onClick={() => s.setTheme(s.theme === 'dark' ? 'light' : 'dark')}
               title={s.theme === 'dark' ? 'เปลี่ยนเป็นโหมดสว่าง' : 'เปลี่ยนเป็นโหมดมืด'}
               aria-label="สลับธีม"

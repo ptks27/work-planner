@@ -753,14 +753,14 @@ export default function TasksTab() {
 
                       {/* แสดง Avatar ของผู้รับผิดชอบในช่องวัน */}
                       {uniqueAvatars.length > 0 && (
-                        <div style={{ display: 'flex', gap: 2, margin: '2px 0', flexWrap: 'wrap' }}>
+                        <div className="cal-avatars" style={{ display: 'flex', gap: 2, margin: '2px 0', flexWrap: 'wrap' }}>
                           {uniqueAvatars.slice(0, 3).map((av, idx) => (
                             <AvatarIcon key={idx} id={av!} size={14} />
                           ))}
                         </div>
                       )}
 
-                      {/* แสดงรายการการลาและวันหยุด พร้อมชื่อและ Avatar ล่าสุด */}
+                      {/* แสดงรายการการลาและวันหยุด พร้อมชื่อและ Avatar ล่าสุด (Desktop & Tablet) */}
                       {ev.map(e => {
                         const u = memberList.find(m => m.id === e.userId) || (e.userId === currentUser?.id ? currentUser : null);
                         const evAvatar = u?.avatarId || e.userAvatar;
@@ -783,6 +783,20 @@ export default function TasksTab() {
                           </span>
                         );
                       })}
+
+                      {/* Mobile Minimalist Indicator Dots (Apple Calendar Mobile Style) */}
+                      <div className="cal-mobile-dots">
+                        {ts.length > 0 && (
+                          <span
+                            className="cal-dot"
+                            style={{
+                              background: done === ts.length ? 'var(--ok)' : hot ? 'var(--red)' : 'var(--pri)',
+                            }}
+                          />
+                        )}
+                        {hasLeave && <span className="cal-dot" style={{ background: '#ff9500' }} />}
+                        {hasHoliday && <span className="cal-dot" style={{ background: '#ff3b30' }} />}
+                      </div>
                     </div>
                   );
                 })}

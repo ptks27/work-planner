@@ -98,11 +98,8 @@ export default function WeeklyView({ currentDate, onEditTask }: WeeklyViewProps)
 
   return (
     <div>
-      <div
-        className="card mb row"
-        style={{ justifyContent: 'space-between', alignItems: 'center' }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div className="card mb tasks-toolbar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <button
             className="btn sm ghost"
             onClick={() => setBaseDate(prev => addDays(prev, -7))}
@@ -125,7 +122,7 @@ export default function WeeklyView({ currentDate, onEditTask }: WeeklyViewProps)
           </button>
         </div>
 
-        <b style={{ color: 'var(--pri)' }}>
+        <b style={{ color: 'var(--pri)', fontSize: 'clamp(12px, 2.5vw, 14.5px)', wordBreak: 'break-word' }}>
           {thDate(fmt(weekDays[0]))} – {thDate(fmt(weekDays[6]))}
         </b>
       </div>

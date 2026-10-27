@@ -269,9 +269,9 @@ button, input, select, textarea {
 .nav-left {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
+  gap: 10px;
   min-width: 0;
+  flex: 1;
 }
 .nav-page-badge {
   width: 38px;
@@ -290,7 +290,7 @@ button, input, select, textarea {
   gap: 1px;
   min-width: 0;
   white-space: nowrap;
-  flex-shrink: 0;
+  flex-shrink: 1;
 }
 .nav-breadcrumb {
   display: flex;
@@ -317,6 +317,7 @@ button, input, select, textarea {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .nav-center {
@@ -2077,6 +2078,16 @@ tbody tr:hover td {
   display: none;
 }
 
+.cal-mobile-dots {
+  display: none;
+}
+.cal-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
 .tasks-toolbar {
   display: flex;
   justify-content: space-between;
@@ -2092,6 +2103,11 @@ tbody tr:hover td {
 @media (max-width: 1200px) {
   .g4 {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .g4 {
+    grid-template-columns: 1fr !important;
   }
 }
 
@@ -2169,11 +2185,18 @@ tbody tr:hover td {
   }
   .nav-title {
     font-size: 17px;
+    max-width: 140px;
   }
   .nav-team-members-btn {
     display: none;
   }
-  .nav-mobile-search-btn {
+  .nav-team-code-btn {
+    display: none;
+  }
+  .nav-team-name {
+    max-width: 95px;
+  }
+  .streak-label {
     display: none;
   }
   main {
@@ -2190,6 +2213,16 @@ tbody tr:hover td {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 8px;
+  }
+}
+
+/* iPad Portrait with limited content width <= 880px */
+@media (min-width: 701px) and (max-width: 880px) {
+  .nav-center {
+    display: none !important;
+  }
+  .nav-mobile-search-btn {
+    display: inline-flex !important;
   }
 }
 
@@ -2237,7 +2270,7 @@ tbody tr:hover td {
     font-size: 9px !important;
     line-height: 1 !important;
   }
-  .brand b, .brand small, .side-progress {
+  .brand b, .brand small, .side-progress, .side-user-card {
     display: none !important;
   }
   .brand {
@@ -2255,6 +2288,7 @@ tbody tr:hover td {
   }
   .topbar h1, .nav-title {
     font-size: 15px;
+    max-width: 110px;
   }
   .nav-page-badge {
     width: 28px;
@@ -2267,11 +2301,20 @@ tbody tr:hover td {
   .nav-team-members-btn {
     display: none;
   }
+  .nav-team-code-btn {
+    display: none !important;
+  }
+  .nav-team-name {
+    max-width: 80px;
+  }
   .nav-center {
     display: none;
   }
   .nav-mobile-search-btn {
     display: inline-flex;
+  }
+  .streak-label {
+    display: none;
   }
   .nav-user-meta, .nav-user-caret {
     display: none;
@@ -2322,7 +2365,7 @@ tbody tr:hover td {
     gap: 0;
     z-index: 50;
   }
-  .brand, .side-progress {
+  .brand, .side-progress, .side-user-card {
     display: none !important;
   }
   .menu {
@@ -2364,19 +2407,33 @@ tbody tr:hover td {
   }
   .nav-left {
     gap: 8px;
+    flex: 1;
+    min-width: 0;
   }
   .nav-page-badge {
     width: 32px;
     height: 32px;
     font-size: 15px;
     border-radius: 9px;
+    flex-shrink: 0;
   }
   .nav-title {
-    font-size: 16px;
-    max-width: 120px;
+    font-size: 15.5px;
+    max-width: 110px;
   }
   .nav-breadcrumb {
     display: none;
+  }
+  .nav-team-pill {
+    margin-left: 4px;
+    padding: 3px 8px 3px 6px;
+    gap: 5px;
+  }
+  .nav-team-name {
+    max-width: 75px;
+  }
+  .nav-team-code-btn {
+    display: none !important;
   }
   .nav-team-members-btn {
     display: none;
@@ -2389,6 +2446,9 @@ tbody tr:hover td {
   }
   .nav-right {
     gap: 5px;
+  }
+  .streak-label {
+    display: none;
   }
   .nav-streak-btn {
     padding: 3px 7px !important;
@@ -2423,16 +2483,32 @@ tbody tr:hover td {
   }
   .day {
     min-height: 48px;
-    padding: 3px;
+    padding: 4px 2px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
   }
-  .day .tag {
-    display: none;
+  .day .num {
+    margin: 0 auto;
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+  .day .tag,
+  .cal-leave-pill,
+  .cal-avatars {
+    display: none !important;
+  }
+  .cal-mobile-dots {
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    gap: 3px;
+    margin-top: 3px;
   }
   .badge {
-    font-size: 9px;
-    padding: 0 4px;
-    top: 3px;
-    right: 3px;
+    display: none !important;
   }
   .calendar-task-grid,
   .events-layout-grid,
@@ -2455,6 +2531,17 @@ tbody tr:hover td {
     min-height: auto;
     padding: 12px;
   }
+  .event-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .event-row > div:last-child {
+    width: 100% !important;
+    justify-content: space-between !important;
+    border-top: 1px solid var(--line);
+    padding-top: 6px;
+  }
   .tasks-toolbar {
     flex-direction: column;
     align-items: stretch;
@@ -2471,12 +2558,15 @@ tbody tr:hover td {
     --canvas-palette-bottom: calc(76px + var(--sab));
   }
   .modal-overlay {
-    padding: 10px;
+    align-items: flex-end !important;
+    padding: 0 !important;
   }
   .modal-box {
     width: 100% !important;
-    max-height: calc(100dvh - 32px - var(--sat) - var(--sab)) !important;
-    border-radius: 20px;
+    max-height: calc(100dvh - 36px - var(--sat)) !important;
+    border-radius: 24px 24px 0 0 !important;
+    border-bottom: none !important;
+    animation: modalSheetUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
   .modal-header {
     padding: 14px 16px 0;
@@ -2488,41 +2578,74 @@ tbody tr:hover td {
     -webkit-overflow-scrolling: touch;
   }
   .modal-footer {
-    padding: 12px 16px 14px;
+    padding: 12px 16px calc(14px + var(--sab));
     flex-wrap: wrap;
   }
 }
 
-/* 6. Ultra-Narrow Devices (<= 360px: Galaxy Z Fold Cover Screen, iPhone SE 1st gen) */
+@keyframes modalSheetUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 6. Compact Phones (<= 480px) */
+@media (max-width: 480px) {
+  .nav-theme-btn {
+    display: none !important;
+  }
+  .nav-streak-btn {
+    padding: 3px 6px !important;
+    font-size: 11px !important;
+  }
+  .nav-quick-menu-btn {
+    padding: 3px 6px !important;
+    font-size: 11px !important;
+  }
+  .macos-priority-pill {
+    padding: 5px 4px !important;
+    font-size: 11px !important;
+    gap: 3px !important;
+  }
+}
+
+/* 7. Ultra-Narrow Devices (<= 360px: Galaxy Z Fold Cover Screen, iPhone SE 1st gen) */
 @media (max-width: 360px) {
   .topbar {
     padding: calc(6px + var(--sat)) calc(8px + var(--sar)) 6px calc(8px + var(--sal));
     gap: 6px;
   }
-  .nav-title {
-    font-size: 14.5px;
-    max-width: 95px;
-  }
   .nav-page-badge {
-    width: 28px;
-    height: 28px;
-    font-size: 13px;
+    display: none !important;
+  }
+  .nav-title {
+    font-size: 13.5px !important;
+    max-width: 75px !important;
+  }
+  .nav-team-name {
+    max-width: 50px !important;
   }
   .menu-item {
-    font-size: 9px;
+    font-size: 8.5px;
+    padding: 4px 1px;
   }
   .menu-label-short {
-    font-size: 9px !important;
+    font-size: 8.5px !important;
   }
   main {
     padding: 10px calc(8px + var(--sar)) 20px calc(8px + var(--sal));
   }
   .card {
-    padding: 14px 12px;
+    padding: 12px 10px;
     border-radius: 14px;
   }
   .macos-form-card {
-    padding: 14px 12px;
+    padding: 12px 10px;
   }
 }
 

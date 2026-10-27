@@ -79,6 +79,7 @@ export default function Sidebar({
       {currentUser && (
         <div
           onClick={onOpenProfile}
+          className="side-user-card"
           style={{
             display: 'flex',
             alignItems: 'center',

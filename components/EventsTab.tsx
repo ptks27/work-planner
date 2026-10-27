@@ -409,6 +409,7 @@ export default function EventsTab() {
                 return (
                   <div
                     key={e.id}
+                    className="event-row"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
