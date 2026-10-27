@@ -142,79 +142,41 @@ export default function TeamSwitcher({ onOpenMembers }: TeamSwitcherProps = {}) 
 
   return (
     <div ref={dropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
-      {/* Topbar Team Pill */}
+      {/* Topbar Team Pill - Compact Apple HIG style */}
       <div
         className="nav-team-pill"
         onClick={() => setIsOpen(prev => !prev)}
-        style={{
-          cursor: 'pointer',
-          userSelect: 'none',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 8,
-        }}
-        title="คลิกเพื่อสลับทีม หรือจัดการทีมของคุณ"
+        title={`ทีมปัจจุบัน: ${currentTeam?.name || currentUser.teamName || 'ทีมของฉัน'} (คลิกเพื่อสลับทีมหรือคัดลอกรหัส)`}
       >
-        <span className="nav-team-icon" style={{ display: 'grid', placeItems: 'center' }}>
-          <BuildingIcon size={14} color="var(--pri)" />
+        <span className="nav-team-icon" style={{ display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+          <BuildingIcon size={13} color="var(--pri)" />
         </span>
 
         <span className="nav-team-name">
           {currentTeam?.name || currentUser.teamName || 'ทีมของฉัน'}
         </span>
 
-        {/* แสดงรหัสทีมเฉพาะผู้สร้างทีมเท่านั้น */}
-        {isCurrentTeamCreator && (currentTeam?.code || currentUser.teamCode) && (
-          <button
-            type="button"
-            className="nav-team-code-btn"
-            onClick={e =>
-              handleCopyCode(
-                e,
-                currentTeam?.code || currentUser.teamCode || '',
-                currentTeam?.id || 'active'
-              )
-            }
-            title="ผู้สร้างทีม: คลิกเพื่อคัดลอกรหัสทีมส่งให้เพื่อนร่วมงาน"
-          >
-            <span className="nav-team-code-badge">
-              {currentTeam?.code || currentUser.teamCode}
-            </span>
-            {copiedCodeId === (currentTeam?.id || 'active') ? (
-              <CheckIcon size={12} strokeWidth={2.5} color="var(--ok)" />
-            ) : (
-              <CopyIcon size={12} />
-            )}
-          </button>
-        )}
-
-        {/* ถ้าไม่ใช่ผู้สร้าง ให้แสดง Badge สมาชิก (ไม่แสดงรหัสทีม) */}
-        {!isCurrentTeamCreator && (
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 600,
-              padding: '1px 6px',
-              borderRadius: 6,
-              background: 'var(--bg)',
-              color: 'var(--mut)',
-              border: '1px solid var(--line)',
-            }}
-          >
-            สมาชิก
-          </span>
-        )}
+        {/* Member count badge */}
+        <span
+          className="nav-team-count-badge"
+          title={`${teamMembers.length} สมาชิกในทีม`}
+        >
+          <UsersIcon size={11} color="var(--pri)" />
+          <span>{teamMembers.length}</span>
+        </span>
 
         <span
+          className="nav-team-caret"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             color: 'var(--mut)',
             transform: isOpen ? 'rotate(180deg)' : 'none',
             transition: 'transform 0.15s ease',
+            flexShrink: 0,
           }}
         >
-          <ChevronDownIcon size={13} />
+          <ChevronDownIcon size={11} />
         </span>
       </div>
 
@@ -237,6 +199,68 @@ export default function TeamSwitcher({ onOpenMembers }: TeamSwitcherProps = {}) 
             animation: 'scaleUp 0.15s ease',
           }}
         >
+          {/* Active Team Invite Code Banner for Team Creator */}
+          {isCurrentTeamCreator && (currentTeam?.code || currentUser.teamCode) && (
+            <div
+              style={{
+                margin: '2px 4px 8px',
+                padding: '8px 10px',
+                background: 'var(--pri-l)',
+                border: '1px solid rgba(0, 113, 227, 0.2)',
+                borderRadius: 10,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--mut)' }}>
+                  รหัสแชร์เข้าร่วมทีม:
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.8, color: 'var(--pri)' }}>
+                  {currentTeam?.code || currentUser.teamCode}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={e =>
+                  handleCopyCode(
+                    e,
+                    currentTeam?.code || currentUser.teamCode || '',
+                    currentTeam?.id || 'active'
+                  )
+                }
+                style={{
+                  border: 'none',
+                  background: copiedCodeId === (currentTeam?.id || 'active') ? 'var(--ok)' : 'var(--pri)',
+                  color: '#fff',
+                  borderRadius: 999,
+                  padding: '4px 10px',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  transition: 'background 0.15s ease',
+                }}
+              >
+                {copiedCodeId === (currentTeam?.id || 'active') ? (
+                  <>
+                    <CheckIcon size={11} strokeWidth={2.5} />
+                    <span>คัดลอกแล้ว</span>
+                  </>
+                ) : (
+                  <>
+                    <CopyIcon size={11} />
+                    <span>คัดลอกรหัส</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
           {/* Header */}
           <div
             style={{

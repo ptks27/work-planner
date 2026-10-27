@@ -254,8 +254,8 @@ button, input, select, textarea {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  padding: 12px 32px;
+  gap: 12px;
+  padding: 10px 24px;
   background: var(--topbar-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -264,6 +264,8 @@ button, input, select, textarea {
   top: 0;
   z-index: 35;
   transition: background 0.2s, border-color 0.2s;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .nav-left {
@@ -271,17 +273,17 @@ button, input, select, textarea {
   align-items: center;
   gap: 10px;
   min-width: 0;
-  flex: 1;
+  flex: 0 1 auto;
 }
 .nav-page-badge {
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   background: var(--pri-l);
   color: var(--pri);
   display: grid;
   place-items: center;
-  font-size: 18px;
+  font-size: 17px;
   flex-shrink: 0;
 }
 .nav-page-info {
@@ -293,12 +295,17 @@ button, input, select, textarea {
   flex-shrink: 1;
 }
 .nav-breadcrumb {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 5px;
   font-size: 11px;
   color: var(--mut);
   font-weight: 500;
+}
+@media (min-width: 1400px) {
+  .nav-breadcrumb {
+    display: flex;
+  }
 }
 .nav-breadcrumb-sep {
   opacity: 0.4;
@@ -309,25 +316,25 @@ button, input, select, textarea {
 }
 .nav-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   line-height: 1.2;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
   color: var(--txt);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  max-width: 160px;
 }
 
 .nav-center {
-  flex: 1;
-  max-width: 360px;
+  flex: 0 1 320px;
   margin: 0 12px;
 }
-@media (max-width: 900px) {
+@media (max-width: 1280px) {
   .nav-center {
-    display: none;
+    display: none !important;
   }
 }
 .nav-search-bar {
@@ -335,14 +342,14 @@ button, input, select, textarea {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 16px;
+  padding: 6px 14px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.04);
   border: 1px solid rgba(0, 0, 0, 0.06);
   color: var(--mut);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  font-size: 13px;
+  font-size: 12.5px;
 }
 .nav-search-bar:hover {
   background: rgba(255, 255, 255, 0.9);
@@ -376,11 +383,19 @@ button, input, select, textarea {
   gap: 8px;
   flex-shrink: 0;
 }
+.nav-mobile-search-btn {
+  display: none;
+}
+@media (max-width: 1280px) {
+  .nav-mobile-search-btn {
+    display: inline-flex !important;
+  }
+}
 .nav-divider {
   width: 1px;
-  height: 22px;
+  height: 20px;
   background: var(--line);
-  margin: 0 4px;
+  margin: 0 2px;
 }
 .nav-today-pill {
   display: inline-flex;
@@ -1720,28 +1735,55 @@ tbody tr:hover td {
 .nav-team-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 10px 4px 8px;
-  background: rgba(255, 255, 255, 0.8);
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(120, 120, 128, 0.08);
   border: 1px solid var(--line);
   border-radius: 999px;
   font-size: 12px;
-  margin-left: 10px;
+  cursor: pointer;
+  user-select: none;
   transition: all 0.15s ease;
+  max-width: 170px;
+  flex-shrink: 1;
+  min-width: 0;
 }
 .nav-team-pill:hover {
+  background: rgba(0, 113, 227, 0.08);
   border-color: var(--pri);
 }
 .nav-team-icon {
-  font-size: 14px;
+  font-size: 13px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
 }
 .nav-team-name {
   font-weight: 600;
   color: var(--txt);
-  max-width: 140px;
+  max-width: 85px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.nav-team-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--pri);
+  background: var(--pri-l);
+  padding: 1px 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.nav-team-caret {
+  display: inline-flex;
+  align-items: center;
+  color: var(--mut);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
 }
 .nav-team-code-btn {
   display: inline-flex;
@@ -2046,6 +2088,10 @@ tbody tr:hover td {
   background: rgba(255, 255, 255, 0.08);
   border-color: var(--line);
 }
+[data-theme="dark"] .nav-team-count-badge {
+  background: rgba(41, 151, 255, 0.2);
+  color: #9cd1ff;
+}
 [data-theme="dark"] .nav-team-code-btn {
   background: rgba(41, 151, 255, 0.2);
   color: #9cd1ff;
@@ -2178,26 +2224,35 @@ tbody tr:hover td {
     gap: 10px;
   }
   .nav-center {
-    max-width: 260px;
+    display: none !important;
+  }
+  .nav-mobile-search-btn {
+    display: inline-flex !important;
   }
   .nav-breadcrumb {
-    display: none;
+    display: none !important;
   }
   .nav-title {
-    font-size: 17px;
+    font-size: 16px;
+    max-width: 120px;
+  }
+  .nav-team-pill {
     max-width: 140px;
-  }
-  .nav-team-members-btn {
-    display: none;
-  }
-  .nav-team-code-btn {
-    display: none;
+    padding: 3px 8px;
+    font-size: 11.5px;
   }
   .nav-team-name {
-    max-width: 95px;
+    max-width: 80px;
+  }
+  .nav-team-members-btn,
+  .nav-team-code-btn {
+    display: none !important;
   }
   .streak-label {
-    display: none;
+    display: none !important;
+  }
+  .nav-user-role {
+    display: none !important;
   }
   main {
     padding: 18px calc(18px + var(--sar)) 36px calc(18px + var(--sal));
@@ -2213,16 +2268,6 @@ tbody tr:hover td {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 8px;
-  }
-}
-
-/* iPad Portrait with limited content width <= 880px */
-@media (min-width: 701px) and (max-width: 880px) {
-  .nav-center {
-    display: none !important;
-  }
-  .nav-mobile-search-btn {
-    display: inline-flex !important;
   }
 }
 
@@ -2287,8 +2332,8 @@ tbody tr:hover td {
     gap: 8px;
   }
   .topbar h1, .nav-title {
-    font-size: 15px;
-    max-width: 110px;
+    font-size: 14.5px;
+    max-width: 95px;
   }
   .nav-page-badge {
     width: 28px;
@@ -2296,28 +2341,30 @@ tbody tr:hover td {
     font-size: 14px;
   }
   .nav-breadcrumb {
-    display: none;
+    display: none !important;
   }
-  .nav-team-members-btn {
-    display: none;
+  .nav-team-pill {
+    max-width: 120px;
+    padding: 2px 7px;
   }
+  .nav-team-name {
+    max-width: 70px;
+  }
+  .nav-team-members-btn,
   .nav-team-code-btn {
     display: none !important;
   }
-  .nav-team-name {
-    max-width: 80px;
-  }
   .nav-center {
-    display: none;
+    display: none !important;
   }
   .nav-mobile-search-btn {
-    display: inline-flex;
+    display: inline-flex !important;
   }
   .streak-label {
-    display: none;
+    display: none !important;
   }
   .nav-user-meta, .nav-user-caret {
-    display: none;
+    display: none !important;
   }
   .nav-user-chip {
     padding: 2px;
@@ -2406,64 +2453,69 @@ tbody tr:hover td {
     gap: 8px;
   }
   .nav-left {
-    gap: 8px;
-    flex: 1;
+    gap: 6px;
+    flex: 0 1 auto;
     min-width: 0;
   }
   .nav-page-badge {
-    width: 32px;
-    height: 32px;
-    font-size: 15px;
-    border-radius: 9px;
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+    border-radius: 8px;
     flex-shrink: 0;
   }
   .nav-title {
-    font-size: 15.5px;
-    max-width: 110px;
+    font-size: 14.5px;
+    max-width: 85px;
   }
   .nav-breadcrumb {
-    display: none;
-  }
-  .nav-team-pill {
-    margin-left: 4px;
-    padding: 3px 8px 3px 6px;
-    gap: 5px;
-  }
-  .nav-team-name {
-    max-width: 75px;
-  }
-  .nav-team-code-btn {
     display: none !important;
   }
+  .nav-team-pill {
+    margin-left: 0;
+    padding: 3px 7px;
+    gap: 4px;
+    max-width: 110px;
+    font-size: 11px;
+  }
+  .nav-team-name {
+    max-width: 58px;
+    font-size: 11px;
+  }
+  .nav-team-count-badge {
+    padding: 1px 4px;
+    font-size: 9.5px;
+  }
+  .nav-team-code-btn,
   .nav-team-members-btn {
-    display: none;
+    display: none !important;
   }
   .nav-center {
-    display: none;
+    display: none !important;
   }
   .nav-mobile-search-btn {
-    display: inline-flex;
+    display: inline-flex !important;
   }
   .nav-right {
     gap: 5px;
   }
   .streak-label {
-    display: none;
+    display: none !important;
   }
   .nav-streak-btn {
-    padding: 3px 7px !important;
-    font-size: 11.5px !important;
+    padding: 3px 6px !important;
+    font-size: 11px !important;
     gap: 3px !important;
   }
   .nav-quick-menu-label {
-    display: none;
+    display: none !important;
   }
   .nav-quick-menu-btn {
-    padding: 4px 8px !important;
-    font-size: 12px !important;
+    padding: 3px 7px !important;
+    font-size: 11.5px !important;
   }
   .nav-user-meta, .nav-user-caret {
-    display: none;
+    display: none !important;
   }
   .nav-user-chip {
     padding: 2px;
@@ -2600,12 +2652,22 @@ tbody tr:hover td {
     display: none !important;
   }
   .nav-streak-btn {
-    padding: 3px 6px !important;
-    font-size: 11px !important;
+    padding: 3px 5px !important;
+    font-size: 10.5px !important;
   }
   .nav-quick-menu-btn {
-    padding: 3px 6px !important;
+    padding: 3px 5px !important;
     font-size: 11px !important;
+  }
+  .nav-team-count-badge {
+    display: none !important;
+  }
+  .nav-team-name {
+    max-width: 50px !important;
+  }
+  .nav-title {
+    max-width: 75px !important;
+    font-size: 14px !important;
   }
   .macos-priority-pill {
     padding: 5px 4px !important;
@@ -2624,11 +2686,15 @@ tbody tr:hover td {
     display: none !important;
   }
   .nav-title {
-    font-size: 13.5px !important;
-    max-width: 75px !important;
+    font-size: 13px !important;
+    max-width: 60px !important;
   }
   .nav-team-name {
-    max-width: 50px !important;
+    max-width: 40px !important;
+  }
+  .nav-team-pill {
+    max-width: 65px !important;
+    padding: 2px 5px !important;
   }
   .menu-item {
     font-size: 8.5px;

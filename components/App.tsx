@@ -283,20 +283,9 @@ export default function App() {
               <h1 className="nav-title">{cur.label}</h1>
             </div>
 
-            {/* Interactive Team Switcher Dropdown & Member Count Button */}
+            {/* Interactive Team Switcher Dropdown */}
             {(currentTeam || currentUser.teamId) && (
-              <div style={{ display: 'inline-flex', alignItems: 'center' }}>
-                <TeamSwitcher onOpenMembers={() => setIsTeamMembersOpen(true)} />
-                <button
-                  type="button"
-                  className="nav-team-members-btn"
-                  onClick={() => setIsTeamMembersOpen(true)}
-                  title={`ดูสมาชิกในทีม (${teamMembers.length} คน)`}
-                >
-                  <UsersIcon size={14} color="var(--pri)" />
-                  <span>สมาชิก ({teamMembers.length})</span>
-                </button>
-              </div>
+              <TeamSwitcher onOpenMembers={() => setIsTeamMembersOpen(true)} />
             )}
           </div>
 
