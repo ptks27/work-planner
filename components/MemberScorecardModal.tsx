@@ -80,9 +80,10 @@ export default function MemberScorecardModal({
     'B+': { bg: 'rgba(175, 82, 222, 0.15)', text: '#af52de', border: 'rgba(175, 82, 222, 0.4)' },
     B: { bg: 'rgba(255, 149, 0, 0.15)', text: '#ff9500', border: 'rgba(255, 149, 0, 0.4)' },
     C: { bg: 'rgba(255, 59, 48, 0.15)', text: '#ff3b30', border: 'rgba(255, 59, 48, 0.4)' },
+    '-': { bg: 'rgba(120, 120, 128, 0.08)', text: 'var(--mut)', border: 'var(--line)' },
   };
 
-  const gradeStyle = GRADE_COLORS[card.grade] || GRADE_COLORS['B'];
+  const gradeStyle = GRADE_COLORS[card.grade] || GRADE_COLORS['-'];
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -268,11 +269,18 @@ export default function MemberScorecardModal({
               }}
             >
               <div style={{ fontSize: 11.5, color: 'var(--mut)', fontWeight: 600 }}>🎯 ส่งงานตรงเวลา</div>
-              <div style={{ fontSize: 24, fontWeight: 800, margin: '4px 0 2px', color: card.onTimeRate >= 80 ? '#34c759' : 'var(--txt)' }}>
-                {card.onTimeRate}%
+              <div
+                style={{
+                  fontSize: 24,
+                  fontWeight: 800,
+                  margin: '4px 0 2px',
+                  color: card.totalCompleted > 0 ? (card.onTimeRate >= 80 ? '#34c759' : 'var(--txt)') : 'var(--mut)',
+                }}
+              >
+                {card.totalCompleted > 0 ? `${card.onTimeRate}%` : '-'}
               </div>
               <div style={{ fontSize: 10.5, color: 'var(--mut)' }}>
-                {card.onTimeCompleted} จาก {card.totalCompleted} งาน
+                {card.totalCompleted > 0 ? `${card.onTimeCompleted} จาก ${card.totalCompleted} งาน` : 'ยังไม่มีงานส่งมอบ'}
               </div>
             </div>
 
@@ -286,11 +294,24 @@ export default function MemberScorecardModal({
               }}
             >
               <div style={{ fontSize: 11.5, color: 'var(--mut)', fontWeight: 600 }}>⚡ เวลาเฉลี่ยต่อชิ้น</div>
-              <div style={{ fontSize: 24, fontWeight: 800, margin: '4px 0 2px', color: 'var(--pri)' }}>
-                {card.avgTurnaroundDays} <span style={{ fontSize: 13, fontWeight: 600 }}>วัน</span>
+              <div
+                style={{
+                  fontSize: 24,
+                  fontWeight: 800,
+                  margin: '4px 0 2px',
+                  color: card.totalCompleted > 0 && card.avgTurnaroundDays > 0 ? 'var(--pri)' : 'var(--mut)',
+                }}
+              >
+                {card.totalCompleted > 0 && card.avgTurnaroundDays > 0 ? (
+                  <>
+                    {card.avgTurnaroundDays} <span style={{ fontSize: 13, fontWeight: 600 }}>วัน</span>
+                  </>
+                ) : (
+                  '-'
+                )}
               </div>
               <div style={{ fontSize: 10.5, color: 'var(--mut)' }}>
-                ความเร็วในการปิดงาน
+                {card.totalCompleted > 0 && card.avgTurnaroundDays > 0 ? 'ความเร็วในการปิดงาน' : 'ยังไม่มีข้อมูลการปิดงาน'}
               </div>
             </div>
 

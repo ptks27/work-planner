@@ -19,6 +19,9 @@ import {
   StickyNoteIcon,
   UsersIcon,
   SparklesIcon,
+  LeaveIcon,
+  HolidayIcon,
+  NoteIcon,
 } from './Icons';
 import ThaiDatePicker from './ThaiDatePicker';
 
@@ -124,22 +127,28 @@ export default function EventsTab() {
               type="button"
               className={`macos-priority-pill ${type === 'leave' ? 'active' : ''}`}
               onClick={() => setType('leave')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
-              <span>🌴 วันลา</span>
+              <LeaveIcon size={14} color="currentColor" />
+              <span>วันลา</span>
             </button>
             <button
               type="button"
               className={`macos-priority-pill ${type === 'holiday' ? 'active' : ''}`}
               onClick={() => setType('holiday')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
-              <span>🏖 วันหยุด</span>
+              <HolidayIcon size={14} color="currentColor" />
+              <span>วันหยุด</span>
             </button>
             <button
               type="button"
               className={`macos-priority-pill ${type === 'note' ? 'active' : ''}`}
               onClick={() => setType('note')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
-              <span>📝 โน้ต</span>
+              <NoteIcon size={14} color="currentColor" />
+              <span>โน้ต</span>
             </button>
           </div>
         </div>
@@ -350,7 +359,7 @@ export default function EventsTab() {
               color: '#b45309',
             }}
           >
-            <UmbrellaIcon size={14} color="#b45309" />
+            <LeaveIcon size={14} color="#b45309" />
             <span>วันลาทั้งหมด: <b>{leaves.length}</b> วัน</span>
           </div>
 
@@ -361,14 +370,14 @@ export default function EventsTab() {
               gap: 6,
               padding: '6px 12px',
               borderRadius: 999,
-              background: 'rgba(0, 113, 227, 0.08)',
-              border: '1px solid rgba(0, 113, 227, 0.2)',
+              background: 'rgba(255, 59, 48, 0.08)',
+              border: '1px solid rgba(255, 59, 48, 0.22)',
               fontSize: 12,
               fontWeight: 600,
-              color: 'var(--pri)',
+              color: 'var(--red)',
             }}
           >
-            <BeachIcon size={14} color="var(--pri)" />
+            <HolidayIcon size={14} color="var(--red)" />
             <span>วันหยุดราชการ: <b>{holidays.length}</b> วัน</span>
           </div>
 
@@ -380,14 +389,14 @@ export default function EventsTab() {
                 gap: 6,
                 padding: '6px 12px',
                 borderRadius: 999,
-                background: 'rgba(120, 120, 128, 0.08)',
-                border: '1px solid var(--line)',
+                background: 'rgba(175, 82, 222, 0.08)',
+                border: '1px solid rgba(175, 82, 222, 0.22)',
                 fontSize: 12,
                 fontWeight: 600,
-                color: 'var(--txt)',
+                color: '#8e24aa',
               }}
             >
-              <StickyNoteIcon size={14} color="var(--mut)" />
+              <NoteIcon size={14} color="#8e24aa" />
               <span>โน้ต: <b>{notes.length}</b> รายการ</span>
             </div>
           )}
@@ -435,9 +444,15 @@ export default function EventsTab() {
                           padding: '2px 8px',
                           borderRadius: 999,
                           fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
                         }}
                       >
-                        {TYPE_LABEL[e.type]}
+                        {e.type === 'leave' && <LeaveIcon size={12} color="currentColor" />}
+                        {e.type === 'holiday' && <HolidayIcon size={12} color="currentColor" />}
+                        {e.type === 'note' && <NoteIcon size={12} color="currentColor" />}
+                        <span>{TYPE_LABEL[e.type]}</span>
                       </span>
 
                       <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>

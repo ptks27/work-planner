@@ -47,20 +47,22 @@ export function calculateMemberScorecard({
     }
   });
 
-  const onTimeRate = totalCompleted > 0 ? Math.round((onTimeCompleted / totalCompleted) * 100) : 100;
+  const onTimeRate = totalCompleted > 0 ? Math.round((onTimeCompleted / totalCompleted) * 100) : 0;
 
   // ระยะเวลาเฉลี่ยในการปิดงาน (หน่วยเป็นวัน)
   const avgTurnaroundDays =
     turnaroundCount > 0
       ? Math.max(0.2, parseFloat((totalTurnaroundMs / turnaroundCount / (1000 * 3600 * 24)).toFixed(1)))
-      : 1.0;
+      : 0;
 
   // งานระดับความสำคัญสูงที่ปิดได้
   const highPriorityClosed = completedTasks.filter(t => t.priority === 'high').length;
 
   // คำนวณเกรดประเมิน
-  let grade: 'A+' | 'A' | 'B+' | 'B' | 'C' = 'B';
-  if (onTimeRate >= 90 && totalCompleted >= 8) {
+  let grade: 'A+' | 'A' | 'B+' | 'B' | 'C' | '-' = '-';
+  if (totalCompleted === 0) {
+    grade = '-';
+  } else if (onTimeRate >= 90 && totalCompleted >= 8) {
     grade = 'A+';
   } else if (onTimeRate >= 80 && totalCompleted >= 4) {
     grade = 'A';
@@ -74,11 +76,15 @@ export function calculateMemberScorecard({
 
   // ไฮไลท์จุดเด่น (Strengths)
   const strengths: string[] = [];
-  if (onTimeRate >= 85) strengths.push('🎯 ส่งงานตรงตามกำหนดสูงมาก');
-  if (avgTurnaroundDays <= 1.5 && totalCompleted > 0) strengths.push('⚡ ปิดงานได้รวดเร็วฉับไว');
-  if (highPriorityClosed >= 2) strengths.push('👑 เคลียร์งานด่วนวิกฤตได้ดีเยี่ยม');
-  if (completionRate >= 80 && totalAssigned >= 3) strengths.push('💪 อัตราเคลียร์งานสำเร็จสูง');
-  if (strengths.length === 0) strengths.push('✨ กำลังสะสมผลงานอย่างต่อเนื่อง');
+  if (totalCompleted === 0) {
+    strengths.push('✨ ยังไม่มีประวัติการส่งมอบงาน');
+  } else {
+    if (onTimeRate >= 85) strengths.push('🎯 ส่งงานตรงตามกำหนดสูงมาก');
+    if (avgTurnaroundDays <= 1.5 && avgTurnaroundDays > 0) strengths.push('⚡ ปิดงานได้รวดเร็วฉับไว');
+    if (highPriorityClosed >= 2) strengths.push('👑 เคลียร์งานด่วนวิกฤตได้ดีเยี่ยม');
+    if (completionRate >= 80 && totalAssigned >= 3) strengths.push('💪 อัตราเคลียร์งานสำเร็จสูง');
+    if (strengths.length === 0) strengths.push('✨ กำลังสะสมผลงานอย่างต่อเนื่อง');
+  }
 
   return {
     memberId: member.id,
@@ -104,13 +110,15 @@ export function calculateMemberScorecard({
  * สร้างข้อความสรุป KPI สำหรับส่งใน LINE หรืออีเมล
  */
 export function formatScorecardShareText(card: MemberScorecard): string {
+  const onTimeDisplay = card.totalCompleted > 0 ? `${card.onTimeRate}% (${card.onTimeCompleted}/${card.totalCompleted} งาน)` : '- (ยังไม่มีงานส่งมอบ)';
+  const turnaroundDisplay = card.totalCompleted > 0 && card.avgTurnaroundDays > 0 ? `${card.avgTurnaroundDays} วัน/งาน` : '- (ยังไม่มีการปิดงาน)';
   return [
     `📊 บัตรประเมินผลงาน KPI: คุณ ${card.memberName}`,
     `🏢 ตำแหน่ง: ${card.role} (${card.department})`,
     `🏆 ผลการประเมิน: เกรด ${card.grade}`,
     `--------------------------------`,
-    `🎯 อัตราส่งงานตรงเวลา: ${card.onTimeRate}% (${card.onTimeCompleted}/${card.totalCompleted} งาน)`,
-    `⚡ ความเร็วเฉลี่ยในการปิดงาน: ${card.avgTurnaroundDays} วัน/งาน`,
+    `🎯 อัตราส่งงานตรงเวลา: ${onTimeDisplay}`,
+    `⚡ ความเร็วเฉลี่ยในการปิดงาน: ${turnaroundDisplay}`,
     `📦 งานที่ส่งมอบสำเร็จ: ${card.totalCompleted} จาก ${card.totalAssigned} ชิ้น (${card.completionRate}%)`,
     `👑 งานด่วนที่เคลียร์สำเร็จ: ${card.highPriorityClosed} งาน`,
     `🌟 จุดเด่น: ${card.strengths.join(', ')}`,

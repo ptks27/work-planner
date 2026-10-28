@@ -37,6 +37,9 @@ import {
   UsersIcon,
   TagIcon,
   FlagIcon,
+  LeaveIcon,
+  HolidayIcon,
+  NoteIcon,
 } from './Icons';
 import { useModal } from '@/components/ModalContext';
 import ThaiDatePicker from './ThaiDatePicker';
@@ -717,10 +720,11 @@ export default function TasksTab() {
                   const hot = ts.some(t => !t.done && t.priority === 'high');
                   const hasLeave = ev.some(e => e.type === 'leave');
                   const hasHoliday = ev.some(e => e.type === 'holiday');
+                  const hasNote = ev.some(e => e.type === 'note');
                   const cls = ['day',
                     d.getMonth() !== m && 'other', ds === today && 'today', ds === sel && 'sel',
                     d.getDay() % 6 === 0 && 'weekend',
-                    hasHoliday ? 'holiday' : hasLeave ? 'leave' : '',
+                    hasHoliday ? 'holiday' : hasLeave ? 'leave' : hasNote ? 'has-note' : '',
                   ].filter(Boolean).join(' ');
 
                   // ดึง Avatar ของผู้รับผิดชอบงานอย่างไดนามิกตามโปรไฟล์ล่าสุด
@@ -760,7 +764,7 @@ export default function TasksTab() {
                         </div>
                       )}
 
-                      {/* แสดงรายการการลาและวันหยุด พร้อมชื่อและ Avatar ล่าสุด (Desktop & Tablet) */}
+                      {/* แสดงรายการการลา วันหยุด และโน้ต พร้อมชื่อและ Avatar ล่าสุด (Desktop & Tablet) */}
                       {ev.map(e => {
                         const u = memberList.find(m => m.id === e.userId) || (e.userId === currentUser?.id ? currentUser : null);
                         const evAvatar = u?.avatarId || e.userAvatar;
@@ -769,18 +773,35 @@ export default function TasksTab() {
                           return (
                             <div
                               key={e.id}
-                              className="cal-leave-pill"
+                              className="cal-event-pill cal-leave-pill"
                               title={`${evName ? `[${evName}] ` : ''}${e.title}`}
                             >
-                              {evAvatar && <AvatarIcon id={evAvatar} size={13} />}
+                              {evAvatar ? <AvatarIcon id={evAvatar} size={13} /> : <LeaveIcon size={12} color="currentColor" />}
                               <span>{evName ? `${evName.split(' ')[0]}: ` : ''}{e.title}</span>
                             </div>
                           );
                         }
+                        if (e.type === 'holiday') {
+                          return (
+                            <div
+                              key={e.id}
+                              className="cal-event-pill cal-holiday-pill"
+                              title={`วันหยุด: ${e.title}`}
+                            >
+                              <HolidayIcon size={12} color="currentColor" />
+                              <span>{e.title}</span>
+                            </div>
+                          );
+                        }
                         return (
-                          <span key={e.id} className={`tag t-${e.type}`} title={e.title}>
-                            {e.title}
-                          </span>
+                          <div
+                            key={e.id}
+                            className="cal-event-pill cal-note-pill"
+                            title={`โน้ต: ${e.title}`}
+                          >
+                            <NoteIcon size={12} color="currentColor" />
+                            <span>{e.title}</span>
+                          </div>
                         );
                       })}
 
@@ -796,6 +817,7 @@ export default function TasksTab() {
                         )}
                         {hasLeave && <span className="cal-dot" style={{ background: '#ff9500' }} />}
                         {hasHoliday && <span className="cal-dot" style={{ background: '#ff3b30' }} />}
+                        {hasNote && <span className="cal-dot" style={{ background: '#af52de' }} />}
                       </div>
                     </div>
                   );
@@ -859,6 +881,8 @@ export default function TasksTab() {
                     const u = memberList.find(m => m.id === e.userId) || (e.userId === currentUser?.id ? currentUser : null);
                     const evAvatar = u?.avatarId || e.userAvatar;
                     const evName = u?.name || e.userName;
+                    const isLeave = e.type === 'leave';
+                    const isHoliday = e.type === 'holiday';
                     return (
                       <div
                         key={e.id}
@@ -868,13 +892,29 @@ export default function TasksTab() {
                           gap: 6,
                           padding: '4px 10px',
                           borderRadius: 999,
-                          background: e.type === 'leave' ? '#fef3c7' : 'rgba(120, 120, 128, 0.08)',
-                          border: '1px solid var(--line)',
+                          background: isLeave
+                            ? 'rgba(255, 149, 0, 0.12)'
+                            : isHoliday
+                            ? 'rgba(255, 59, 48, 0.12)'
+                            : 'rgba(175, 82, 222, 0.12)',
+                          border: isLeave
+                            ? '1px solid rgba(255, 149, 0, 0.25)'
+                            : isHoliday
+                            ? '1px solid rgba(255, 59, 48, 0.25)'
+                            : '1px solid rgba(175, 82, 222, 0.25)',
+                          color: isLeave
+                            ? '#b45309'
+                            : isHoliday
+                            ? 'var(--red)'
+                            : '#8944ab',
                           fontSize: 11.5,
                           fontWeight: 600,
                         }}
                       >
-                        {evAvatar && <AvatarIcon id={evAvatar} size={16} />}
+                        {isLeave && <LeaveIcon size={13} color="currentColor" />}
+                        {isHoliday && <HolidayIcon size={13} color="currentColor" />}
+                        {e.type === 'note' && <NoteIcon size={13} color="currentColor" />}
+                        {evAvatar && <AvatarIcon id={evAvatar} size={15} />}
                         <span>
                           {TYPE_LABEL[e.type]}: {evName ? `(${evName.split(' ')[0]}) ` : ''}{e.title}
                         </span>

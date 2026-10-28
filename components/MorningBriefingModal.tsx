@@ -16,6 +16,8 @@ import {
   UsersIcon,
   SparklesIcon,
   SunIcon,
+  LeaveIcon,
+  HolidayIcon,
 } from './Icons';
 
 interface MorningBriefingModalProps {
@@ -186,19 +188,25 @@ export default function MorningBriefingModal({
               style={{
                 borderRadius: 14,
                 padding: '14px 16px',
-                background: 'rgba(0, 113, 227, 0.06)',
-                border: '1px solid rgba(0, 113, 227, 0.18)',
+                background: myPendingTasks.length > 0 ? 'rgba(0, 113, 227, 0.06)' : 'rgba(52, 199, 89, 0.06)',
+                border: myPendingTasks.length > 0 ? '1px solid rgba(0, 113, 227, 0.18)' : '1px solid rgba(52, 199, 89, 0.2)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--pri)' }}>งานของคุณวันนี้</span>
-                <ClockIcon size={15} color="var(--pri)" />
+                <span style={{ fontSize: 12, fontWeight: 600, color: myPendingTasks.length > 0 ? 'var(--pri)' : '#34c759' }}>
+                  งานที่ต้องทำวันนี้
+                </span>
+                {myPendingTasks.length > 0 ? <ClockIcon size={15} color="var(--pri)" /> : <CheckIcon size={15} color="#34c759" />}
               </div>
               <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--txt)', letterSpacing: '-0.03em' }}>
-                {myTasks.length} <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--mut)' }}>งาน</span>
+                {myPendingTasks.length} <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--mut)' }}>งาน</span>
               </div>
               <small style={{ fontSize: 11, color: 'var(--mut)' }}>
-                {myPendingTasks.length > 0 ? `รอดำเนินการ ${myPendingTasks.length} งาน` : 'ทำเสร็จหมดแล้ว 🎉'}
+                {myPendingTasks.length > 0
+                  ? `รอดำเนินการ ${myPendingTasks.length} งาน${myDoneTasks.length > 0 ? ` (เสร็จแล้ว ${myDoneTasks.length} งาน)` : ''}`
+                  : myDoneTasks.length > 0
+                    ? `ทำเสร็จครบหมดแล้ว 🎉 (${myDoneTasks.length} งานสำเร็จ)`
+                    : 'ไม่มีงานที่ต้องทำวันนี้ ✨'}
               </small>
             </div>
 
@@ -263,7 +271,7 @@ export default function MorningBriefingModal({
               }}
             >
               <span style={{ fontSize: 12, fontWeight: 700, color: '#d97706', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>🌴</span>
+                <LeaveIcon size={15} color="#d97706" />
                 <span>ประกาศวันหยุดและการลาของทีมวันนี้</span>
               </span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -271,9 +279,10 @@ export default function MorningBriefingModal({
                   <span
                     key={h.id}
                     className="tag t-holiday"
-                    style={{ fontSize: 11, padding: '3px 9px', borderRadius: 999 }}
+                    style={{ fontSize: 11, padding: '3px 9px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                   >
-                    🎉 วันหยุด: {h.title}
+                    <HolidayIcon size={12} color="currentColor" />
+                    <span>วันหยุด: {h.title}</span>
                   </span>
                 ))}
                 {leavesToday.map(l => (
@@ -282,6 +291,7 @@ export default function MorningBriefingModal({
                     className="tag t-leave"
                     style={{ fontSize: 11, padding: '3px 9px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                   >
+                    <LeaveIcon size={12} color="currentColor" />
                     {l.userAvatar && <AvatarIcon id={l.userAvatar} size={14} />}
                     <span>{l.userName || 'สมาชิก'}: {l.title}</span>
                   </span>

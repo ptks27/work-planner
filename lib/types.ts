@@ -262,7 +262,7 @@ export interface MemberScorecard {
   avgTurnaroundDays: number;   // วันเฉลี่ยในการปิดงาน
   highPriorityClosed: number;  // งานด่วนที่ปิดได้
   currentStreak: number;       // วันติดต่อกัน
-  grade: 'A+' | 'A' | 'B+' | 'B' | 'C';
+  grade: 'A+' | 'A' | 'B+' | 'B' | 'C' | '-';
   strengths: string[];
 }
 

@@ -881,6 +881,9 @@ label {
 .day.leave {
   background: rgba(255, 149, 0, 0.06);
 }
+.day.has-note {
+  background: rgba(175, 82, 222, 0.05);
+}
 .day.sel {
   border: 2px solid var(--pri);
   background: rgba(0, 113, 227, 0.08);
@@ -940,8 +943,8 @@ label {
   color: #b25000;
 }
 .t-note {
-  background: rgba(0, 113, 227, 0.1);
-  color: var(--pri);
+  background: rgba(175, 82, 222, 0.12);
+  color: #8e24aa;
 }
 .badge {
   position: absolute;
@@ -1688,20 +1691,42 @@ tbody tr:hover td {
   font-weight: 600;
   color: var(--mut);
 }
+.cal-event-pill,
 .cal-leave-pill {
   display: flex;
   align-items: center;
   gap: 4px;
   font-size: 10px;
   font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(255, 149, 0, 0.14);
-  color: #b25000;
+  padding: 2.5px 6px;
+  border-radius: 6px;
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: -0.01em;
+  transition: transform 0.15s ease, background 0.15s ease;
+  line-height: 1.3;
+}
+.cal-event-pill:hover,
+.cal-leave-pill:hover {
+  transform: translateY(-0.5px);
+}
+.cal-leave-pill,
+.cal-event-pill.cal-leave-pill {
+  background: rgba(255, 149, 0, 0.12);
+  border: 1px solid rgba(255, 149, 0, 0.22);
+  color: #b45309;
+}
+.cal-event-pill.cal-holiday-pill {
+  background: rgba(255, 59, 48, 0.12);
+  border: 1px solid rgba(255, 59, 48, 0.22);
+  color: #d70015;
+}
+.cal-event-pill.cal-note-pill {
+  background: rgba(175, 82, 222, 0.12);
+  border: 1px solid rgba(175, 82, 222, 0.22);
+  color: #8944ab;
 }
 
 .team-setup-card {
@@ -2080,9 +2105,24 @@ tbody tr:hover td {
   background: rgba(255, 255, 255, 0.08);
   border-color: var(--line);
 }
-[data-theme="dark"] .cal-leave-pill {
-  background: rgba(255, 214, 10, 0.16);
-  color: #ffd60a;
+[data-theme="dark"] .day.has-note {
+  background: rgba(191, 90, 242, 0.08);
+}
+[data-theme="dark"] .cal-leave-pill,
+[data-theme="dark"] .cal-event-pill.cal-leave-pill {
+  background: rgba(255, 159, 10, 0.18);
+  border-color: rgba(255, 159, 10, 0.35);
+  color: #ff9f0a;
+}
+[data-theme="dark"] .cal-event-pill.cal-holiday-pill {
+  background: rgba(255, 69, 58, 0.18);
+  border-color: rgba(255, 69, 58, 0.35);
+  color: #ff453a;
+}
+[data-theme="dark"] .cal-event-pill.cal-note-pill {
+  background: rgba(191, 90, 242, 0.18);
+  border-color: rgba(191, 90, 242, 0.35);
+  color: #da8fff;
 }
 [data-theme="dark"] .nav-team-pill {
   background: rgba(255, 255, 255, 0.08);
@@ -2549,6 +2589,7 @@ tbody tr:hover td {
   }
   .day .tag,
   .cal-leave-pill,
+  .cal-event-pill,
   .cal-avatars {
     display: none !important;
   }

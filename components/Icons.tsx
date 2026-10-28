@@ -447,6 +447,43 @@ export function StickyNoteIcon({ size = 16, strokeWidth = 2, className, style, c
   );
 }
 
+export function LeaveIcon({ size = 16, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="M12 22v-9" />
+      <path d="M12 13c0-3.3-2.7-6-6-6-2 0-3.5 1-4.5 2.5 1.5 2.5 4 4.5 7.5 4.5Z" />
+      <path d="M12 11c0-3 2.5-5.5 5.5-5.5 1.8 0 3.2.9 4 2.2-1.3 2.2-3.6 4-6.5 4.3" />
+      <circle cx="17.5" cy="4.5" r="2" />
+    </svg>
+  );
+}
+
+export function HolidayIcon({ size = 16, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="M5.8 11.3 2 22l10.7-3.79" />
+      <path d="m4 3 1.5 1.5" />
+      <path d="m20 5-1.5 1.5" />
+      <path d="M15 2v2" />
+      <path d="M22 13h-2" />
+      <path d="m16 9 2 2" />
+      <circle cx="14" cy="7" r="1" fill="currentColor" />
+      <circle cx="9" cy="14" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function NoteIcon({ size = 16, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z" />
+      <path d="M15 3v5.5H20.5" />
+      <line x1="7" y1="13" x2="15" y2="13" />
+      <line x1="7" y1="17" x2="12" y2="17" />
+    </svg>
+  );
+}
+
 export function PalmTreeIcon({ size = 16, strokeWidth = 2, className, style, color }: IconProps) {
   return (
     <svg {...baseProps(size, strokeWidth, className, style, color)}>

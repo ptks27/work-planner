@@ -4,7 +4,7 @@ import { usePlanner } from '@/lib/store';
 import { visibleOn, eventsOn } from '@/lib/selectors';
 import { fmt, parse, addDays, thDate, TH_DOW } from '@/lib/utils';
 import { PRIORITY, getTagStyle, type Task } from '@/lib/types';
-import { EditIcon, ChevronLeftIcon, ChevronRightIcon, CalendarIcon, ClockIcon, PlusIcon, MessageSquareIcon } from './Icons';
+import { EditIcon, ChevronLeftIcon, ChevronRightIcon, CalendarIcon, ClockIcon, PlusIcon, MessageSquareIcon, LeaveIcon, HolidayIcon, NoteIcon } from './Icons';
 import { playCompletionSound, triggerConfetti } from '@/lib/audio';
 import { AvatarIcon } from './Avatars';
 import { useAuth } from '@/lib/authStore';
@@ -158,25 +158,44 @@ export default function WeeklyView({ currentDate, onEditTask }: WeeklyViewProps)
                     return (
                       <div
                         key={e.id}
-                        className="cal-leave-pill"
+                        className="cal-event-pill cal-leave-pill"
                         style={{ fontSize: 10, margin: '2px 0' }}
                         title={`${evName ? `[${evName}] ` : ''}${e.title}`}
                       >
-                        {evAvatar && <AvatarIcon id={evAvatar} size={12} />}
+                        {evAvatar ? <AvatarIcon id={evAvatar} size={12} /> : <LeaveIcon size={11} color="currentColor" />}
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {evName ? `${evName.split(' ')[0]}: ` : ''}{e.title}
                         </span>
                       </div>
                     );
                   }
+                  if (e.type === 'holiday') {
+                    return (
+                      <div
+                        key={e.id}
+                        className="cal-event-pill cal-holiday-pill"
+                        style={{ fontSize: 10, margin: '2px 0' }}
+                        title={`วันหยุด: ${e.title}`}
+                      >
+                        <HolidayIcon size={11} color="currentColor" />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {e.title}
+                        </span>
+                      </div>
+                    );
+                  }
                   return (
-                    <span
+                    <div
                       key={e.id}
-                      className={`tag t-${e.type}`}
+                      className="cal-event-pill cal-note-pill"
                       style={{ fontSize: 10, margin: '2px 0' }}
+                      title={`โน้ต: ${e.title}`}
                     >
-                      {e.title}
-                    </span>
+                      <NoteIcon size={11} color="currentColor" />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {e.title}
+                      </span>
+                    </div>
                   );
                 })}
               </div>
