@@ -352,14 +352,14 @@ export default function EventsTab() {
               gap: 6,
               padding: '6px 12px',
               borderRadius: 999,
-              background: 'rgba(255, 149, 0, 0.1)',
-              border: '1px solid rgba(255, 149, 0, 0.25)',
+              background: 'rgba(255, 149, 0, 0.12)',
+              border: '1px solid rgba(255, 149, 0, 0.3)',
               fontSize: 12,
               fontWeight: 600,
-              color: '#b45309',
+              color: '#ea580c',
             }}
           >
-            <LeaveIcon size={14} color="#b45309" />
+            <LeaveIcon size={14} color="#ea580c" />
             <span>วันลาทั้งหมด: <b>{leaves.length}</b> วัน</span>
           </div>
 

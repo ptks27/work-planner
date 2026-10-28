@@ -270,8 +270,8 @@ export default function MorningBriefingModal({
                 gap: 6,
               }}
             >
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#d97706', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <LeaveIcon size={15} color="#d97706" />
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#ea580c', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <LeaveIcon size={15} color="#ea580c" />
                 <span>ประกาศวันหยุดและการลาของทีมวันนี้</span>
               </span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -291,8 +291,7 @@ export default function MorningBriefingModal({
                     className="tag t-leave"
                     style={{ fontSize: 11, padding: '3px 9px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                   >
-                    <LeaveIcon size={12} color="currentColor" />
-                    {l.userAvatar && <AvatarIcon id={l.userAvatar} size={14} />}
+                    {l.userAvatar ? <AvatarIcon id={l.userAvatar} size={14} /> : <LeaveIcon size={12} color="currentColor" />}
                     <span>{l.userName || 'สมาชิก'}: {l.title}</span>
                   </span>
                 ))}

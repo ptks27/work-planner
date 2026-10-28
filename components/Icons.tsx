@@ -450,10 +450,9 @@ export function StickyNoteIcon({ size = 16, strokeWidth = 2, className, style, c
 export function LeaveIcon({ size = 16, strokeWidth = 2, className, style, color }: IconProps) {
   return (
     <svg {...baseProps(size, strokeWidth, className, style, color)}>
-      <path d="M12 22v-9" />
-      <path d="M12 13c0-3.3-2.7-6-6-6-2 0-3.5 1-4.5 2.5 1.5 2.5 4 4.5 7.5 4.5Z" />
-      <path d="M12 11c0-3 2.5-5.5 5.5-5.5 1.8 0 3.2.9 4 2.2-1.3 2.2-3.6 4-6.5 4.3" />
-      <circle cx="17.5" cy="4.5" r="2" />
+      <path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4" />
+      <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3" />
+      <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14" />
     </svg>
   );
 }
@@ -461,14 +460,11 @@ export function LeaveIcon({ size = 16, strokeWidth = 2, className, style, color 
 export function HolidayIcon({ size = 16, strokeWidth = 2, className, style, color }: IconProps) {
   return (
     <svg {...baseProps(size, strokeWidth, className, style, color)}>
-      <path d="M5.8 11.3 2 22l10.7-3.79" />
-      <path d="m4 3 1.5 1.5" />
-      <path d="m20 5-1.5 1.5" />
-      <path d="M15 2v2" />
-      <path d="M22 13h-2" />
-      <path d="m16 9 2 2" />
-      <circle cx="14" cy="7" r="1" fill="currentColor" />
-      <circle cx="9" cy="14" r="1" fill="currentColor" />
+      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+      <path d="M5 3v4" />
+      <path d="M19 17v4" />
+      <path d="M3 5h4" />
+      <path d="M17 19h4" />
     </svg>
   );
 }

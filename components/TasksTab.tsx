@@ -893,17 +893,17 @@ export default function TasksTab() {
                           padding: '4px 10px',
                           borderRadius: 999,
                           background: isLeave
-                            ? 'rgba(255, 149, 0, 0.12)'
+                            ? 'rgba(255, 149, 0, 0.14)'
                             : isHoliday
                             ? 'rgba(255, 59, 48, 0.12)'
                             : 'rgba(175, 82, 222, 0.12)',
                           border: isLeave
-                            ? '1px solid rgba(255, 149, 0, 0.25)'
+                            ? '1px solid rgba(255, 149, 0, 0.32)'
                             : isHoliday
                             ? '1px solid rgba(255, 59, 48, 0.25)'
                             : '1px solid rgba(175, 82, 222, 0.25)',
                           color: isLeave
-                            ? '#b45309'
+                            ? '#ea580c'
                             : isHoliday
                             ? 'var(--red)'
                             : '#8944ab',
@@ -911,10 +911,13 @@ export default function TasksTab() {
                           fontWeight: 600,
                         }}
                       >
-                        {isLeave && <LeaveIcon size={13} color="currentColor" />}
-                        {isHoliday && <HolidayIcon size={13} color="currentColor" />}
-                        {e.type === 'note' && <NoteIcon size={13} color="currentColor" />}
-                        {evAvatar && <AvatarIcon id={evAvatar} size={15} />}
+                        {isLeave ? (
+                          evAvatar ? <AvatarIcon id={evAvatar} size={15} /> : <LeaveIcon size={13} color="currentColor" />
+                        ) : isHoliday ? (
+                          <HolidayIcon size={13} color="currentColor" />
+                        ) : (
+                          <NoteIcon size={13} color="currentColor" />
+                        )}
                         <span>
                           {TYPE_LABEL[e.type]}: {evName ? `(${evName.split(' ')[0]}) ` : ''}{e.title}
                         </span>

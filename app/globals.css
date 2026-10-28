@@ -939,8 +939,9 @@ label {
   color: #d70015;
 }
 .t-leave {
-  background: rgba(255, 149, 0, 0.12);
-  color: #b25000;
+  background: rgba(255, 149, 0, 0.14);
+  border: 1px solid rgba(255, 149, 0, 0.28);
+  color: #ea580c;
 }
 .t-note {
   background: rgba(175, 82, 222, 0.12);
@@ -1714,9 +1715,9 @@ tbody tr:hover td {
 }
 .cal-leave-pill,
 .cal-event-pill.cal-leave-pill {
-  background: rgba(255, 149, 0, 0.12);
-  border: 1px solid rgba(255, 149, 0, 0.22);
-  color: #b45309;
+  background: rgba(255, 149, 0, 0.14);
+  border: 1px solid rgba(255, 149, 0, 0.32);
+  color: #ea580c;
 }
 .cal-event-pill.cal-holiday-pill {
   background: rgba(255, 59, 48, 0.12);
@@ -2105,8 +2106,16 @@ tbody tr:hover td {
   background: rgba(255, 255, 255, 0.08);
   border-color: var(--line);
 }
+[data-theme="dark"] .day.leave {
+  background: rgba(255, 159, 10, 0.1);
+}
 [data-theme="dark"] .day.has-note {
   background: rgba(191, 90, 242, 0.08);
+}
+[data-theme="dark"] .t-leave {
+  background: rgba(255, 159, 10, 0.18);
+  border-color: rgba(255, 159, 10, 0.35);
+  color: #ff9f0a;
 }
 [data-theme="dark"] .cal-leave-pill,
 [data-theme="dark"] .cal-event-pill.cal-leave-pill {

@@ -287,7 +287,7 @@ export const PRIORITY: Record<Priority, { label: string; color: string; order: n
   low: { label: 'ต่ำ', color: '#16a34a', order: 2 },
 };
 export const PRIORITIES: Priority[] = ['high', 'medium', 'low'];
-export const TYPE_LABEL: Record<EventType, string> = { holiday: '🏖 วันหยุด', leave: '🌴 ลา', note: '📝 โน้ต' };
+export const TYPE_LABEL: Record<EventType, string> = { holiday: 'วันหยุด', leave: 'วันลา', note: 'โน้ต' };
 export const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; bg: string }> = {
   todo: { label: 'รอทำ', color: '#64748b', bg: '#f1f5f9' },
   in_progress: { label: 'กำลังทำ', color: '#0284c7', bg: '#e0f2fe' },
