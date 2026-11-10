@@ -23,6 +23,7 @@ import {
   SearchIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ClipboardCheckIcon,
 } from './Icons';
 import ThaiDatePicker from './ThaiDatePicker';
 import ExecutiveReportModal from './ExecutiveReportModal';
@@ -30,6 +31,7 @@ import TeamWorkloadBar from './TeamWorkloadBar';
 import { useModal } from './ModalContext';
 import { canUserEditTaskDirectly } from '@/lib/permissions';
 import { sendTaskEditRequest } from '@/lib/notifications';
+import { playCompletionSound } from '@/lib/audio';
 
 const MODE_TITLE: Record<Mode, string> = {
   day: 'สรุปงานรายวัน',
@@ -93,6 +95,48 @@ export default function DashboardTab() {
         ? { id: currentUser.id, name: currentUser.name, avatarId: currentUser.avatarId }
         : undefined
     );
+    if (!t.done && s.soundEnabled) {
+      playCompletionSound();
+    }
+  };
+
+  const handleToggleSubtask = (t: any, subId: string, currentDone: boolean) => {
+    if (!canUserEditTaskDirectly(currentUser, currentTeam, t)) {
+      const nextDone = !currentDone;
+      const statusLabel = nextDone ? 'เสร็จสิ้น' : 'รอทำ';
+      showConfirm(
+        'ขอสิทธิ์เปลี่ยนสถานะงานย่อย',
+        `งานนี้เป็นของคุณ ${t.userName || 'สมาชิกคนอื่น'} คุณต้องการส่งคำขอเปลี่ยนสถานะงานย่อยเป็น "${statusLabel}" ไปยังเจ้าของงานใช่หรือไม่?`,
+        () => {
+          if (!currentUser) return;
+          const updatedSubtasks = (t.subtasks || []).map((st: any) =>
+            st.id === subId ? { ...st, done: nextDone } : st
+          );
+          sendTaskEditRequest({
+            task: t,
+            proposedPatch: {
+              subtasks: updatedSubtasks,
+            },
+            requestNote: `ขอเปลี่ยนสถานะงานย่อยเป็น "${statusLabel}"`,
+            actor: {
+              id: currentUser.id,
+              name: currentUser.name,
+              avatarId: currentUser.avatarId,
+            },
+          });
+          showAlert(
+            'ส่งคำขอเรียบร้อยแล้ว',
+            `คำขอเปลี่ยนสถานะงานย่อยถูกส่งไปยังกล่องข้อความเตือนของ ${t.userName || 'เจ้าของงาน'} เรียบร้อยแล้ว`
+          );
+        }
+      );
+      return;
+    }
+
+    s.toggleSubtask(t.id, subId);
+    if (!currentDone && s.soundEnabled) {
+      playCompletionSound();
+    }
   };
   const [date, setDate] = useState(today);
   const [activeTagFilter, setActiveTagFilter] = useState<string>('all');
@@ -235,7 +279,8 @@ export default function DashboardTab() {
       t.title.toLowerCase().includes(q) ||
       (t.detail && t.detail.toLowerCase().includes(q)) ||
       (t.userName && t.userName.toLowerCase().includes(q)) ||
-      (t.tags && t.tags.some(tg => tg.toLowerCase().includes(q)));
+      (t.tags && t.tags.some(tg => tg.toLowerCase().includes(q))) ||
+      (t.subtasks && t.subtasks.some(st => st.title.toLowerCase().includes(q)));
 
     return matchesTag && matchesStatus && matchesSearch;
   });
@@ -1031,120 +1076,211 @@ export default function DashboardTab() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {group.tasks.map(t => {
                       const priConf = PRIORITY[t.priority];
+                      const subs = t.subtasks || [];
+                      const doneSubs = subs.filter(st => st.done).length;
+
                       return (
                         <div
                           key={t.id}
                           style={{
                             display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '6px 10px',
+                            flexDirection: 'column',
+                            padding: '8px 10px',
                             borderRadius: 8,
                             background: 'var(--card-solid)',
                             border: '1px solid var(--line)',
-                            gap: 8,
-                            flexWrap: 'wrap',
+                            gap: 6,
+                            transition: 'all 0.15s ease',
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleTask(t)}
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                padding: 0,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                flexShrink: 0,
-                              }}
-                              title={t.done ? 'ทำเครื่องหมายว่ายังไม่เสร็จ' : 'ทำเครื่องหมายว่าเสร็จแล้ว'}
-                              aria-label={t.done ? 'ทำเครื่องหมายว่ายังไม่เสร็จ' : 'ทำเครื่องหมายว่าเสร็จแล้ว'}
-                            >
-                              {t.done ? (
-                                <span style={{ display: 'inline-grid', placeItems: 'center', width: 17, height: 17, borderRadius: 5, background: 'rgba(52, 199, 89, 0.15)', color: '#34c759' }}>
-                                  <CheckIcon size={12} strokeWidth={3} />
-                                </span>
-                              ) : (
-                                <span style={{ width: 17, height: 17, borderRadius: 5, border: '1.5px solid var(--mut)', display: 'inline-block' }} />
-                              )}
-                            </button>
-
-                            <span
-                              style={{
-                                width: 7,
-                                height: 7,
-                                borderRadius: '50%',
-                                background: priConf.color,
-                                flexShrink: 0,
-                              }}
-                              title={`ความสำคัญ: ${priConf.label}`}
-                            />
-                            <span
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 500,
-                                color: t.done ? 'var(--mut)' : 'var(--txt)',
-                                textDecoration: t.done ? 'line-through' : 'none',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {t.title}
-                            </span>
-                            {t.time && (
-                              <span style={{ fontSize: 11, color: 'var(--mut)', background: 'rgba(120, 120, 128, 0.08)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
-                                {t.time}
-                              </span>
-                            )}
-                            {t.detail && (
-                              <small style={{ color: 'var(--mut)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                – {t.detail}
-                              </small>
-                            )}
-                          </div>
-
-                          {/* Tags and Assignee Avatars */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                            {t.tags && t.tags.slice(0, 3).map(tg => {
-                              const style = getTagStyle(tg);
-                              return (
-                                <span
-                                  key={tg}
-                                  style={{
-                                    fontSize: 10.5,
-                                    padding: '2px 7px',
-                                    borderRadius: 999,
-                                    background: style.bg,
-                                    color: style.color,
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  #{tg.replace(/^#/, '')}
-                                </span>
-                              );
-                            })}
-                            {t.assignees && t.assignees.length > 0 ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                                {t.assignees.slice(0, 2).map(a => (
-                                  <span key={a.id} title={a.name} style={{ display: 'inline-flex' }}>
-                                    <AvatarIcon id={a.avatarId || 'dev_boy'} size={18} />
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 8,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1, flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleTask(t)}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  padding: 0,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  flexShrink: 0,
+                                }}
+                                title={t.done ? 'ทำเครื่องหมายว่ายังไม่เสร็จ' : 'ทำเครื่องหมายว่าเสร็จแล้ว'}
+                                aria-label={t.done ? 'ทำเครื่องหมายว่ายังไม่เสร็จ' : 'ทำเครื่องหมายว่าเสร็จแล้ว'}
+                              >
+                                {t.done ? (
+                                  <span style={{ display: 'inline-grid', placeItems: 'center', width: 17, height: 17, borderRadius: 5, background: 'rgba(52, 199, 89, 0.15)', color: '#34c759' }}>
+                                    <CheckIcon size={12} strokeWidth={3} />
                                   </span>
-                                ))}
-                                {t.assignees.length > 2 && (
-                                  <span style={{ fontSize: 10, color: 'var(--mut)', fontWeight: 600 }}>
-                                    +{t.assignees.length - 2}
-                                  </span>
+                                ) : (
+                                  <span style={{ width: 17, height: 17, borderRadius: 5, border: '1.5px solid var(--mut)', display: 'inline-block' }} />
                                 )}
-                              </div>
-                            ) : t.userAvatar ? (
-                              <span title={t.userName} style={{ display: 'inline-flex' }}>
-                                <AvatarIcon id={t.userAvatar} size={18} />
+                              </button>
+
+                              <span
+                                style={{
+                                  width: 7,
+                                  height: 7,
+                                  borderRadius: '50%',
+                                  background: priConf.color,
+                                  flexShrink: 0,
+                                }}
+                                title={`ความสำคัญ: ${priConf.label}`}
+                              />
+                              <span
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  color: t.done ? 'var(--mut)' : 'var(--txt)',
+                                  textDecoration: t.done ? 'line-through' : 'none',
+                                }}
+                              >
+                                {t.title}
                               </span>
-                            ) : null}
+                              {t.time && (
+                                <span style={{ fontSize: 11, color: 'var(--mut)', background: 'rgba(120, 120, 128, 0.08)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
+                                  {t.time}
+                                </span>
+                              )}
+                              {t.detail && (
+                                <small style={{ color: 'var(--mut)', fontSize: 12 }}>
+                                  – {t.detail}
+                                </small>
+                              )}
+                            </div>
+
+                            {/* Tags and Assignee Avatars */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                              {t.tags && t.tags.slice(0, 3).map(tg => {
+                                const style = getTagStyle(tg);
+                                return (
+                                  <span
+                                    key={tg}
+                                    style={{
+                                      fontSize: 10.5,
+                                      padding: '2px 7px',
+                                      borderRadius: 999,
+                                      background: style.bg,
+                                      color: style.color,
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    #{tg.replace(/^#/, '')}
+                                  </span>
+                                );
+                              })}
+                              {t.assignees && t.assignees.length > 0 ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                                  {t.assignees.slice(0, 2).map(a => (
+                                    <span key={a.id} title={a.name} style={{ display: 'inline-flex' }}>
+                                      <AvatarIcon id={a.avatarId || 'dev_boy'} size={18} />
+                                    </span>
+                                  ))}
+                                  {t.assignees.length > 2 && (
+                                    <span style={{ fontSize: 10, color: 'var(--mut)', fontWeight: 600 }}>
+                                      +{t.assignees.length - 2}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : t.userAvatar ? (
+                                <span title={t.userName} style={{ display: 'inline-flex' }}>
+                                  <AvatarIcon id={t.userAvatar} size={18} />
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
+
+                          {/* Subtasks (เช็กลิสต์ย่อย) */}
+                          {subs.length > 0 && (
+                            <div
+                              style={{
+                                marginTop: 2,
+                                marginLeft: 25,
+                                padding: '6px 10px',
+                                borderRadius: 8,
+                                background: 'rgba(120, 120, 128, 0.04)',
+                                border: '1px solid rgba(120, 120, 128, 0.12)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 5,
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: 'var(--mut)' }}>
+                                  <ClipboardCheckIcon size={12} color="var(--pri)" />
+                                  <span>เช็กลิสต์ย่อย ({doneSubs}/{subs.length})</span>
+                                </div>
+                                <div style={{ width: 56, height: 4, borderRadius: 999, background: 'rgba(120, 120, 128, 0.15)', overflow: 'hidden' }}>
+                                  <div
+                                    style={{
+                                      width: `${subs.length ? (doneSubs / subs.length) * 100 : 0}%`,
+                                      height: '100%',
+                                      background: 'var(--ok)',
+                                      borderRadius: 999,
+                                      transition: 'width 0.2s',
+                                    }}
+                                  />
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                {subs.map(st => (
+                                  <div
+                                    key={st.id}
+                                    onClick={() => handleToggleSubtask(t, st.id, st.done)}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 7,
+                                      cursor: 'pointer',
+                                      userSelect: 'none',
+                                      padding: '1px 0',
+                                    }}
+                                    title={st.done ? 'คลิกเพื่อเปลี่ยนเป็นยังไม่เสร็จ' : 'คลิกเพื่อทำเครื่องหมายว่าเสร็จแล้ว'}
+                                  >
+                                    <span
+                                      style={{
+                                        width: 14,
+                                        height: 14,
+                                        borderRadius: 4,
+                                        border: st.done ? 'none' : '1.5px solid #8e8e93',
+                                        background: st.done ? 'var(--ok)' : 'transparent',
+                                        color: '#fff',
+                                        display: 'grid',
+                                        placeItems: 'center',
+                                        flexShrink: 0,
+                                        transition: 'all 0.15s ease',
+                                      }}
+                                    >
+                                      {st.done && <CheckIcon size={9} strokeWidth={3} />}
+                                    </span>
+                                    <span
+                                      style={{
+                                        fontSize: 12,
+                                        color: st.done ? 'var(--mut)' : 'var(--txt)',
+                                        textDecoration: st.done ? 'line-through' : 'none',
+                                        opacity: st.done ? 0.65 : 1,
+                                        wordBreak: 'break-word',
+                                        lineHeight: 1.35,
+                                      }}
+                                    >
+                                      {st.title}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
