@@ -646,6 +646,140 @@ export function EyeIcon({ size = 16, strokeWidth = 2, className, style, color }:
   );
 }
 
+// ---------- UI Controls, Export & Canvas Tools ----------
+
+export function PrinterIcon({ size = 16, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect x="6" y="14" width="12" height="8" rx="1" />
+    </svg>
+  );
+}
+
+export function SendIcon({ size = 16, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="m22 2-7 20-4-9-9-4Z" />
+      <path d="M22 2 11 13" />
+    </svg>
+  );
+}
+
+export function FolderIcon({ size = 16, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+    </svg>
+  );
+}
+
+export function RocketIcon({ size = 16, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+      <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+      <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+      <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+    </svg>
+  );
+}
+
+export function SunRiseIcon({ size = 16, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="M12 2v8" />
+      <path d="m4.93 10.93 1.41 1.41" />
+      <path d="M2 18h2" />
+      <path d="M20 18h2" />
+      <path d="m19.07 10.93-1.41 1.41" />
+      <path d="M22 22H2" />
+      <path d="m8 6 4-4 4 4" />
+      <path d="M16 18a4 4 0 0 0-8 0" />
+    </svg>
+  );
+}
+
+export function ArrowRightIcon({ size = 14, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </svg>
+  );
+}
+
+export function CursorIcon({ size = 15, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+      <path d="m13 13 6 6" />
+    </svg>
+  );
+}
+
+export function HighlighterIcon({ size = 15, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="m9 11-6 6v3h9l3-3" />
+      <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" />
+    </svg>
+  );
+}
+
+export function EraserIcon({ size = 15, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
+      <path d="M22 21H7" />
+      <path d="m5 11 9 9" />
+    </svg>
+  );
+}
+
+export function UndoIcon({ size = 14, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="M3 7v6h6" />
+      <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+    </svg>
+  );
+}
+
+export function DividerHorizontalIcon({ size = 14, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="M3 12h18" />
+      <path d="m8 7 4-4 4 4" />
+      <path d="m8 17 4 4 4-4" />
+    </svg>
+  );
+}
+
+export function DividerVerticalIcon({ size = 14, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="M12 3v18" />
+      <path d="m7 8-4 4 4 4" />
+      <path d="m17 8 4 4-4 4" />
+    </svg>
+  );
+}
+
+export function ZoneFrameIcon({ size = 14, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+      <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+      <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+      <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+      <rect x="7" y="7" width="10" height="10" rx="1.5" />
+    </svg>
+  );
+}
+
+
 
 
 

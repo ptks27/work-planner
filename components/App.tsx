@@ -47,6 +47,9 @@ import {
   AwardIcon,
   BoltIcon,
   CloudIcon,
+  FireIcon,
+  SunRiseIcon,
+  ChartBarIcon,
 } from '@/components/Icons';
 
 export default function App() {
@@ -339,7 +342,7 @@ export default function App() {
               }}
               title={`ดูวงแหวนกิจกรรมและความสำเร็จ (Streak ${activityStats.currentStreak} วัน, ปิดงานวันนี้ ${activityStats.todayPct}%)`}
             >
-              <span>🔥</span>
+              <FireIcon size={13} color={activityStats.currentStreak > 0 ? '#ff3b30' : 'var(--mut)'} />
               <span className="streak-label">{activityStats.currentStreak > 0 ? `${activityStats.currentStreak} วัน` : 'Streak'}</span>
               <span
                 style={{
@@ -417,9 +420,13 @@ export default function App() {
                       color: 'var(--mut)',
                       textTransform: 'uppercase',
                       letterSpacing: '0.5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
                     }}
                   >
-                    ⚡ เครื่องมือและรายงานด่วน
+                    <BoltIcon size={11} color="var(--pri)" />
+                    <span>เครื่องมือและรายงานด่วน</span>
                   </div>
 
                   <button
@@ -430,7 +437,9 @@ export default function App() {
                       setIsQuickMenuOpen(false);
                     }}
                   >
-                    <span style={{ fontSize: 16 }}>🌅</span>
+                    <span className="quick-menu-icon" style={{ background: 'rgba(255, 149, 0, 0.14)', color: '#ea580c' }}>
+                      <SunRiseIcon size={15} />
+                    </span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600 }}>สรุปภาพรวมยามเช้า</div>
                       <small style={{ color: 'var(--mut)', fontSize: 11 }}>
@@ -447,7 +456,9 @@ export default function App() {
                       setIsQuickMenuOpen(false);
                     }}
                   >
-                    <span style={{ fontSize: 16 }}>📊</span>
+                    <span className="quick-menu-icon" style={{ background: 'rgba(0, 113, 227, 0.12)', color: 'var(--pri)' }}>
+                      <ChartBarIcon size={15} />
+                    </span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600 }}>ประเมิน KPI รายบุคคล</div>
                       <small style={{ color: 'var(--mut)', fontSize: 11 }}>
@@ -464,7 +475,9 @@ export default function App() {
                       setIsQuickMenuOpen(false);
                     }}
                   >
-                    <span style={{ fontSize: 16 }}>🏆</span>
+                    <span className="quick-menu-icon" style={{ background: 'rgba(255, 59, 48, 0.12)', color: '#ff3b30' }}>
+                      <AwardIcon size={15} />
+                    </span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600 }}>วงแหวนความสำเร็จ & Streak</div>
                       <small style={{ color: 'var(--mut)', fontSize: 11 }}>
@@ -483,10 +496,18 @@ export default function App() {
                       setIsQuickMenuOpen(false);
                     }}
                   >
-                    <span style={{ fontSize: 16 }}>📋</span>
+                    <span
+                      className="quick-menu-icon"
+                      style={{
+                        background: reportCopied ? 'rgba(52, 199, 89, 0.16)' : 'rgba(175, 82, 222, 0.12)',
+                        color: reportCopied ? 'var(--ok)' : '#af52de',
+                      }}
+                    >
+                      {reportCopied ? <CheckIcon size={15} /> : <ClipboardCheckIcon size={15} />}
+                    </span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600 }}>
-                        {reportCopied ? '✅ คัดลอกสรุปงานแล้ว!' : 'คัดลอกสรุปงานประจำวัน'}
+                        {reportCopied ? 'คัดลอกสรุปงานแล้ว!' : 'คัดลอกสรุปงานประจำวัน'}
                       </div>
                       <small style={{ color: 'var(--mut)', fontSize: 11 }}>
                         ฟอร์แมตสวยงามพร้อมส่งใน LINE / Slack
@@ -502,7 +523,9 @@ export default function App() {
                       setIsQuickMenuOpen(false);
                     }}
                   >
-                    <span style={{ fontSize: 16 }}>👥</span>
+                    <span className="quick-menu-icon" style={{ background: 'rgba(52, 199, 89, 0.14)', color: 'var(--ok)' }}>
+                      <UsersIcon size={15} />
+                    </span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600 }}>รายชื่อสมาชิกในทีม</div>
                       <small style={{ color: 'var(--mut)', fontSize: 11 }}>

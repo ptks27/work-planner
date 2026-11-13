@@ -14,6 +14,7 @@ import {
   SettingsIcon,
   BoltIcon,
   StickyNoteIcon,
+  ChevronRightIcon,
 } from './Icons';
 
 export interface TabItem {
@@ -120,7 +121,7 @@ export default function Sidebar({
               {currentUser.role || 'โปรไฟล์ส่วนตัว'}
             </div>
           </div>
-          <span style={{ fontSize: 13, color: 'var(--mut)' }}>👤</span>
+          <ChevronRightIcon size={14} style={{ color: 'var(--mut)', flexShrink: 0 }} />
         </div>
       )}
     </aside>

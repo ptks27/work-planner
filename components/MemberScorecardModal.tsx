@@ -14,6 +14,7 @@ import {
   ClockIcon,
   CalendarIcon,
   UsersIcon,
+  PrinterIcon,
 } from './Icons';
 
 interface MemberScorecardModalProps {
@@ -446,7 +447,8 @@ export default function MemberScorecardModal({
               onClick={handlePrint}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
-              <span>🖨️ พิมพ์ / PDF</span>
+              <PrinterIcon size={13} />
+              <span>พิมพ์ / PDF</span>
             </button>
             <button className="btn ghost" onClick={onClose}>
               ปิด

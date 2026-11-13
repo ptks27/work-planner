@@ -18,6 +18,7 @@ import {
   SunIcon,
   LeaveIcon,
   HolidayIcon,
+  RocketIcon,
 } from './Icons';
 
 interface MorningBriefingModalProps {
@@ -472,7 +473,8 @@ export default function MorningBriefingModal({
                   gap: 6,
                 }}
               >
-                <span>เริ่มลุยงานกันเลย 🚀</span>
+                <span>เริ่มลุยงานกันเลย</span>
+                <RocketIcon size={14} />
               </button>
             </div>
           </div>

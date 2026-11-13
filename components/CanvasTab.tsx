@@ -30,6 +30,18 @@ import {
   CopyIcon,
   EditIcon,
   ClockIcon,
+  FolderIcon,
+  CursorIcon,
+  HighlighterIcon,
+  EraserIcon,
+  UndoIcon,
+  DividerHorizontalIcon,
+  DividerVerticalIcon,
+  ZoneFrameIcon,
+  LinkIcon,
+  ArrowRightIcon,
+  RocketIcon,
+  ChevronDownIcon,
 } from './Icons';
 import ThaiDatePicker from './ThaiDatePicker';
 import { playCompletionSound, triggerConfetti } from '@/lib/audio';
@@ -751,12 +763,12 @@ export default function CanvasTab() {
                   }}
                   title="คลิกเพื่อสลับดู Flow เก่าที่บันทึกไว้ หรือสร้าง Flow ใหม่"
                 >
-                  <span>📂</span>
+                  <FolderIcon size={13} color="var(--pri)" />
                   <span style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {currentBoard.title}
                   </span>
-                  <span style={{ fontSize: 10.5, opacity: 0.65 }}>({boards.length} Flows)</span>
-                  <span style={{ fontSize: 9 }}>▼</span>
+                  <span style={{ fontSize: 10.5, opacity: 0.7 }}>({boards.length} Flows)</span>
+                  <ChevronDownIcon size={11} />
                 </button>
 
                 {/* Quick New Board Button */}
@@ -815,6 +827,9 @@ export default function CanvasTab() {
             {strokes.length > 0 && (
               <span
                 style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
                   padding: '2px 8px',
                   borderRadius: 999,
                   background: 'rgba(255, 149, 0, 0.1)',
@@ -824,12 +839,16 @@ export default function CanvasTab() {
                 }}
                 title={`${strokes.length} เส้นวาดและไฮไลท์`}
               >
-                ✏️ {strokes.length} เส้นวาด
+                <EditIcon size={11} />
+                <span>{strokes.length} เส้นวาด</span>
               </span>
             )}
             {sections.length > 0 && (
               <span
                 style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
                   padding: '2px 8px',
                   borderRadius: 999,
                   background: 'rgba(175, 82, 222, 0.1)',
@@ -839,7 +858,8 @@ export default function CanvasTab() {
                 }}
                 title={`${sections.length} เส้นคั่นและกรอบโซน`}
               >
-                📏 {sections.length} เส้นคั่น
+                <ZoneFrameIcon size={11} />
+                <span>{sections.length} เส้นคั่น</span>
               </span>
             )}
           </div>
@@ -861,6 +881,7 @@ export default function CanvasTab() {
                 background: 'rgba(0, 113, 227, 0.1)',
                 color: 'var(--pri)',
                 border: '1px solid rgba(0, 113, 227, 0.25)',
+                boxShadow: 'none',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 5,
@@ -869,7 +890,7 @@ export default function CanvasTab() {
               title="จัดเรียงตำแหน่งโพสต์อิทเป็นสาย Data Flow ซ้ายไปขวาพร้อมเชื่อมต่อเส้นอัตโนมัติ"
             >
               <BoltIcon size={12} color="var(--pri)" />
-              <span>⚡ จัดเรียง Data Flow</span>
+              <span>จัดเรียง Data Flow</span>
             </button>
           )}
 
@@ -978,7 +999,7 @@ export default function CanvasTab() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
-            <span>🔗</span>
+            <LinkIcon size={14} color="#ffffff" />
             <span>กำลังเลือกการ์ดปลายทางสำหรับ Data Flow: คลิกที่โพสต์อิทใดก็ได้เพื่อเชื่อมโยงเส้น Flow</span>
           </div>
           <button
@@ -2031,7 +2052,7 @@ export default function CanvasTab() {
                         : 'เชื่อมต่อ Flow ไปยังโพสต์อิทอื่น'
                     }
                   >
-                    <span>{isConnectingSource ? '⚡' : connectingFromId ? '➔' : '🔗'}</span>
+                    {isConnectingSource ? <BoltIcon size={11} color="#ffffff" /> : connectingFromId ? <ArrowRightIcon size={11} color="var(--pri)" /> : <LinkIcon size={11} color="var(--pri)" />}
                     <span>{isConnectingSource ? 'ยกเลิก' : connectingFromId ? 'ต่อที่นี่' : 'เชื่อม Flow'}</span>
                   </button>
 
@@ -2139,7 +2160,7 @@ export default function CanvasTab() {
             }}
             title="โหมดเลือกและลากย้าย (Select & Move)"
           >
-            <span>👆</span>
+            <CursorIcon size={13} />
             <span>เลือก/ย้าย</span>
           </button>
 
@@ -2162,7 +2183,7 @@ export default function CanvasTab() {
             }}
             title="โหมดดินสอ/ขีดเขียน (Pencil Freehand)"
           >
-            <span>✏️</span>
+            <EditIcon size={13} />
             <span>ดินสอเขียน</span>
           </button>
 
@@ -2185,7 +2206,7 @@ export default function CanvasTab() {
             }}
             title="โหมดปากกาเน้นข้อความ (Highlighter)"
           >
-            <span>🖌️</span>
+            <HighlighterIcon size={13} />
             <span>ไฮไลท์</span>
           </button>
 
@@ -2208,7 +2229,7 @@ export default function CanvasTab() {
             }}
             title="โหมดยางลบ (คลิกที่เส้นวาดเพื่อลบ)"
           >
-            <span>🧹</span>
+            <EraserIcon size={13} />
             <span>ยางลบ</span>
           </button>
         </div>
@@ -2272,7 +2293,8 @@ export default function CanvasTab() {
               style={{ padding: '2px 8px', fontSize: 11, borderRadius: 999 }}
               title="เลิกทำเส้นวาดล่าสุด"
             >
-              ↶ เลิกทำ
+              <UndoIcon size={12} />
+              <span>เลิกทำ</span>
             </button>
             <button
               type="button"
@@ -2312,7 +2334,7 @@ export default function CanvasTab() {
             }}
             title="เพิ่มเส้นคั่นแนวนอน (แบ่งเฟสงานหรือสปรินต์)"
           >
-            <span>➖</span>
+            <DividerHorizontalIcon size={13} />
             <span>คั่นแนวนอน</span>
           </button>
 
@@ -2334,7 +2356,7 @@ export default function CanvasTab() {
             }}
             title="เพิ่มเส้นคั่นแนวตั้ง (แบ่งคอลัมน์สมาชิกหรือแผนก)"
           >
-            <span>▎</span>
+            <DividerVerticalIcon size={13} />
             <span>คั่นแนวตั้ง</span>
           </button>
 
@@ -2356,7 +2378,7 @@ export default function CanvasTab() {
             }}
             title="เพิ่มกรอบแบ่งโซน (Section Frame สำหรับจัดกลุ่มโพสต์อิท)"
           >
-            <span>🔲</span>
+            <ZoneFrameIcon size={13} />
             <span>กรอบโซน</span>
           </button>
         </div>
@@ -2384,10 +2406,9 @@ export default function CanvasTab() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: 18,
                   }}
                 >
-                  📂
+                  <FolderIcon size={17} />
                 </span>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 16 }}>คลังจัดเก็บ Flow & กระดานความคิด</h3>
@@ -2512,12 +2533,12 @@ export default function CanvasTab() {
                             </div>
                           )}
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                            <span style={{ fontSize: 11, color: 'var(--mut)' }}>
-                              📦 {noteCount} โน้ต
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 3, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 11, color: 'var(--mut)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <StickyNoteIcon size={11} /> {noteCount} โน้ต
                             </span>
-                            <span style={{ fontSize: 11, color: 'var(--mut)' }}>
-                              🔗 {connCount} Flow
+                            <span style={{ fontSize: 11, color: 'var(--mut)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <LinkIcon size={11} /> {connCount} Flow
                             </span>
                             <span style={{ fontSize: 11, color: 'var(--mut)' }}>
                               • อัปเดตล่าสุด: {new Date(b.updatedAt || b.createdAt).toLocaleDateString('th-TH')}
@@ -2657,7 +2678,7 @@ export default function CanvasTab() {
                       gap: 4,
                     }}
                   >
-                    <span style={{ fontSize: 24 }}>⚪</span>
+                    <ZoneFrameIcon size={22} color={newBoardTemplate === 'blank' ? 'var(--pri)' : 'var(--mut)'} />
                     <strong style={{ fontSize: 12.5, color: newBoardTemplate === 'blank' ? 'var(--pri)' : 'var(--txt)' }}>
                       กระดานว่างเปล่า
                     </strong>
@@ -2677,10 +2698,10 @@ export default function CanvasTab() {
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
-                      gap: 4,
+                      gap: 5,
                     }}
                   >
-                    <span style={{ fontSize: 24 }}>🚀</span>
+                    <RocketIcon size={22} color={newBoardTemplate === 'sample_flow' ? 'var(--pri)' : '#af52de'} />
                     <strong style={{ fontSize: 12.5, color: newBoardTemplate === 'sample_flow' ? 'var(--pri)' : 'var(--txt)' }}>
                       ตัวอย่าง Data Flow
                     </strong>

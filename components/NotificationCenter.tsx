@@ -14,6 +14,7 @@ import {
   MessageSquareIcon,
   UserIcon,
   BoltIcon,
+  EditIcon,
 } from './Icons';
 
 interface NotificationCenterProps {
@@ -67,140 +68,37 @@ export default function NotificationCenter({ onOpenTask }: NotificationCenterPro
   };
 
   const getNotificationIcon = (type: AppNotification['type']) => {
-    switch (type) {
-      case 'mention':
-        return (
-          <span
-            style={{
-              position: 'absolute',
-              bottom: -2,
-              right: -2,
-              width: 16,
-              height: 16,
-              borderRadius: '50%',
-              background: '#0071e3',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 9,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-            }}
-          >
-            💬
-          </span>
-        );
-      case 'assigned':
-        return (
-          <span
-            style={{
-              position: 'absolute',
-              bottom: -2,
-              right: -2,
-              width: 16,
-              height: 16,
-              borderRadius: '50%',
-              background: '#34c759',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 9,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-            }}
-          >
-            👤
-          </span>
-        );
-      case 'status_change':
-        return (
-          <span
-            style={{
-              position: 'absolute',
-              bottom: -2,
-              right: -2,
-              width: 16,
-              height: 16,
-              borderRadius: '50%',
-              background: '#ff9500',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 9,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-            }}
-          >
-            ⚡
-          </span>
-        );
-      case 'edit_request':
-        return (
-          <span
-            style={{
-              position: 'absolute',
-              bottom: -2,
-              right: -2,
-              width: 16,
-              height: 16,
-              borderRadius: '50%',
-              background: '#af52de',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 9,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-            }}
-          >
-            📝
-          </span>
-        );
-      case 'edit_approved':
-        return (
-          <span
-            style={{
-              position: 'absolute',
-              bottom: -2,
-              right: -2,
-              width: 16,
-              height: 16,
-              borderRadius: '50%',
-              background: '#34c759',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 9,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-            }}
-          >
-            ✓
-          </span>
-        );
-      case 'edit_rejected':
-        return (
-          <span
-            style={{
-              position: 'absolute',
-              bottom: -2,
-              right: -2,
-              width: 16,
-              height: 16,
-              borderRadius: '50%',
-              background: '#ff3b30',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 9,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-            }}
-          >
-            ✕
-          </span>
-        );
-    }
+    const badgeConfig: Record<AppNotification['type'], { bg: string; icon: React.ReactNode }> = {
+      mention: { bg: '#0071e3', icon: <MessageSquareIcon size={9} color="#ffffff" /> },
+      assigned: { bg: '#34c759', icon: <UserIcon size={9} color="#ffffff" /> },
+      status_change: { bg: '#ff9500', icon: <BoltIcon size={9} color="#ffffff" /> },
+      edit_request: { bg: '#af52de', icon: <EditIcon size={9} color="#ffffff" /> },
+      edit_approved: { bg: '#34c759', icon: <CheckIcon size={9} strokeWidth={3} color="#ffffff" /> },
+      edit_rejected: { bg: '#ff3b30', icon: <CloseIcon size={9} strokeWidth={3} color="#ffffff" /> },
+    };
+    const cfg = badgeConfig[type];
+    if (!cfg) return null;
+    return (
+      <span
+        style={{
+          position: 'absolute',
+          bottom: -2,
+          right: -2,
+          width: 17,
+          height: 17,
+          borderRadius: '50%',
+          background: cfg.bg,
+          color: '#ffffff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: '1.5px solid var(--card-solid)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+        }}
+      >
+        {cfg.icon}
+      </span>
+    );
   };
 
   return (
@@ -220,26 +118,7 @@ export default function NotificationCenter({ onOpenTask }: NotificationCenterPro
       >
         <BellIcon size={17} />
         {unreadCount > 0 && (
-          <span
-            style={{
-              position: 'absolute',
-              top: 2,
-              right: 2,
-              minWidth: 16,
-              height: 16,
-              borderRadius: 999,
-              background: '#ff3b30',
-              color: '#ffffff',
-              fontSize: 10,
-              fontWeight: 800,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 4px',
-              boxShadow: '0 0 6px rgba(255, 59, 48, 0.6)',
-              animation: 'applePulse 2s infinite',
-            }}
-          >
+          <span className="nav-badge-count">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}

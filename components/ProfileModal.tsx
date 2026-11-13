@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/authStore';
 import { AvatarIcon, AVATAR_LIST, type AvatarId } from './Avatars';
 import { useModal } from './ModalContext';
-import { UserIcon, CloseIcon, CheckIcon, BuildingIcon, CopyIcon, LogOutIcon, UsersIcon, EditIcon } from './Icons';
+import { UserIcon, CloseIcon, CheckIcon, BuildingIcon, CopyIcon, LogOutIcon, UsersIcon, EditIcon, ChevronUpIcon } from './Icons';
 
 export default function ProfileModal({
   isOpen,
@@ -193,8 +193,8 @@ export default function ProfileModal({
                 boxShadow: isPickerOpen ? '0 2px 8px rgba(99,102,241,0.15)' : 'none',
               }}
             >
-              <EditIcon size={13} color="var(--pri)" />
-              <span>{isPickerOpen ? '▲ ซ่อนการเลือก Avatar' : '✏️ เปลี่ยนรูป Avatar (มีให้เลือก 15 แบบ)'}</span>
+              {isPickerOpen ? <ChevronUpIcon size={13} color="var(--pri)" /> : <EditIcon size={13} color="var(--pri)" />}
+              <span>{isPickerOpen ? 'ซ่อนการเลือก Avatar' : 'เปลี่ยนรูป Avatar (15 แบบ)'}</span>
             </button>
 
             {/* 15 Avatar Picker Dropdown / Accordion */}

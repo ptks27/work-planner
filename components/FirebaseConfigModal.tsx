@@ -11,6 +11,7 @@ import {
   SparklesIcon,
   RefreshCwIcon,
   CopyIcon,
+  SettingsIcon,
 } from './Icons';
 
 interface FirebaseConfigModalProps {
@@ -386,7 +387,8 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
                 color: 'var(--mut)',
               }}
             >
-              <span>{showCustomConfig ? 'ซ่อนการปรับแต่ง' : '⚙️ ปรับแต่งเอง'}</span>
+              <SettingsIcon size={13} />
+              <span>{showCustomConfig ? 'ซ่อนการปรับแต่ง' : 'ปรับแต่งเอง'}</span>
             </button>
           </div>
 

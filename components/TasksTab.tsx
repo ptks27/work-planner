@@ -426,7 +426,7 @@ export default function TasksTab() {
                     <ClockIcon size={14} />
                     <span>งานค้างย้อนหลัง</span>
                     {overdueTasks.length > 0 && (
-                      <span className="badge hot" style={{ fontSize: 10, padding: '1px 6px', marginLeft: 2 }}>
+                      <span className="count-pill hot" style={{ marginLeft: 2 }}>
                         {overdueTasks.length}
                       </span>
                     )}
@@ -596,8 +596,19 @@ export default function TasksTab() {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {rightTab === 'selected' && sel !== today && (
-                    <small className="mut" style={{ fontSize: 12, fontWeight: 500 }}>
-                      {sel < today ? '📅 งานย้อนหลัง' : '📅 งานล่วงหน้า'}
+                    <small
+                      className="mut"
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <CalendarIcon size={12} />
+                      <span>{sel < today ? 'งานย้อนหลัง' : 'งานล่วงหน้า'}</span>
                     </small>
                   )}
                   {rightTab === 'selected' && visibleOn(s, sel).some(t => t.done) && (
@@ -900,12 +911,12 @@ export default function TasksTab() {
                   </span>
 
                   {sel < today && (
-                    <span className="badge" style={{ position: 'static', background: '#fef3c7', color: '#b45309', fontSize: 10.5, padding: '2px 8px' }}>
+                    <span className="count-pill warn">
                       งานย้อนหลัง
                     </span>
                   )}
                   {sel === today && (
-                    <span className="badge" style={{ position: 'static', background: '#e0f2fe', color: '#0284c7', fontSize: 10.5, padding: '2px 8px' }}>
+                    <span className="count-pill info">
                       วันนี้
                     </span>
                   )}

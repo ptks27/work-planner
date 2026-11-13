@@ -471,7 +471,7 @@ export default function SettingsTab() {
             }}
           >
             <CloudUploadIcon size={14} className={syncing ? 'spin' : ''} />
-            <span>{syncing ? 'กำลังซิงค์...' : '🔄 ซิงค์ทันที'}</span>
+            <span>{syncing ? 'กำลังซิงค์...' : 'ซิงค์ทันที'}</span>
           </button>
 
           <button
@@ -490,7 +490,7 @@ export default function SettingsTab() {
             }}
           >
             <SettingsIcon size={13} />
-            <span>⚙️ จัดการการเชื่อมต่อ</span>
+            <span>จัดการการเชื่อมต่อ</span>
           </button>
         </div>
       </div>

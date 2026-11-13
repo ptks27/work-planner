@@ -29,6 +29,7 @@ import {
   SparklesIcon,
   ImageIcon,
   PaperclipIcon,
+  SendIcon,
 } from './Icons';
 import { useAuth } from '@/lib/authStore';
 import { usePlanner } from '@/lib/store';
@@ -834,7 +835,7 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
                     }}
                   >
                     <SparklesIcon size={13} color="var(--pri)" />
-                    <span>✨ AI ช่วยแตกงานย่อย</span>
+                    <span>AI ช่วยแตกงานย่อย</span>
                   </button>
                 </div>
                 {subtasks.length > 0 && (
@@ -1426,7 +1427,7 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
           >
             {!canEditDirectly ? (
               <>
-                <span style={{ fontSize: 14 }}>📨</span> ส่งคำขอแก้ไขไปยังเจ้าของงาน
+                <SendIcon size={14} /> <span>ส่งคำขอแก้ไขไปยังเจ้าของงาน</span>
               </>
             ) : (
               <>

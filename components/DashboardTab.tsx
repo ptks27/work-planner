@@ -329,66 +329,28 @@ export default function DashboardTab() {
           {/* Right: Cupertino Mode Segmented Control + Date Picker */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             {/* Segmented Pill */}
-            <div
-              style={{
-                display: 'inline-flex',
-                background: 'rgba(120, 120, 128, 0.08)',
-                padding: 3,
-                borderRadius: 999,
-                gap: 2,
-              }}
-            >
+            <div className="chips" style={{ margin: 0 }}>
               <button
                 type="button"
+                className={`chip ${mode === 'day' ? 'on' : ''}`}
                 onClick={() => handleModeChange('day')}
-                style={{
-                  border: 'none',
-                  background: mode === 'day' ? 'var(--card-solid)' : 'transparent',
-                  color: mode === 'day' ? 'var(--txt)' : 'var(--mut)',
-                  borderRadius: 999,
-                  padding: '5px 14px',
-                  fontSize: 12.5,
-                  fontWeight: mode === 'day' ? 600 : 500,
-                  cursor: 'pointer',
-                  boxShadow: mode === 'day' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                  transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
-                }}
+                style={{ padding: '5px 14px', fontSize: 12.5 }}
               >
                 รายวัน
               </button>
               <button
                 type="button"
+                className={`chip ${mode === 'week' ? 'on' : ''}`}
                 onClick={() => handleModeChange('week')}
-                style={{
-                  border: 'none',
-                  background: mode === 'week' ? 'var(--card-solid)' : 'transparent',
-                  color: mode === 'week' ? 'var(--txt)' : 'var(--mut)',
-                  borderRadius: 999,
-                  padding: '5px 14px',
-                  fontSize: 12.5,
-                  fontWeight: mode === 'week' ? 600 : 500,
-                  cursor: 'pointer',
-                  boxShadow: mode === 'week' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                  transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
-                }}
+                style={{ padding: '5px 14px', fontSize: 12.5 }}
               >
                 รายสัปดาห์
               </button>
               <button
                 type="button"
+                className={`chip ${mode === 'month' ? 'on' : ''}`}
                 onClick={() => handleModeChange('month')}
-                style={{
-                  border: 'none',
-                  background: mode === 'month' ? 'var(--card-solid)' : 'transparent',
-                  color: mode === 'month' ? 'var(--txt)' : 'var(--mut)',
-                  borderRadius: 999,
-                  padding: '5px 14px',
-                  fontSize: 12.5,
-                  fontWeight: mode === 'month' ? 600 : 500,
-                  cursor: 'pointer',
-                  boxShadow: mode === 'month' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                  transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
-                }}
+                style={{ padding: '5px 14px', fontSize: 12.5 }}
               >
                 รายเดือน
               </button>
@@ -1082,7 +1044,7 @@ export default function DashboardTab() {
                         <span>{thDate(group.date)}</span>
                       </button>
                       {group.date === today && (
-                        <span className="badge" style={{ position: 'static', background: '#e0f2fe', color: '#0284c7', fontSize: 10, padding: '2px 6px' }}>
+                        <span className="count-pill info" style={{ fontSize: 10, padding: '2px 7px' }}>
                           วันนี้
                         </span>
                       )}

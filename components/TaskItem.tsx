@@ -15,6 +15,7 @@ import {
   CalendarIcon,
   MessageSquareIcon,
   ImageIcon,
+  LinkIcon,
 } from './Icons';
 import { useModal } from './ModalContext';
 import { playCompletionSound, triggerConfetti } from '@/lib/audio';
@@ -578,12 +579,16 @@ export default function TaskItem({
                 color: 'var(--mut)',
                 fontSize: 11,
                 cursor: 'pointer',
-                padding: '1px 5px',
-                borderRadius: 4,
+                padding: '2px 6px',
+                borderRadius: 6,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
               }}
               title="แนบลิงก์ Figma, Docs, Drive, GitHub..."
             >
-              + 🔗 ลิงก์
+              <LinkIcon size={11} />
+              <span>แนบลิงก์</span>
             </button>
           )}
 

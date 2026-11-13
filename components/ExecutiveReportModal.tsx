@@ -16,6 +16,7 @@ import {
   UsersIcon,
   CalendarIcon,
   TagIcon,
+  PrinterIcon,
 } from './Icons';
 
 interface ExecutiveReportModalProps {
@@ -198,7 +199,8 @@ export default function ExecutiveReportModal({
               }}
               title="พิมพ์เอกสาร หรือบันทึกเป็น PDF"
             >
-              <span>🖨️ พิมพ์ / บันทึก PDF</span>
+              <PrinterIcon size={14} />
+              <span>พิมพ์ / บันทึก PDF</span>
             </button>
 
             <button
