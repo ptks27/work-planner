@@ -19,7 +19,7 @@ import {
 } from 'firebase/firestore';
 import type { PlannerData, User, Team, TeamMember } from './types';
 import { DEFAULT_FIREBASE_CONFIG } from './firebaseDefaultConfig';
-import { hashPassword, verifyPassword, sanitizeForPollution } from './security';
+import { hashPassword, verifyPassword, sanitizeForPollution, generateSecureId } from './security';
 
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
@@ -86,6 +86,14 @@ export function resetFirebaseInstance() {
 export function generateTeamCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let res = '';
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
+    const bytes = new Uint8Array(6);
+    globalThis.crypto.getRandomValues(bytes);
+    for (let i = 0; i < 6; i++) {
+      res += chars.charAt(bytes[i] % chars.length);
+    }
+    return res;
+  }
   for (let i = 0; i < 6; i++) {
     res += chars.charAt(Math.floor(Math.random() * chars.length));
   }
@@ -109,7 +117,14 @@ export async function firebaseRegisterUser(
       return { success: false, error: 'อีเมลนี้ถูกใช้งานแล้วในระบบ Firebase' };
     }
 
-    const hashedPassword = await hashPassword(user.password || '123456');
+    if (!user.password) {
+      return { success: false, error: 'กรุณาตั้งรหัสผ่านอย่างน้อย 6 ตัวอักษร' };
+    }
+    const isAlreadyHashed = user.password.startsWith('pbkdf2_') || user.password.startsWith('sha256_');
+    if (!isAlreadyHashed && user.password.length < 6) {
+      return { success: false, error: 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร' };
+    }
+    const hashedPassword = isAlreadyHashed ? user.password : await hashPassword(user.password);
 
     await setDoc(doc(instance.db, 'users', user.id), {
       id: user.id,
@@ -152,16 +167,20 @@ export async function firebaseLoginUser(
     }
 
     const userData = sanitizeForPollution(snap.docs[0].data()) as User;
-    if (password) {
-      const isValid = await verifyPassword(password, userData.password || '');
-      if (!isValid) {
-        return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' };
-      }
-      // หากพบว่ารหัสผ่านยังเป็น plaintext อยู่ ให้ auto-upgrade เป็น salted SHA-256 hash ทันที
-      if (userData.password && !userData.password.startsWith('sha256_')) {
-        const hashed = await hashPassword(password);
-        await setDoc(doc(instance.db, 'users', userData.id), { password: hashed }, { merge: true });
-      }
+    if (!password) {
+      return { success: false, error: 'กรุณากรอกรหัสผ่าน' };
+    }
+    if (!userData.password) {
+      return { success: false, error: 'บัญชีนี้ยังไม่ได้ตั้งรหัสผ่าน กรุณาติดต่อผู้ดูแลระบบหรือสมัครใหม่' };
+    }
+    const isValid = await verifyPassword(password, userData.password);
+    if (!isValid) {
+      return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' };
+    }
+    // อัปเกรด hash เก่า (plaintext หรือ sha256_) เป็น PBKDF2 hash อัตโนมัติเมื่อเข้าสู่ระบบสำเร็จ
+    if (!userData.password.startsWith('pbkdf2_')) {
+      const hashed = await hashPassword(password);
+      await setDoc(doc(instance.db, 'users', userData.id), { password: hashed }, { merge: true });
     }
 
     // ลบรหัสผ่านออกจาก client user object เพื่อป้องกัน data leak
@@ -236,7 +255,7 @@ export async function firebaseCreateTeam(
     if (!cleanName) return { success: false, error: 'กรุณากรอกชื่อทีม' };
 
     let code = generateTeamCode();
-    const teamId = `team-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const teamId = generateSecureId('team', 6);
 
     if (instance) {
       // ตรวจสอบว่ารหัสซ้ำไหม
@@ -350,7 +369,8 @@ export async function firebaseJoinTeam(
       return { success: false, error: 'ไม่พบทีมที่มีรหัสนี้ กรุณาตรวจสอบรหัสอีกครั้ง' };
     }
 
-    const teamData = snap.docs[0].data() as Team;
+    const rawTeamData = sanitizeForPollution(snap.docs[0].data());
+    const teamData = { ...rawTeamData, id: rawTeamData.id || snap.docs[0].id } as Team;
     const memberIds = Array.from(new Set([...(teamData.memberIds || []), user.id]));
 
     const isOwner = teamData.createdBy === user.id;
@@ -400,16 +420,30 @@ export async function firebaseJoinTeam(
     );
 
     // ดึงข้อมูล Planner ของทีมนั้น
-    let plannerData: PlannerData = { tasks: [], rules: [], events: [], customTags: [], deletedTags: [] };
+    let plannerData: PlannerData = {
+      tasks: [],
+      rules: [],
+      events: [],
+      customTags: [],
+      deletedTags: [],
+      notifications: [],
+    };
     const pSnap = await getDoc(doc(instance.db, 'team_planners', teamData.id));
     if (pSnap.exists()) {
-      const p = pSnap.data();
+      const p = sanitizeForPollution(pSnap.data());
       plannerData = {
         tasks: p.tasks || [],
         rules: p.rules || [],
         events: p.events || [],
         customTags: p.customTags || [],
         deletedTags: p.deletedTags || [],
+        notifications: p.notifications || [],
+        canvasNotes: p.canvasNotes !== undefined ? p.canvasNotes : undefined,
+        canvasConnections: p.canvasConnections !== undefined ? p.canvasConnections : undefined,
+        canvasBoards: p.canvasBoards !== undefined ? p.canvasBoards : undefined,
+        canvasStrokes: p.canvasStrokes !== undefined ? p.canvasStrokes : undefined,
+        canvasSections: p.canvasSections !== undefined ? p.canvasSections : undefined,
+        activeBoardId: p.activeBoardId !== undefined ? p.activeBoardId : undefined,
       };
     }
 
@@ -437,7 +471,7 @@ export async function firebaseLeaveTeam(
       const teamRef = doc(instance.db, 'teams', teamId);
       const teamSnap = await getDoc(teamRef);
       if (teamSnap.exists()) {
-        const team = teamSnap.data() as Team;
+        const team = sanitizeForPollution(teamSnap.data()) as Team;
         const memberIds = (team.memberIds || []).filter(id => id !== user.id);
         const members = (team.members || []).filter(m => m.userId !== user.id);
         await setDoc(teamRef, { memberIds, members }, { merge: true });
@@ -450,7 +484,7 @@ export async function firebaseLeaveTeam(
       );
       const remainingSnap = await getDocs(remainingQ);
       const remainingTeams = remainingSnap.docs
-        .map(d => ({ ...d.data(), id: d.id } as Team))
+        .map(d => ({ ...sanitizeForPollution(d.data()), id: d.id } as Team))
         .filter(t => t.id !== teamId);
 
       const nextTeam = remainingTeams.length > 0 ? remainingTeams[0] : null;
@@ -494,7 +528,7 @@ export async function firebaseRemoveMemberFromTeam(
       return { success: false, error: 'ไม่พบทีมนี้ในระบบ' };
     }
 
-    const team = teamSnap.data() as Team;
+    const team = sanitizeForPollution(teamSnap.data()) as Team;
     // ป้องกันไม่ให้ลบหัวหน้าทีม/ผู้สร้างทีม
     if (team.createdBy === targetUserId) {
       return { success: false, error: 'ไม่สามารถนำหัวหน้าทีม/ผู้สร้างทีมออกจากทีมได้' };
@@ -515,7 +549,7 @@ export async function firebaseRemoveMemberFromTeam(
       );
       const remainingSnap = await getDocs(remainingQ);
       const remainingTeams = remainingSnap.docs
-        .map(d => ({ ...d.data(), id: d.id } as Team))
+        .map(d => ({ ...sanitizeForPollution(d.data()), id: d.id } as Team))
         .filter(t => t.id !== teamId);
 
       const nextTeam = remainingTeams.length > 0 ? remainingTeams[0] : null;
@@ -554,7 +588,7 @@ export async function firebaseFetchUserTeams(
     );
     const snap = await getDocs(q);
     return snap.docs.map(d => {
-      const data = d.data();
+      const data = sanitizeForPollution(d.data());
       return { ...data, id: data.id || d.id } as Team;
     });
   } catch (err) {
@@ -600,7 +634,7 @@ export async function firebaseFetchTeam(
 
     const snap = await getDoc(doc(instance.db, 'teams', teamId));
     if (!snap.exists()) return null;
-    return snap.data() as Team;
+    return sanitizeForPollution(snap.data()) as Team;
   } catch {
     return null;
   }
@@ -637,7 +671,7 @@ export async function firebaseFetchTeamMembers(
     const teamSnap = await getDoc(doc(instance.db, 'teams', teamId));
     if (!teamSnap.exists()) return [];
 
-    const team = teamSnap.data() as Team;
+    const team = sanitizeForPollution(teamSnap.data()) as Team;
     const memberIds = team.memberIds || [];
     if (memberIds.length === 0) return [];
 
@@ -659,7 +693,7 @@ export async function firebaseFetchTeamMembers(
       const rec = recordedMap.get(uid);
 
       if (uSnap && uSnap.exists()) {
-        const u = uSnap.data() as User;
+        const u = sanitizeForPollution(uSnap.data()) as User;
         members.push({
           userId: uid,
           name: u.name || rec?.name || 'สมาชิก',
@@ -755,6 +789,16 @@ export async function uploadToFirebase(
       activeBoardId: data.activeBoardId || 'default-board',
       updatedAt: Date.now(),
     });
+
+    const jsonStr = JSON.stringify(cleanPayload);
+    const payloadBytes =
+      typeof TextEncoder !== 'undefined' ? new TextEncoder().encode(jsonStr).length : jsonStr.length;
+    if (payloadBytes > 980_000) {
+      return {
+        success: false,
+        error: `ขนาดข้อมูลรวมใหญ่เกินขีดจำกัด 1 MB ของ Firestore (${Math.round(payloadBytes / 1024)} KB) กรุณาลบรูปแนบหรือกระดาษไอเดียที่ไม่ใช้งานออกก่อนซิงค์`,
+      };
+    }
 
     await setDoc(docRef, cleanPayload);
 

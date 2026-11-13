@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { usePlanner, setSyncingFromCloud } from '@/lib/store';
+import { usePlanner, setSyncingFromCloud, syncPlannerToFirebase } from '@/lib/store';
 import { useAuth } from '@/lib/authStore';
 import { useModal } from '@/components/ModalContext';
 import { DEFAULT_FIREBASE_CONFIG } from '@/lib/firebaseDefaultConfig';
+import { parseFirebaseConfig } from '@/lib/firebase';
+import { isUserTeamOwner } from '@/lib/permissions';
 import FirebaseConfigModal from './FirebaseConfigModal';
 import { AvatarIcon } from './Avatars';
 import {
@@ -61,28 +63,17 @@ export default function SettingsTab() {
   };
 
   const handleUploadCloud = async () => {
-    const cfg = s.firebaseConfig || DEFAULT_FIREBASE_CONFIG;
     setSyncing(true);
-    setSyncStatus('กำลังอัปโหลดข้อมูล...');
-    const { uploadToFirebase } = await import('@/lib/firebase');
-    const res = await uploadToFirebase(
-      {
-        tasks: s.tasks,
-        rules: s.rules,
-        events: s.events,
-        customTags: s.customTags || [],
-        deletedTags: s.deletedTags || [],
-      },
-      cfg,
-      currentUser?.teamId
-    );
+    setSyncStatus('กำลังอัปโหลดข้อมูลทั้งหมด...');
+    const ok = await syncPlannerToFirebase();
     setSyncing(false);
-    if (res.success) {
+    if (ok) {
       setSyncStatus('อัปโหลดสำเร็จ ✅');
-      showAlert('สำเร็จ', 'ข้อมูลถูกบันทึกขึ้น Firebase Cloud เรียบร้อยแล้ว');
+      showAlert('สำเร็จ', 'ข้อมูลทั้งหมด (งาน วันลา กระดาษไอเดีย และแจ้งเตือน) ถูกบันทึกขึ้น Firebase Cloud เรียบร้อยแล้ว');
     } else {
-      setSyncStatus(`เกิดข้อผิดพลาด: ${res.error}`);
-      showAlert('ข้อผิดพลาด', res.error || 'ไม่สามารถอัปโหลดข้อมูลได้');
+      const errMsg = usePlanner.getState().cloudSyncError || 'ไม่สามารถอัปโหลดข้อมูลได้ กรุณาตรวจสอบการตั้งค่า Firebase';
+      setSyncStatus(`เกิดข้อผิดพลาด: ${errMsg}`);
+      showAlert('ข้อผิดพลาด', errMsg);
     }
   };
 
@@ -316,7 +307,8 @@ export default function SettingsTab() {
                   {currentUser.name}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--mut)', marginTop: 2 }}>
-                  ระดับ: {currentUser.role === 'admin' ? 'หัวหน้าทีม (Admin)' : 'สมาชิก (Member)'} · รหัส: {currentUser.id}
+                  ระดับ: {isUserTeamOwner(currentUser, currentTeam) ? 'หัวหน้าทีม (Owner)' : 'สมาชิก (Member)'}
+                  {currentUser.role ? ` · ตำแหน่ง: ${currentUser.role}` : ''} · รหัส: {currentUser.id}
                 </div>
               </div>
             </div>
@@ -403,35 +395,58 @@ export default function SettingsTab() {
             <CloudIcon size={22} />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)' }}>
-                Cloud Database:
-              </span>
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  padding: '3px 10px',
-                  borderRadius: 999,
-                  background: 'rgba(52, 199, 89, 0.12)',
-                  color: '#34c759',
-                  fontSize: 12,
-                  fontWeight: 600,
-                }}
-              >
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    background: '#34c759',
-                    boxShadow: '0 0 6px #34c759',
-                  }}
-                />
-                เชื่อมต่อ work-planner-9caf4 แล้ว (ซิงค์อัตโนมัติ)
-              </span>
-            </div>
+            {(() => {
+              const activeProjectId = (() => {
+                try {
+                  return parseFirebaseConfig(s.firebaseConfig || DEFAULT_FIREBASE_CONFIG)?.projectId || 'Cloud Database';
+                } catch {
+                  return 'Cloud Database';
+                }
+              })();
+              const isSyncErr = s.cloudSyncStatus === 'error';
+              const isSyncingNow = s.cloudSyncStatus === 'syncing' || syncing;
+              const pillColor = isSyncErr ? 'var(--red)' : isSyncingNow ? 'var(--warn)' : '#34c759';
+              const pillBg = isSyncErr
+                ? 'rgba(255, 59, 48, 0.12)'
+                : isSyncingNow
+                  ? 'rgba(255, 149, 0, 0.12)'
+                  : 'rgba(52, 199, 89, 0.12)';
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)' }}>
+                    Cloud Database:
+                  </span>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      padding: '3px 10px',
+                      borderRadius: 999,
+                      background: pillBg,
+                      color: pillColor,
+                      fontSize: 12,
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: pillColor,
+                        boxShadow: `0 0 6px ${pillColor}`,
+                      }}
+                    />
+                    {isSyncingNow
+                      ? `กำลังซิงค์กับ ${activeProjectId}...`
+                      : isSyncErr
+                        ? `ซิงค์ ${activeProjectId} มีปัญหา`
+                        : `เชื่อมต่อ ${activeProjectId} แล้ว (ซิงค์อัตโนมัติ)`}
+                  </span>
+                </div>
+              );
+            })()}
             <div style={{ fontSize: 12, color: 'var(--mut)', marginTop: 3 }}>
               ระบบซิงค์งาน วันหยุด และข้อมูลทีมให้อัตโนมัติแบบ Real-time ข้ามอุปกรณ์
             </div>

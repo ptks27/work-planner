@@ -1,30 +1,50 @@
 'use client';
 import { useState } from 'react';
 import { useAuth } from '@/lib/authStore';
+import { usePlanner } from '@/lib/store';
+import { parseFirebaseConfig } from '@/lib/firebase';
+import { DEFAULT_FIREBASE_CONFIG } from '@/lib/firebaseDefaultConfig';
 import { AvatarIcon, AVATAR_LIST } from './Avatars';
-import { BoltIcon, SparklesIcon, CheckIcon, CloudIcon } from './Icons';
+import { BoltIcon, SparklesIcon, CheckIcon } from './Icons';
 import FirebaseConfigModal from './FirebaseConfigModal';
 
 export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   const { login, register } = useAuth();
+  const firebaseConfig = usePlanner(s => s.firebaseConfig);
+
+  let activeProjectId = 'work-planner-9caf4';
+  try {
+    const parsed = parseFirebaseConfig(firebaseConfig || DEFAULT_FIREBASE_CONFIG);
+    if (parsed?.projectId) activeProjectId = parsed.projectId;
+  } catch {
+    // fallback default
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     setError('');
     setSuccessMsg('');
 
     if (isRegister) {
       if (!name.trim()) return setError('กรุณากรอกชื่อของคุณ');
       if (!email.trim()) return setError('กรุณากรอกอีเมล');
+      if (!password || password.length < 6) {
+        return setError('กรุณาตั้งรหัสผ่านอย่างน้อย 6 ตัวอักษรเพื่อความปลอดภัย');
+      }
+      setSubmitting(true);
       const res = await register(name, email, password);
+      setSubmitting(false);
       if (!res.success) {
         return setError(res.error || 'เกิดข้อผิดพลาดในการสมัคร');
       }
@@ -32,7 +52,10 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
       onLoggedIn?.();
     } else {
       if (!email.trim()) return setError('กรุณากรอกอีเมล');
+      if (!password) return setError('กรุณากรอกรหัสผ่าน');
+      setSubmitting(true);
       const res = await login(email, password);
+      setSubmitting(false);
       if (!res.success) {
         return setError(res.error || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
       }
@@ -83,7 +106,7 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
               Cloud ซิงค์ทีมอัตโนมัติ
             </span>
             <span style={{ fontSize: 11, color: 'var(--mut)', fontFamily: 'SF Mono, Menlo, monospace' }}>
-              (work-planner-9caf4)
+              ({activeProjectId})
             </span>
             <span style={{ fontSize: 11, color: 'var(--pri)', fontWeight: 600, marginLeft: 2 }}>
               ตั้งค่า &rsaquo;
@@ -155,13 +178,38 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
           </div>
 
           <div>
-            <label>รหัสผ่าน</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-            />
+            <label>รหัสผ่าน * {isRegister && <small className="mut">(อย่างน้อย 6 ตัวอักษร)</small>}</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                autoComplete={isRegister ? 'new-password' : 'current-password'}
+                style={{ paddingRight: 46 }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(p => !p)}
+                aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                style={{
+                  position: 'absolute',
+                  right: 10,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--mut)',
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: '4px 6px',
+                  borderRadius: 6,
+                }}
+              >
+                {showPassword ? 'ซ่อน' : 'ดู'}
+              </button>
+            </div>
           </div>
 
           {isRegister && (
@@ -176,6 +224,7 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
 
           <button
             type="submit"
+            disabled={submitting}
             className="btn block"
             style={{
               marginTop: 8,
@@ -184,9 +233,12 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
               alignItems: 'center',
               justifyContent: 'center',
               gap: 8,
+              opacity: submitting ? 0.7 : 1,
             }}
           >
-            {isRegister ? (
+            {submitting ? (
+              <span>{isRegister ? 'กำลังสมัครสมาชิก...' : 'กำลังเข้าสู่ระบบ...'}</span>
+            ) : isRegister ? (
               <>
                 <SparklesIcon size={16} /> สมัครสมาชิกและเริ่มใช้งาน
               </>

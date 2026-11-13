@@ -38,10 +38,19 @@ export default function ImageLightboxModal({
 
   if (!isOpen || !actualUrl) return null;
 
-  // Security: Ensure only legitimate image URI schemes can be downloaded or rendered
+  // Security: Ensure only safe raster image URI schemes can be downloaded or rendered (block SVG XSS)
   const isSafeUri = (uri: string) => {
     const lower = uri.trim().toLowerCase();
-    return lower.startsWith('data:image/') || lower.startsWith('blob:') || lower.startsWith('http://') || lower.startsWith('https://');
+    return (
+      lower.startsWith('data:image/png;base64,') ||
+      lower.startsWith('data:image/jpeg;base64,') ||
+      lower.startsWith('data:image/jpg;base64,') ||
+      lower.startsWith('data:image/webp;base64,') ||
+      lower.startsWith('data:image/gif;base64,') ||
+      lower.startsWith('blob:') ||
+      lower.startsWith('http://') ||
+      lower.startsWith('https://')
+    );
   };
 
   if (!isSafeUri(actualUrl)) return null;

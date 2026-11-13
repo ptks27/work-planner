@@ -2,6 +2,7 @@
 import * as XLSX from 'xlsx';
 import { PRIORITY, PRIORITIES, type PlannerData, type EventType } from './types';
 import { thDate, eachDay, esc } from './utils';
+import { escapeFormulaCell } from './security';
 import { visibleOn } from './selectors';
 
 const TYPE_TEXT: Record<EventType, string> = {
@@ -46,7 +47,7 @@ export function exportExcel(
   const wb = XLSX.utils.book_new();
 
   const summary: (string | number)[][] = [
-    ['รายงาน', title],
+    ['รายงาน', escapeFormulaCell(title)],
     ['ช่วงวันที่', s === e ? thDate(s) : `${thDate(s)} - ${thDate(e)}`],
     [],
     ['งานทั้งหมด', all.length],
@@ -63,7 +64,7 @@ export function exportExcel(
       x.tasks.length,
       x.tasks.filter(t => t.done).length,
       x.tasks.filter(t => !t.done).length,
-      x.events.map(ev => `${TYPE_TEXT[ev.type]}: ${ev.title}`).join(', '),
+      escapeFormulaCell(x.events.map(ev => `${TYPE_TEXT[ev.type] || 'รายการ'}: ${ev.title}`).join(', ')),
     ]),
   ];
 
@@ -81,10 +82,10 @@ export function exportExcel(
   const rows = days.flatMap(x =>
     x.tasks.map(t => ({
       'วันที่': x.date,
-      'เวลา': t.time ?? '',
-      'งาน': t.title,
-      'รายละเอียด': t.detail,
-      'ความสำคัญ': PRIORITY[t.priority].label,
+      'เวลา': escapeFormulaCell(t.time ?? ''),
+      'งาน': escapeFormulaCell(t.title),
+      'รายละเอียด': escapeFormulaCell(t.detail),
+      'ความสำคัญ': PRIORITY[t.priority]?.label || t.priority,
       'งานประจำ': t.recurringId ? 'ใช่' : '',
       'สถานะ': t.done ? 'เสร็จแล้ว' : 'ยังค้าง',
       'เสร็จเมื่อ': t.doneAt
@@ -106,8 +107,8 @@ export function exportExcel(
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(x => ({
       'วันที่': thDate(x.date),
-      'ประเภท': TYPE_TEXT[x.type],
-      'รายละเอียด': x.title,
+      'ประเภท': TYPE_TEXT[x.type] || 'รายการ',
+      'รายละเอียด': escapeFormulaCell(x.title),
     }));
 
   XLSX.utils.book_append_sheet(
@@ -133,7 +134,7 @@ export function exportPDF(
   showAlert: ShowAlert
 ) {
   const { days, all, done, byPri } = buildSummary(d, s, e);
-  const w = window.open('', '_blank');
+  const w = window.open('', '_blank', 'noopener,noreferrer');
 
   if (!w) {
     showAlert(
@@ -141,6 +142,11 @@ export function exportPDF(
       'เบราว์เซอร์บล็อกหน้าต่างใหม่ กรุณาอนุญาต pop-up'
     );
     return;
+  }
+  try {
+    w.opener = null;
+  } catch {
+    // ignore read-only opener
   }
 
   const pct = all.length
@@ -155,7 +161,7 @@ export function exportPDF(
       </h3>
 
       ${x.events.map(ev =>
-        `<span class="tag">${TYPE_TEXT[ev.type]}: ${esc(ev.title)}</span>`
+        `<span class="tag">${TYPE_TEXT[ev.type] || 'รายการ'}: ${esc(ev.title)}</span>`
       ).join('')}
 
       ${x.tasks.length ? `
@@ -167,17 +173,20 @@ export function exportPDF(
             <th>งาน</th>
             <th>รายละเอียด</th>
           </tr>
-          ${x.tasks.map(t => `
+          ${x.tasks.map(t => {
+            const pri = PRIORITY[t.priority] || { label: String(t.priority || '-'), color: '#64748b' };
+            return `
             <tr>
               <td>${t.done ? '✔ เสร็จ' : '✘ ค้าง'}</td>
               <td>${esc(t.time ?? '')}</td>
-              <td style="color:${PRIORITY[t.priority].color}">
-                ${PRIORITY[t.priority].label}
+              <td style="color:${pri.color}">
+                ${pri.label}
               </td>
               <td>${esc(t.title)}${t.recurringId ? ' (ประจำ)' : ''}</td>
               <td>${esc(t.detail ?? '')}</td>
             </tr>
-          `).join('')}
+          `;
+          }).join('')}
         </table>
       ` : ''}
     `)

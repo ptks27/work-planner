@@ -5,6 +5,7 @@ import { Bar } from 'react-chartjs-2';
 import '@/lib/chart';
 import { usePlanner, type NewTask } from '@/lib/store';
 import { f2, thDate, toDateStr } from '@/lib/utils';
+import { sanitizeForPollution, escapeFormulaCell } from '@/lib/security';
 import type { Priority } from '@/lib/types';
 import { useModal } from '@/components/ModalContext';
 import {
@@ -59,7 +60,8 @@ export default function ExcelTab() {
   const { showAlert, showConfirm } = useModal();
 
   const loadSheet = (book: XLSX.WorkBook, name: string) => {
-    const r = XLSX.utils.sheet_to_json<Row>(book.Sheets[name], { defval: '' });
+    const raw = XLSX.utils.sheet_to_json<Row>(book.Sheets[name], { defval: '' });
+    const r = sanitizeForPollution(raw) as Row[];
     const c = r.length ? Object.keys(r[0]) : [];
     const nc = detectNumCols(r, c);
     const tc = c.filter(x => !nc.includes(x));
@@ -71,9 +73,21 @@ export default function ExcelTab() {
   };
   const onFile = async (f?: File) => {
     if (!f) return;
-    const book = XLSX.read(await f.arrayBuffer(), { cellDates: true });
-    setWb(book);
-    loadSheet(book, book.SheetNames[0]);
+    if (f.size > 10 * 1024 * 1024) {
+      showAlert('ไฟล์ใหญ่เกินกำหนด', 'รองรับไฟล์ Excel / CSV ขนาดไม่เกิน 10 MB เพื่อความปลอดภัยและประสิทธิภาพ');
+      return;
+    }
+    try {
+      const book = XLSX.read(await f.arrayBuffer(), { cellDates: true });
+      if (!book.SheetNames.length) {
+        showAlert('ไฟล์ว่างเปล่า', 'ไม่พบชีตข้อมูลในไฟล์นี้');
+        return;
+      }
+      setWb(book);
+      loadSheet(book, book.SheetNames[0]);
+    } catch {
+      showAlert('ไม่สามารถอ่านไฟล์ได้', 'รูปแบบไฟล์ Excel หรือ CSV ไม่ถูกต้องหรือเสียหาย');
+    }
   };
 
   const numStats = useMemo(() => numCols.map(c => {
@@ -119,11 +133,12 @@ export default function ExcelTab() {
   const exportSummary = () => {
     const book = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(numStats.map(x => ({
-      'คอลัมน์': x.col, 'ผลรวม': x.sum, 'เฉลี่ย': x.avg, 'ต่ำสุด': x.min, 'สูงสุด': x.max, 'จำนวน': x.n }))), 'สรุปตัวเลข');
+      'คอลัมน์': escapeFormulaCell(x.col), 'ผลรวม': x.sum, 'เฉลี่ย': x.avg, 'ต่ำสุด': x.min, 'สูงสุด': x.max, 'จำนวน': x.n }))), 'สรุปตัวเลข');
     if (grouped) {
-      const valName = `${FN_LABEL[fn]}${fn !== 'count' ? ' ' + val : ''}`;
+      const valName = escapeFormulaCell(`${FN_LABEL[fn]}${fn !== 'count' ? ' ' + val : ''}`);
+      const safeGroupKey = escapeFormulaCell(group);
       XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(grouped.out.map(([k, v]) => ({
-        [group]: k, [valName]: v,
+        [safeGroupKey]: escapeFormulaCell(k), [valName]: v,
         ...(fn !== 'avg' ? { '%': grouped.total ? +(v / grouped.total * 100).toFixed(2) : 0 } : {}),
       }))), 'สรุปจัดกลุ่ม');
     }

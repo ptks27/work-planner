@@ -45,7 +45,34 @@ export type NewTask = {
   activities?: TaskActivity[];
 };
 
+export type CloudSyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
+
+const ALLOWED_TASK_PATCH_KEYS = new Set<keyof Task>([
+  'title',
+  'detail',
+  'date',
+  'endDate',
+  'priority',
+  'time',
+  'status',
+  'done',
+  'doneAt',
+  'subtasks',
+  'links',
+  'attachments',
+  'assigneeIds',
+  'assignees',
+  'userId',
+  'userName',
+  'userAvatar',
+  'tags',
+  'comments',
+]);
+
 interface PlannerState extends PlannerData {
+  cloudSyncStatus: CloudSyncStatus;
+  lastSyncedAt: number | null;
+  cloudSyncError: string | null;
   notified: string[];
   remindBefore: number;
   theme: ThemeMode;
@@ -164,6 +191,9 @@ export const usePlanner = create<PlannerState>()(
   persist(
     (set, get) => ({
       tasks: [], rules: [], events: [], customTags: [], deletedTags: [], notifications: [], canvasNotes: [], canvasConnections: [], canvasBoards: [], canvasStrokes: [], canvasSections: [], activeBoardId: 'default-board', notified: [], remindBefore: 10,
+      cloudSyncStatus: 'idle',
+      lastSyncedAt: null,
+      cloudSyncError: null,
       theme: 'light',
       setTheme: theme => set({ theme }),
       soundEnabled: true,
@@ -549,34 +579,41 @@ export const usePlanner = create<PlannerState>()(
         }
 
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       updateTask: (id, patch, actor) => set(s => {
+        const cleanRaw = sanitizeForPollution(patch) as Partial<Task>;
+        const safePatch: Partial<Task> = {};
+        for (const key of Object.keys(cleanRaw) as (keyof Task)[]) {
+          if (ALLOWED_TASK_PATCH_KEYS.has(key)) {
+            (safePatch as Record<string, unknown>)[key] = cleanRaw[key];
+          }
+        }
+
         if (id.startsWith('r:')) {
           const { ruleId, date } = parseVirtual(id);
           const r = s.rules.find(x => x.id === ruleId);
           if (!r) return {};
-          const isDone = patch.done ?? (patch.status ? patch.status === 'done' : false);
+          const isDone = safePatch.done ?? (safePatch.status ? safePatch.status === 'done' : false);
           const t: Task = {
             id: uid(),
-            date: patch.date ?? date,
-            endDate: patch.endDate,
-            title: patch.title ?? r.title,
-            detail: patch.detail ?? r.detail,
-            priority: patch.priority ?? r.priority,
-            time: patch.time !== undefined ? patch.time : r.time,
-            status: patch.status ?? (isDone ? 'done' : 'todo'),
-            subtasks: patch.subtasks ?? [],
+            date: safePatch.date ?? date,
+            endDate: safePatch.endDate,
+            title: safePatch.title ?? r.title,
+            detail: safePatch.detail ?? r.detail,
+            priority: safePatch.priority ?? r.priority,
+            time: safePatch.time !== undefined ? safePatch.time : r.time,
+            status: safePatch.status ?? (isDone ? 'done' : 'todo'),
+            subtasks: safePatch.subtasks ?? [],
             done: isDone,
             doneAt: isDone ? Date.now() : null,
             hidden: false,
             createdAt: Date.now(),
             recurringId: r.id,
-            assigneeIds: patch.assigneeIds ?? (r.userId ? [r.userId] : []),
-            assignees: patch.assignees,
-            tags: patch.tags ?? [],
-            comments: patch.comments ?? [],
+            assigneeIds: safePatch.assigneeIds ?? (r.userId ? [r.userId] : []),
+            assignees: safePatch.assignees,
+            tags: safePatch.tags ?? [],
+            comments: safePatch.comments ?? [],
             activities: [{
               id: uid(),
               type: 'edit',
@@ -603,7 +640,7 @@ export const usePlanner = create<PlannerState>()(
         if (!t) return {};
 
         let rules = s.rules;
-        if (t.recurringId && patch.date && patch.date !== t.date) {
+        if (t.recurringId && safePatch.date && safePatch.date !== t.date) {
           rules = rules.map(r =>
             r.id === t.recurringId && !r.skips.includes(t.date)
               ? { ...r, skips: [...r.skips, t.date] }
@@ -611,8 +648,8 @@ export const usePlanner = create<PlannerState>()(
           );
         }
 
-        const nextStatus = patch.status ?? (patch.done !== undefined ? (patch.done ? 'done' : 'todo') : t.status);
-        const nextDone = patch.done !== undefined ? patch.done : (patch.status ? patch.status === 'done' : t.done);
+        const nextStatus = safePatch.status ?? (safePatch.done !== undefined ? (safePatch.done ? 'done' : 'todo') : t.status);
+        const nextDone = safePatch.done !== undefined ? safePatch.done : (safePatch.status ? safePatch.status === 'done' : t.done);
 
         let editActivity: TaskActivity | undefined;
         if (actor) {
@@ -643,11 +680,11 @@ export const usePlanner = create<PlannerState>()(
         return {
           tasks: s.tasks.map(x => x.id === id ? {
             ...x,
-            ...patch,
+            ...safePatch,
             status: nextStatus,
             done: nextDone,
             doneAt: nextDone ? (x.doneAt ?? Date.now()) : null,
-            activities: editActivity ? [editActivity, ...(x.activities || [])] : x.activities,
+            activities: editActivity ? [editActivity, ...(x.activities || [])].slice(0, 60) : x.activities,
           } : x),
           rules,
           notified: s.notified.filter(k => k !== id),
@@ -675,7 +712,7 @@ export const usePlanner = create<PlannerState>()(
             return {
               ...t,
               comments: [...(t.comments || []), newComment],
-              activities: [newActivity, ...(t.activities || [])],
+              activities: [newActivity, ...(t.activities || [])].slice(0, 60),
             };
           }),
         };
@@ -723,7 +760,7 @@ export const usePlanner = create<PlannerState>()(
             if (t.id !== taskId) return t;
             return {
               ...t,
-              activities: [newAct, ...(t.activities || [])],
+              activities: [newAct, ...(t.activities || [])].slice(0, 60),
             };
           }),
         };
@@ -837,7 +874,6 @@ export const usePlanner = create<PlannerState>()(
           };
         });
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       updateCanvasNote: (id, patch) => {
@@ -876,7 +912,6 @@ export const usePlanner = create<PlannerState>()(
           };
         });
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       addCanvasConnection: (fromId, toId, label) => {
@@ -904,7 +939,6 @@ export const usePlanner = create<PlannerState>()(
           };
         });
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       deleteCanvasConnection: id => {
@@ -923,7 +957,6 @@ export const usePlanner = create<PlannerState>()(
           };
         });
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       autoLayoutDataFlow: () => {
@@ -968,7 +1001,6 @@ export const usePlanner = create<PlannerState>()(
           };
         });
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       setCanvasData: (notes, connections) => {
@@ -985,7 +1017,6 @@ export const usePlanner = create<PlannerState>()(
           ),
         }));
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       addCanvasStroke: stroke => {
@@ -1009,7 +1040,6 @@ export const usePlanner = create<PlannerState>()(
           };
         });
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       deleteCanvasStroke: id => {
@@ -1028,7 +1058,6 @@ export const usePlanner = create<PlannerState>()(
           };
         });
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       undoLastStroke: () => {
@@ -1049,7 +1078,6 @@ export const usePlanner = create<PlannerState>()(
           };
         });
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       clearCanvasStrokes: () => {
@@ -1065,7 +1093,6 @@ export const usePlanner = create<PlannerState>()(
           ),
         }));
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       addCanvasSection: section => {
@@ -1089,7 +1116,6 @@ export const usePlanner = create<PlannerState>()(
           };
         });
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       updateCanvasSection: (id, patch) => {
@@ -1128,7 +1154,6 @@ export const usePlanner = create<PlannerState>()(
           };
         });
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       createCanvasBoard: (title) => {
@@ -1162,7 +1187,6 @@ export const usePlanner = create<PlannerState>()(
           canvasBoards: [...savedBoards, newBoard],
         });
         triggerCloudSync();
-        syncPlannerToFirebase();
         return newId;
       },
 
@@ -1196,7 +1220,6 @@ export const usePlanner = create<PlannerState>()(
           });
         }
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       renameCanvasBoard: (boardId, title) => {
@@ -1207,7 +1230,6 @@ export const usePlanner = create<PlannerState>()(
           return { canvasBoards: boards };
         });
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       deleteCanvasBoard: (boardId) => {
@@ -1247,7 +1269,6 @@ export const usePlanner = create<PlannerState>()(
           set({ canvasBoards: remaining });
         }
         triggerCloudSync();
-        syncPlannerToFirebase();
       },
 
       duplicateCanvasBoard: (boardId) => {
@@ -1307,7 +1328,6 @@ export const usePlanner = create<PlannerState>()(
           canvasBoards: updatedBoards,
         });
         triggerCloudSync();
-        syncPlannerToFirebase();
         return newId;
       },
 
@@ -1348,13 +1368,25 @@ export const usePlanner = create<PlannerState>()(
       },
 
       restore: d => set(s => {
-        const clean = sanitizeForPollution(d);
-        let boards = clean.canvasBoards !== undefined ? clean.canvasBoards : (s.canvasBoards || []);
-        let activeId = clean.activeBoardId || s.activeBoardId || 'default-board';
-        let notes = clean.canvasNotes !== undefined ? clean.canvasNotes : (s.canvasNotes || []);
-        let connections = clean.canvasConnections !== undefined ? clean.canvasConnections : (s.canvasConnections || []);
-        let strokes = clean.canvasStrokes !== undefined ? clean.canvasStrokes : (s.canvasStrokes || []);
-        let sections = clean.canvasSections !== undefined ? clean.canvasSections : (s.canvasSections || []);
+        const clean = sanitizeForPollution(d || {});
+        const incomingTasks = Array.isArray(clean.tasks) ? clean.tasks : s.tasks;
+        const incomingRules = Array.isArray(clean.rules) ? clean.rules : s.rules;
+        const incomingEvents = Array.isArray(clean.events) ? clean.events : s.events;
+        const incomingCustomTags = Array.isArray(clean.customTags) ? clean.customTags : (s.customTags || []);
+        const incomingDeletedTags = Array.isArray(clean.deletedTags) ? clean.deletedTags : (s.deletedTags || []);
+        const incomingNotifications = Array.isArray(clean.notifications)
+          ? clean.notifications.slice(0, 100)
+          : (s.notifications || []);
+
+        let boards = Array.isArray(clean.canvasBoards) ? clean.canvasBoards : (s.canvasBoards || []);
+        let activeId =
+          typeof clean.activeBoardId === 'string' && clean.activeBoardId
+            ? clean.activeBoardId
+            : (s.activeBoardId || 'default-board');
+        let notes = Array.isArray(clean.canvasNotes) ? clean.canvasNotes : (s.canvasNotes || []);
+        let connections = Array.isArray(clean.canvasConnections) ? clean.canvasConnections : (s.canvasConnections || []);
+        let strokes = Array.isArray(clean.canvasStrokes) ? clean.canvasStrokes : (s.canvasStrokes || []);
+        let sections = Array.isArray(clean.canvasSections) ? clean.canvasSections : (s.canvasSections || []);
 
         if (boards.length === 0 && (notes.length > 0 || connections.length > 0 || strokes.length > 0 || sections.length > 0)) {
           boards = [{
@@ -1379,12 +1411,12 @@ export const usePlanner = create<PlannerState>()(
         }
 
         return {
-          tasks: (clean.tasks ?? s.tasks).map(t => ({ ...t, priority: t.priority ?? 'medium' })), // รองรับ backup จากเวอร์ชัน HTML
-          rules: clean.rules ?? s.rules,
-          events: clean.events ?? s.events,
-          customTags: clean.customTags !== undefined ? clean.customTags : (s.customTags || []),
-          deletedTags: clean.deletedTags !== undefined ? clean.deletedTags : (s.deletedTags || []),
-          notifications: clean.notifications !== undefined ? clean.notifications : (s.notifications || []),
+          tasks: incomingTasks.map(t => ({ ...t, priority: t?.priority ?? 'medium' })), // รองรับ backup จากเวอร์ชัน HTML
+          rules: incomingRules,
+          events: incomingEvents,
+          customTags: incomingCustomTags,
+          deletedTags: incomingDeletedTags,
+          notifications: incomingNotifications,
           canvasNotes: notes,
           canvasConnections: connections,
           canvasBoards: boards,
@@ -1396,75 +1428,133 @@ export const usePlanner = create<PlannerState>()(
     }),
     {
       name: 'work-planner',
+      partialize: state => {
+        const {
+          cloudSyncStatus: _s,
+          lastSyncedAt: _l,
+          cloudSyncError: _e,
+          ...persisted
+        } = state;
+        return persisted as PlannerState;
+      },
       onRehydrateStorage: () => (state) => {
         if (state) {
           if (!state.firebaseConfig) {
             state.firebaseConfig = (typeof window !== 'undefined' && localStorage.getItem('firebase_config')) || DEFAULT_FIREBASE_CONFIG;
           }
-          // ล้าง mockup tasks และ mockup events เก่าออกทั้งหมด
+          // ล้าง mockup tasks และ mockup events เก่าออกทั้งหมด และป้องกัน prototype pollution
           const mockUserIds = ['user-mint', 'user-top', 'user-joy', 'user-somchai'];
-          state.tasks = (state.tasks || []).filter(t => !mockUserIds.includes(t.userId || ''));
-          state.events = (state.events || []).filter(e => !mockUserIds.includes(e.userId || ''));
+          state.tasks = sanitizeForPollution(state.tasks || []).filter(t => !mockUserIds.includes(t.userId || ''));
+          state.events = sanitizeForPollution(state.events || []).filter(e => !mockUserIds.includes(e.userId || ''));
+          state.notifications = sanitizeForPollution(state.notifications || []).slice(0, 100);
+          state.cloudSyncStatus = 'idle';
+          state.cloudSyncError = null;
+          state.lastSyncedAt = null;
         }
       },
     },
   ),
 );
 
-// ป้องกัน loop เวลารับข้อมูลจาก Cloud ลงมา
+// ป้องกัน loop เวลารับข้อมูลจาก Cloud ลงมา + คิวงานซิงค์ที่แก้ไขค้างระหว่างอัปโหลด
 let isSyncingFromCloud = false;
+let pendingSyncAfterCloudLoad = false;
+let syncInFlight: Promise<boolean> | null = null;
+let pendingSyncAfterInFlight = false;
+
 export const setSyncingFromCloud = (val: boolean) => {
+  const wasSyncing = isSyncingFromCloud;
   isSyncingFromCloud = val;
-};
-
-// ฟังก์ชันซิงค์ข้อมูลขึ้น Firebase Cloud
-export const syncPlannerToFirebase = async () => {
-  if (isSyncingFromCloud) return;
-  const state = usePlanner.getState();
-  const cfg = state.firebaseConfig || DEFAULT_FIREBASE_CONFIG;
-  if (!cfg) return;
-
-  try {
-    const { uploadToFirebase } = await import('./firebase');
-    const { useAuth } = await import('./authStore');
-    const user = useAuth.getState().currentUser;
-    const res = await uploadToFirebase(
-      {
-        tasks: state.tasks,
-        rules: state.rules,
-        events: state.events,
-        customTags: state.customTags || [],
-        deletedTags: state.deletedTags || [],
-        notifications: state.notifications || [],
-        canvasNotes: state.canvasNotes || [],
-        canvasConnections: state.canvasConnections || [],
-        canvasBoards: state.canvasBoards || [],
-        canvasStrokes: state.canvasStrokes || [],
-        canvasSections: state.canvasSections || [],
-        activeBoardId: state.activeBoardId || 'default-board',
-      },
-      cfg,
-      user?.teamId
-    );
-    if (res.success) {
-      console.log('☁️ Auto-synced to Firebase successfully:', state.tasks.length, 'tasks');
-    } else {
-      console.warn('⚠️ Cloud sync warning:', res.error);
-    }
-  } catch (err) {
-    console.error('Auto cloud sync error:', err);
+  if (wasSyncing && !val && pendingSyncAfterCloudLoad) {
+    pendingSyncAfterCloudLoad = false;
+    triggerCloudSync();
   }
 };
 
-let cloudSyncTimer: any = null;
+// ฟังก์ชันซิงค์ข้อมูลขึ้น Firebase Cloud
+export const syncPlannerToFirebase = async (): Promise<boolean> => {
+  if (isSyncingFromCloud) {
+    pendingSyncAfterCloudLoad = true;
+    return false;
+  }
+  if (syncInFlight) {
+    pendingSyncAfterInFlight = true;
+    return syncInFlight;
+  }
+  const state = usePlanner.getState();
+  const cfg = state.firebaseConfig || DEFAULT_FIREBASE_CONFIG;
+  if (!cfg) return false;
+
+  syncInFlight = (async () => {
+    usePlanner.setState({ cloudSyncStatus: 'syncing', cloudSyncError: null });
+    try {
+      const latest = usePlanner.getState();
+      const { uploadToFirebase } = await import('./firebase');
+      const { useAuth } = await import('./authStore');
+      const user = useAuth.getState().currentUser;
+      const res = await uploadToFirebase(
+        {
+          tasks: latest.tasks,
+          rules: latest.rules,
+          events: latest.events,
+          customTags: latest.customTags || [],
+          deletedTags: latest.deletedTags || [],
+          notifications: latest.notifications || [],
+          canvasNotes: latest.canvasNotes || [],
+          canvasConnections: latest.canvasConnections || [],
+          canvasBoards: latest.canvasBoards || [],
+          canvasStrokes: latest.canvasStrokes || [],
+          canvasSections: latest.canvasSections || [],
+          activeBoardId: latest.activeBoardId || 'default-board',
+        },
+        latest.firebaseConfig || DEFAULT_FIREBASE_CONFIG,
+        user?.teamId
+      );
+      if (res.success) {
+        usePlanner.setState({
+          cloudSyncStatus: 'synced',
+          lastSyncedAt: Date.now(),
+          cloudSyncError: null,
+        });
+        console.log('☁️ Auto-synced to Firebase successfully:', latest.tasks.length, 'tasks');
+        return true;
+      } else {
+        usePlanner.setState({
+          cloudSyncStatus: 'error',
+          cloudSyncError: res.error || 'ซิงค์ข้อมูลไม่สำเร็จ',
+        });
+        console.warn('⚠️ Cloud sync warning:', res.error);
+        return false;
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'ซิงค์ข้อมูลไม่สำเร็จ';
+      usePlanner.setState({ cloudSyncStatus: 'error', cloudSyncError: msg });
+      console.error('Auto cloud sync error:', err);
+      return false;
+    } finally {
+      syncInFlight = null;
+      if (pendingSyncAfterInFlight && !isSyncingFromCloud) {
+        pendingSyncAfterInFlight = false;
+        triggerCloudSync();
+      }
+    }
+  })();
+
+  return syncInFlight;
+};
+
+let cloudSyncTimer: ReturnType<typeof setTimeout> | null = null;
 export const triggerCloudSync = () => {
   if (typeof window === 'undefined') return;
-  if (isSyncingFromCloud) return;
+  if (isSyncingFromCloud) {
+    pendingSyncAfterCloudLoad = true;
+    return;
+  }
   if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
-  // ซิงค์ทันทีอย่างรวดเร็ว (100ms debounce) เพื่อให้มั่นใจว่าก่อน F5 ข้อมูลขึ้น Cloud เรียบร้อย
   cloudSyncTimer = setTimeout(() => {
+    cloudSyncTimer = null;
     syncPlannerToFirebase();
-  }, 100);
+  }, 300);
 };
 
 // ติดตามการเปลี่ยนแปลงของ tasks, events, rules, customTags, deletedTags เพื่อซิงค์ขึ้น Cloud อัตโนมัติ
@@ -1483,7 +1573,21 @@ let previousActiveBoardId = usePlanner.getState().activeBoardId;
 
 if (typeof window !== 'undefined') {
   usePlanner.subscribe(state => {
-    if (isSyncingFromCloud) return;
+    if (isSyncingFromCloud) {
+      previousTasks = state.tasks;
+      previousEvents = state.events;
+      previousRules = state.rules;
+      previousCustomTags = state.customTags;
+      previousDeletedTags = state.deletedTags;
+      previousNotifications = state.notifications;
+      previousCanvasNotes = state.canvasNotes;
+      previousCanvasConnections = state.canvasConnections;
+      previousCanvasBoards = state.canvasBoards;
+      previousCanvasStrokes = state.canvasStrokes;
+      previousCanvasSections = state.canvasSections;
+      previousActiveBoardId = state.activeBoardId;
+      return;
+    }
     const cfg = state.firebaseConfig || DEFAULT_FIREBASE_CONFIG;
     if (!cfg) return;
 

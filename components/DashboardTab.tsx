@@ -24,6 +24,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ClipboardCheckIcon,
+  SpreadsheetIcon,
 } from './Icons';
 import ThaiDatePicker from './ThaiDatePicker';
 import ExecutiveReportModal from './ExecutiveReportModal';
@@ -32,6 +33,7 @@ import { useModal } from './ModalContext';
 import { canUserEditTaskDirectly } from '@/lib/permissions';
 import { sendTaskEditRequest } from '@/lib/notifications';
 import { playCompletionSound } from '@/lib/audio';
+import { exportExcel } from '@/lib/export';
 
 const MODE_TITLE: Record<Mode, string> = {
   day: 'สรุปงานรายวัน',
@@ -426,10 +428,38 @@ export default function DashboardTab() {
             <span>ช่วงเวลาวิเคราะห์: <b>{S === E ? thDate(S) : `${thDate(S)} – ${thDate(E)}`}</b> ({MODE_TITLE[mode]})</span>
           </span>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 12, color: 'var(--mut)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, color: 'var(--mut)', marginRight: 2 }}>
               พบทั้งหมด {allTasks.length} งาน
             </span>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  exportExcel(s, S, E, `WorkPlanner-${MODE_TITLE[mode]}`);
+                } catch (err) {
+                  showAlert('ข้อผิดพลาด', err instanceof Error ? err.message : 'ไม่สามารถส่งออกไฟล์ Excel ได้');
+                }
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '5px 12px',
+                borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 600,
+                background: 'rgba(52, 199, 89, 0.12)',
+                color: '#248a3d',
+                border: '1px solid rgba(52, 199, 89, 0.28)',
+                cursor: 'pointer',
+                transition: 'transform 0.15s ease',
+              }}
+              title="ส่งออกข้อมูลรายงานเป็นไฟล์ Excel (.xlsx)"
+            >
+              <SpreadsheetIcon size={14} color="#248a3d" />
+              <span>ส่งออก Excel</span>
+            </button>
             <button
               type="button"
               onClick={() => setIsExecutiveReportOpen(true)}
@@ -451,7 +481,7 @@ export default function DashboardTab() {
               title="สร้างเอกสารสรุปผลงาน"
             >
               <FileTextIcon size={14} color="#ffffff" />
-              <span>📄 สรุปรายงาน (PDF)</span>
+              <span>สรุปรายงาน (PDF)</span>
             </button>
           </div>
         </div>
@@ -1075,7 +1105,7 @@ export default function DashboardTab() {
                   {/* Task Rows */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {group.tasks.map(t => {
-                      const priConf = PRIORITY[t.priority];
+                      const priConf = PRIORITY[t.priority] || PRIORITY.medium;
                       const subs = t.subtasks || [];
                       const doneSubs = subs.filter(st => st.done).length;
 

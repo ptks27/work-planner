@@ -20,6 +20,7 @@ import TeamSwitcher from '@/components/TeamSwitcher';
 import TeamMembersModal from '@/components/TeamMembersModal';
 import MorningBriefingModal from '@/components/MorningBriefingModal';
 import AchievementsModal from '@/components/AchievementsModal';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { useModal } from '@/components/ModalContext';
 import { computeActivityStats } from '@/lib/achievements';
 import { AvatarIcon } from '@/components/Avatars';
@@ -45,6 +46,7 @@ import {
   UsersIcon,
   AwardIcon,
   BoltIcon,
+  CloudIcon,
 } from '@/components/Icons';
 
 export default function App() {
@@ -353,6 +355,29 @@ export default function App() {
               </span>
             </button>
 
+            {/* Cloud Sync Status Pill */}
+            <button
+              type="button"
+              className={`cloud-sync-pill ${s.cloudSyncStatus}`}
+              onClick={() => syncPlannerToFirebase()}
+              title={
+                s.cloudSyncStatus === 'error'
+                  ? `ซิงค์ไม่สำเร็จ: ${s.cloudSyncError || 'คลิกเพื่อลองซิงค์ใหม่'}`
+                  : s.cloudSyncStatus === 'syncing'
+                    ? 'กำลังบันทึกข้อมูลขึ้น Cloud...'
+                    : 'ซิงค์ข้อมูลอัตโนมัติพร้อมใช้งาน (คลิกเพื่อซิงค์ทันที)'
+              }
+            >
+              <CloudIcon size={13} />
+              <span className="cloud-sync-label">
+                {s.cloudSyncStatus === 'syncing'
+                  ? 'กำลังซิงค์...'
+                  : s.cloudSyncStatus === 'error'
+                    ? 'ซิงค์ไม่สำเร็จ'
+                    : 'ซิงค์แล้ว'}
+              </span>
+            </button>
+
             {/* macOS Quick Actions Menu Popover */}
             <div ref={quickMenuRef} style={{ position: 'relative' }}>
               <button
@@ -363,7 +388,7 @@ export default function App() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
-                  background: isQuickMenuOpen ? 'var(--pri-l)' : 'rgba(255, 255, 255, 0.8)',
+                  background: isQuickMenuOpen ? 'var(--pri-l)' : 'var(--card-solid)',
                   color: isQuickMenuOpen ? 'var(--pri)' : 'var(--txt)',
                   borderColor: isQuickMenuOpen ? 'var(--pri)' : 'var(--line)',
                   fontWeight: 600,
@@ -524,12 +549,14 @@ export default function App() {
         </header>
 
         <main>
-          {tab === 'tasks' && <TasksTab />}
-          {tab === 'timeline' && <TimelineTab />}
-          {tab === 'canvas' && <CanvasTab />}
-          {tab === 'events' && <EventsTab />}
-          {tab === 'dash' && <DashboardTab />}
-          {tab === 'settings' && <SettingsTab />}
+          <ErrorBoundary onReset={() => setTab('tasks')}>
+            {tab === 'tasks' && <TasksTab />}
+            {tab === 'timeline' && <TimelineTab />}
+            {tab === 'canvas' && <CanvasTab />}
+            {tab === 'events' && <EventsTab />}
+            {tab === 'dash' && <DashboardTab />}
+            {tab === 'settings' && <SettingsTab />}
+          </ErrorBoundary>
         </main>
       </div>
 

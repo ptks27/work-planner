@@ -295,11 +295,11 @@ export default function TasksTab() {
           </button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div className="tasks-toolbar-filters">
           {unfinishedToday.length > 0 && (
             <button
               className="btn sm"
-              style={{ background: 'var(--warn)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              style={{ background: 'var(--warn)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 999 }}
               onClick={handleRolloverToday}
             >
               <RefreshCwIcon size={13} />
@@ -310,15 +310,15 @@ export default function TasksTab() {
           {activeView === 'calendar' && (
             <>
               {/* Filter by Team Member */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <small className="mut">ทีม:</small>
+              <div className="filter-select-pill">
+                <small className="mut">ทีม</small>
                 <select
                   value={memberFilter}
                   onChange={e => setMemberFilter(e.target.value)}
-                  style={{ width: 'auto', margin: 0, padding: '6px 10px' }}
+                  aria-label="กรองตามสมาชิกทีม"
                 >
-                  <option key="filter-opt-all" value="all">👥 สมาชิกทุกคน ({memberList.length} คน)</option>
-                  <option key="filter-opt-me" value="me">👤 เฉพาะของฉัน</option>
+                  <option key="filter-opt-all" value="all">สมาชิกทุกคน ({memberList.length} คน)</option>
+                  <option key="filter-opt-me" value="me">เฉพาะของฉัน</option>
                   {memberList.map((u, idx) => (
                     <option key={`filter-user-${u.id || idx}`} value={u.id}>
                       {u.name || 'สมาชิก'} {u.id === currentUser?.id ? '(ฉัน)' : ''}
@@ -328,12 +328,12 @@ export default function TasksTab() {
               </div>
 
               {/* Filter by Priority */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <small className="mut">กรอง:</small>
+              <div className="filter-select-pill">
+                <small className="mut">ระดับ</small>
                 <select
                   value={filter}
                   onChange={e => setFilter(e.target.value as 'all' | Priority)}
-                  style={{ width: 'auto', margin: 0, padding: '6px 10px' }}
+                  aria-label="กรองตามระดับความสำคัญ"
                 >
                   <option value="all">ทุกระดับ</option>
                   {PRIORITIES.map(p => (
@@ -345,14 +345,14 @@ export default function TasksTab() {
               </div>
 
               {/* Filter by Tag */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <small className="mut">แท็ก:</small>
+              <div className="filter-select-pill">
+                <small className="mut">แท็ก</small>
                 <select
                   value={tagFilter}
                   onChange={e => setTagFilter(e.target.value)}
-                  style={{ width: 'auto', margin: 0, padding: '6px 10px' }}
+                  aria-label="กรองตามแท็ก"
                 >
-                  <option value="all">🏷 ทุกแท็ก</option>
+                  <option value="all">ทุกแท็ก</option>
                   {allTagNames.map(tag => (
                     <option key={`filter-tag-${tag}`} value={tag}>
                       #{tag.replace(/^#/, '')}
@@ -360,6 +360,22 @@ export default function TasksTab() {
                   ))}
                 </select>
               </div>
+
+              {(memberFilter !== 'all' || filter !== 'all' || tagFilter !== 'all') && (
+                <button
+                  type="button"
+                  className="btn ghost sm"
+                  onClick={() => {
+                    setMemberFilter('all');
+                    setFilter('all');
+                    setTagFilter('all');
+                  }}
+                  style={{ borderRadius: 999, fontSize: 12, padding: '5px 10px' }}
+                  title="รีเซ็ตตัวกรองทั้งหมด"
+                >
+                  ล้างตัวกรอง
+                </button>
+              )}
             </>
           )}
         </div>
@@ -483,13 +499,25 @@ export default function TasksTab() {
               ) : (
                 <>
                   {currentLeftTasks.length === 0 ? (
-                    leftTab === 'today' ? (
-                      <p className="mut">ไม่มีงาน 🎉</p>
-                    ) : leftTab === 'overdue' ? (
-                      <p className="mut">ไม่มีงานค้างย้อนหลัง ยอดเยี่ยมมาก! 👏</p>
-                    ) : (
-                      <p className="mut">ไม่มีประวัติงานในอดีต</p>
-                    )
+                    <div className="empty-state-box">
+                      <div className="empty-state-emoji">
+                        {leftTab === 'today' ? '🎉' : leftTab === 'overdue' ? '👏' : '🗂️'}
+                      </div>
+                      <div className="empty-state-title">
+                        {leftTab === 'today'
+                          ? 'วันนี้ไม่มีงานค้างแล้ว'
+                          : leftTab === 'overdue'
+                            ? 'ไม่มีงานค้างย้อนหลัง ยอดเยี่ยมมาก!'
+                            : 'ยังไม่มีประวัติงานในอดีต'}
+                      </div>
+                      <div className="empty-state-sub">
+                        {leftTab === 'today'
+                          ? 'เพิ่มงานใหม่ได้จากฟอร์มด้านล่าง หรือเลือกดูวันอื่นในปฏิทิน'
+                          : leftTab === 'overdue'
+                            ? 'ทุกงานที่ผ่านมาถูกจัดการครบเรียบร้อย'
+                            : 'งานจากวันก่อนหน้าจะแสดงรวมไว้ที่นี่'}
+                      </div>
+                    </div>
                   ) : (
                     <>
                       <div className={`task-scroll-box ${isLeftExpanded ? 'expanded' : ''}`}>
@@ -626,7 +654,17 @@ export default function TasksTab() {
               ) : (
                 <>
                   {currentRightTasks.length === 0 ? (
-                    <p className="mut">ไม่มีงาน 🎉</p>
+                    <div className="empty-state-box">
+                      <div className="empty-state-emoji">🗓️</div>
+                      <div className="empty-state-title">
+                        {rightTab === 'tomorrow'
+                          ? 'พรุ่งนี้ยังไม่มีรายการงาน'
+                          : `ยังไม่มีงานสำหรับวันที่ ${thDate(sel)}`}
+                      </div>
+                      <div className="empty-state-sub">
+                        พิมพ์ชื่องานในช่อง &ldquo;+ เพิ่มงานใหม่&rdquo; ด้านล่างเพื่อเริ่มวางแผนได้ทันที
+                      </div>
+                    </div>
                   ) : (
                     <>
                       <div className={`task-scroll-box ${isRightExpanded ? 'expanded' : ''}`}>

@@ -19,7 +19,7 @@ import {
   generateTeamCode,
 } from './firebase';
 import { usePlanner } from './store';
-import { checkRateLimit, recordFailedAttempt, clearRateLimit, hashPassword, verifyPassword } from './security';
+import { checkRateLimit, recordFailedAttempt, clearRateLimit, hashPassword, verifyPassword, sanitizeForPollution } from './security';
 
 const DEFAULT_AVATARS: AvatarId[] = [
   'dev_boy',
@@ -119,27 +119,38 @@ export const useAuth = create<AuthState>()(
             await get().fetchTeamMembers(team?.id || user.teamId);
             return { success: true };
           }
-          if (fbRes.error && fbRes.error.includes('รหัสผ่านไม่ถูกต้อง')) {
+          if (fbRes.error && (fbRes.error.includes('รหัสผ่านไม่ถูกต้อง') || fbRes.error.includes('กรุณากรอกรหัสผ่าน') || fbRes.error.includes('ยังไม่ได้ตั้งรหัสผ่าน'))) {
             recordFailedAttempt(`login_${cleanEmail}`, 5, 60000, 60000);
-            return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' };
+            return { success: false, error: fbRes.error };
           }
         }
 
         // 2. ถ้าไม่พบใน Firebase หรือไม่มี Firebase ให้ตรวจสอบกับข้อมูลในเครื่อง (Local)
+        if (!password) {
+          recordFailedAttempt(`login_${cleanEmail}`, 5, 60000, 60000);
+          return { success: false, error: 'กรุณากรอกรหัสผ่าน' };
+        }
         const found = get().users.find(u => (u.email || '').toLowerCase() === cleanEmail);
-        if (!found) {
+        if (!found || !found.password) {
           recordFailedAttempt(`login_${cleanEmail}`, 5, 60000, 60000);
           return { success: false, error: 'ไม่พบบัญชีผู้ใช้นี้ในระบบ กรุณาสมัครสมาชิก' };
         }
-        if (password && found.password) {
-          const isMatch = await verifyPassword(password, found.password);
-          if (!isMatch) {
-            recordFailedAttempt(`login_${cleanEmail}`, 5, 60000, 60000);
-            return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' };
-          }
+        const isMatch = await verifyPassword(password, found.password);
+        if (!isMatch) {
+          recordFailedAttempt(`login_${cleanEmail}`, 5, 60000, 60000);
+          return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' };
         }
         clearRateLimit(`login_${cleanEmail}`);
-        set({ currentUser: found });
+        // อัปเกรด hash เก่าเป็น PBKDF2 และไม่เก็บรหัสผ่านใน currentUser
+        let safeUser = { ...found };
+        delete safeUser.password;
+        if (!found.password.startsWith('pbkdf2_')) {
+          const upgraded = await hashPassword(password);
+          set(state => ({
+            users: state.users.map(u => (u.id === found.id ? { ...u, password: upgraded } : u)),
+          }));
+        }
+        set({ currentUser: safeUser });
         await get().fetchTeamMembers(found.teamId);
         return { success: true };
       },
@@ -155,10 +166,13 @@ export const useAuth = create<AuthState>()(
         if (!cleanEmail || !cleanEmail.includes('@')) {
           return { success: false, error: 'กรุณากรอกอีเมลให้ถูกต้อง' };
         }
+        if (!password || password.length < 6) {
+          return { success: false, error: 'กรุณาตั้งรหัสผ่านอย่างน้อย 6 ตัวอักษร' };
+        }
 
         // สุ่ม Avatar ให้ผู้สมัครใหม่จาก 5 แบบ
         const randomAvatar = DEFAULT_AVATARS[Math.floor(Math.random() * DEFAULT_AVATARS.length)];
-        const hashedPassword = await hashPassword(password || '123456');
+        const hashedPassword = await hashPassword(password);
 
         const newUser: User = {
           id: `u-${uid()}`,
@@ -185,16 +199,18 @@ export const useAuth = create<AuthState>()(
           }
         }
 
-        // 2. บันทึกและล็อกอินใน Local
+        const { password: _p, ...safeUser } = newUser;
+
+        // 2. บันทึกและล็อกอินใน Local (ไม่เก็บรหัสผ่านไว้ใน currentUser)
         set(state => ({
           users: [...state.users.filter(u => (u.email || '').toLowerCase() !== cleanEmail), newUser],
-          currentUser: newUser,
+          currentUser: safeUser as User,
           currentTeam: null,
           userTeams: [],
           teamMembers: [],
         }));
 
-        return { success: true, user: newUser };
+        return { success: true, user: safeUser as User };
       },
 
       createTeam: async (teamName: string) => {
@@ -371,10 +387,9 @@ export const useAuth = create<AuthState>()(
           return { success: false, error: 'กรุณาเข้าสู่ระบบ' };
         }
 
-        // สิทธิ์: ต้องเป็นผู้สร้างทีม (createdBy) หรือมี role เป็น owner/admin
+        // สิทธิ์: ต้องเป็นผู้สร้างทีม (createdBy) หรือมี teamRole เป็น owner ในทีมนี้เท่านั้น (ห้ามใช้ editable profile role)
         const isOwner =
           currentTeam.createdBy === currentUser.id ||
-          currentUser.role === 'admin' ||
           get().teamMembers.some(m => m.userId === currentUser.id && m.teamRole === 'owner');
 
         if (!isOwner) {
@@ -538,9 +553,16 @@ export const useAuth = create<AuthState>()(
       updateProfile: patch => {
         set(state => {
           if (!state.currentUser) return {};
+          // Allowlist เฉพาะฟิลด์โปรไฟล์ที่ผู้ใช้แก้ไขเองได้ ป้องกันการแก้ไข id / teamId / password
+          const safePatch: Partial<Pick<User, 'name' | 'role' | 'department' | 'avatarId'>> = {};
+          if (typeof patch.name === 'string' && patch.name.trim()) safePatch.name = patch.name.trim();
+          if (patch.role !== undefined) safePatch.role = typeof patch.role === 'string' ? patch.role.trim() || undefined : undefined;
+          if (patch.department !== undefined) safePatch.department = typeof patch.department === 'string' ? patch.department.trim() || undefined : undefined;
+          if (patch.avatarId !== undefined) safePatch.avatarId = patch.avatarId;
+
           const updatedUser: User = {
             ...state.currentUser,
-            ...patch,
+            ...safePatch,
           };
 
           // อัปเดต icon และชื่อในงานและวันหยุดทั้งหมดในระบบทันที
@@ -568,9 +590,12 @@ export const useAuth = create<AuthState>()(
               firebaseUpdateUser(updatedUser, firebaseCfg);
             });
           }
+          const { password: _p, ...safeUpdatedUser } = updatedUser as any;
           return {
-            currentUser: updatedUser,
-            users: state.users.map(u => (u.id === updatedUser.id ? updatedUser : u)),
+            currentUser: safeUpdatedUser as User,
+            users: state.users.map(u =>
+              u.id === updatedUser.id ? { ...safeUpdatedUser, password: u.password } : u
+            ),
             teamMembers: updatedMembers,
           };
         });
@@ -582,9 +607,10 @@ export const useAuth = create<AuthState>()(
       name: 'work-planner-auth',
       onRehydrateStorage: () => (state) => {
         if (state) {
-          // ล้าง mockup users เก่าออกทั้งหมด และป้องกัน id ว่าง / ซ้ำ
+          // ป้องกัน Prototype Pollution และล้าง mockup users เก่า
+          const cleanUsers = sanitizeForPollution(state.users || []);
           const userMap = new Map<string, User>();
-          (state.users || []).forEach((u, i) => {
+          cleanUsers.forEach((u, i) => {
             if (!u || typeof u !== 'object') return;
             const validId = u.id || `u-${i}`;
             if (validId.startsWith('user-')) return;
@@ -597,12 +623,18 @@ export const useAuth = create<AuthState>()(
             });
           });
           state.users = Array.from(userMap.values());
-          if (state.currentUser && state.currentUser.id?.startsWith('user-')) {
-            state.currentUser = null;
+          if (state.currentUser) {
+            if (state.currentUser.id?.startsWith('user-')) {
+              state.currentUser = null;
+            } else {
+              const cleanCurr = sanitizeForPollution(state.currentUser);
+              const { password: _p, ...safeCurr } = cleanCurr as any;
+              state.currentUser = safeCurr as User;
+            }
           }
           // ป้องกันทีมของบัญชีเดิมค้างอยู่ใน userTeams ของบัญชีใหม่
           if (state.currentUser) {
-            state.userTeams = (state.userTeams || []).filter(
+            state.userTeams = sanitizeForPollution(state.userTeams || []).filter(
               t => t.memberIds?.includes(state.currentUser!.id) || t.createdBy === state.currentUser!.id
             );
           } else {

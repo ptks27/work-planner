@@ -1,4 +1,5 @@
 import { TaskLink } from './types';
+import { safeUrl } from './security';
 
 export interface ParsedLink {
   id: string;
@@ -11,21 +12,33 @@ export interface ParsedLink {
   emoji: string;
 }
 
+function isDomainMatch(hostname: string, targetDomain: string): boolean {
+  const cleanHost = hostname.toLowerCase();
+  const cleanTarget = targetDomain.toLowerCase();
+  return cleanHost === cleanTarget || cleanHost.endsWith(`.${cleanTarget}`);
+}
+
 export function classifyUrl(url: string, title?: string): ParsedLink {
-  const trimmed = url.trim();
+  const trimmed = (url || '').trim();
+  const cleanUrl = safeUrl(trimmed);
   let hostname = '';
-  try {
-    const parsed = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
-    hostname = parsed.hostname.toLowerCase().replace(/^www\./, '');
-  } catch {
-    hostname = trimmed.toLowerCase();
+  let pathname = '';
+
+  if (cleanUrl !== '#') {
+    try {
+      const parsed = new URL(cleanUrl);
+      hostname = parsed.hostname.toLowerCase().replace(/^www\./, '');
+      pathname = parsed.pathname.toLowerCase();
+    } catch {
+      hostname = '';
+    }
   }
 
   // Figma
-  if (hostname.includes('figma.com')) {
+  if (isDomainMatch(hostname, 'figma.com')) {
     return {
-      id: trimmed,
-      url: trimmed,
+      id: cleanUrl,
+      url: cleanUrl,
       label: title || 'Figma Design',
       domain: 'figma.com',
       type: 'figma',
@@ -36,18 +49,18 @@ export function classifyUrl(url: string, title?: string): ParsedLink {
   }
 
   // GitHub
-  if (hostname.includes('github.com')) {
+  if (isDomainMatch(hostname, 'github.com')) {
     let sublabel = 'GitHub';
-    if (trimmed.includes('/pull/')) {
-      const prNum = trimmed.split('/pull/')[1]?.split('/')[0]?.split('?')[0];
+    if (pathname.includes('/pull/')) {
+      const prNum = pathname.split('/pull/')[1]?.split('/')[0];
       sublabel = prNum ? `GitHub PR #${prNum}` : 'GitHub PR';
-    } else if (trimmed.includes('/issues/')) {
-      const issueNum = trimmed.split('/issues/')[1]?.split('/')[0]?.split('?')[0];
+    } else if (pathname.includes('/issues/')) {
+      const issueNum = pathname.split('/issues/')[1]?.split('/')[0];
       sublabel = issueNum ? `GitHub Issue #${issueNum}` : 'GitHub Issue';
     }
     return {
-      id: trimmed,
-      url: trimmed,
+      id: cleanUrl,
+      url: cleanUrl,
       label: title || sublabel,
       domain: 'github.com',
       type: 'github',
@@ -58,10 +71,10 @@ export function classifyUrl(url: string, title?: string): ParsedLink {
   }
 
   // Google Sheets
-  if (hostname.includes('docs.google.com') && trimmed.includes('/spreadsheets/')) {
+  if (hostname === 'docs.google.com' && pathname.includes('/spreadsheets/')) {
     return {
-      id: trimmed,
-      url: trimmed,
+      id: cleanUrl,
+      url: cleanUrl,
       label: title || 'Google Sheets',
       domain: 'sheets.google.com',
       type: 'sheets',
@@ -72,10 +85,10 @@ export function classifyUrl(url: string, title?: string): ParsedLink {
   }
 
   // Google Docs
-  if (hostname.includes('docs.google.com') && trimmed.includes('/document/')) {
+  if (hostname === 'docs.google.com' && pathname.includes('/document/')) {
     return {
-      id: trimmed,
-      url: trimmed,
+      id: cleanUrl,
+      url: cleanUrl,
       label: title || 'Google Docs',
       domain: 'docs.google.com',
       type: 'docs',
@@ -86,10 +99,10 @@ export function classifyUrl(url: string, title?: string): ParsedLink {
   }
 
   // Google Drive
-  if (hostname.includes('drive.google.com') || hostname.includes('docs.google.com')) {
+  if (hostname === 'drive.google.com' || hostname === 'docs.google.com') {
     return {
-      id: trimmed,
-      url: trimmed,
+      id: cleanUrl,
+      url: cleanUrl,
       label: title || 'Google Drive',
       domain: 'drive.google.com',
       type: 'drive',
@@ -100,10 +113,10 @@ export function classifyUrl(url: string, title?: string): ParsedLink {
   }
 
   // Canva
-  if (hostname.includes('canva.com')) {
+  if (isDomainMatch(hostname, 'canva.com')) {
     return {
-      id: trimmed,
-      url: trimmed,
+      id: cleanUrl,
+      url: cleanUrl,
       label: title || 'Canva Project',
       domain: 'canva.com',
       type: 'canva',
@@ -114,10 +127,10 @@ export function classifyUrl(url: string, title?: string): ParsedLink {
   }
 
   // Notion
-  if (hostname.includes('notion.so') || hostname.includes('notion.site')) {
+  if (isDomainMatch(hostname, 'notion.so') || isDomainMatch(hostname, 'notion.site')) {
     return {
-      id: trimmed,
-      url: trimmed,
+      id: cleanUrl,
+      url: cleanUrl,
       label: title || 'Notion Workspace',
       domain: 'notion.so',
       type: 'notion',
@@ -128,10 +141,10 @@ export function classifyUrl(url: string, title?: string): ParsedLink {
   }
 
   // Trello
-  if (hostname.includes('trello.com')) {
+  if (isDomainMatch(hostname, 'trello.com')) {
     return {
-      id: trimmed,
-      url: trimmed,
+      id: cleanUrl,
+      url: cleanUrl,
       label: title || 'Trello Board',
       domain: 'trello.com',
       type: 'trello',
@@ -143,8 +156,8 @@ export function classifyUrl(url: string, title?: string): ParsedLink {
 
   // General Link
   return {
-    id: trimmed,
-    url: trimmed,
+    id: cleanUrl,
+    url: cleanUrl,
     label: title || hostname || 'เอกสารแนบ',
     domain: hostname,
     type: 'general',
@@ -161,9 +174,10 @@ export function extractAllLinks(detail?: string, explicitLinks?: TaskLink[]): Pa
   // 1. Explicit Links
   if (explicitLinks && explicitLinks.length > 0) {
     explicitLinks.forEach(l => {
-      if (l.url && !seenUrls.has(l.url.trim())) {
-        seenUrls.add(l.url.trim());
-        result.push(classifyUrl(l.url, l.title));
+      const cleaned = safeUrl(l.url);
+      if (cleaned !== '#' && !seenUrls.has(cleaned)) {
+        seenUrls.add(cleaned);
+        result.push(classifyUrl(cleaned, l.title));
       }
     });
   }
@@ -174,10 +188,11 @@ export function extractAllLinks(detail?: string, explicitLinks?: TaskLink[]): Pa
     const matches = detail.match(urlRegex);
     if (matches) {
       matches.forEach(raw => {
-        const clean = raw.replace(/[)\].,;]+$/, '').trim();
-        if (clean && !seenUrls.has(clean)) {
-          seenUrls.add(clean);
-          result.push(classifyUrl(clean));
+        const cleanRaw = raw.replace(/[)\].,;]+$/, '').trim();
+        const cleaned = safeUrl(cleanRaw);
+        if (cleaned !== '#' && !seenUrls.has(cleaned)) {
+          seenUrls.add(cleaned);
+          result.push(classifyUrl(cleaned));
         }
       });
     }

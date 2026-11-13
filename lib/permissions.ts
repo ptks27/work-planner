@@ -8,9 +8,14 @@ export function isUserTeamOwner(
   currentUser: User | null | undefined,
   currentTeam: Team | null | undefined
 ): boolean {
-  if (!currentUser) return false;
-  if (currentTeam?.createdBy && currentTeam.createdBy === currentUser.id) return true;
-  if ((currentUser as any).teamRole === 'owner' || (currentUser as any).role === 'owner') return true;
+  if (!currentUser || !currentTeam) return false;
+  if (currentTeam.createdBy && currentTeam.createdBy === currentUser.id) return true;
+  if (
+    Array.isArray(currentTeam.members) &&
+    currentTeam.members.some(m => m.userId === currentUser.id && m.teamRole === 'owner')
+  ) {
+    return true;
+  }
   return false;
 }
 

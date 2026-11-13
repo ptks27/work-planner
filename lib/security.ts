@@ -55,20 +55,28 @@ const SAFE_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 export function safeUrl(url: string | null | undefined): string {
   if (!url || typeof url !== 'string') return '#';
   const trimmed = url.trim();
+  if (!trimmed) return '#';
 
-  // Explicitly disallow dangerous pseudoprotocols regardless of encoding
-  const lower = trimmed.toLowerCase().replace(/[\x00-\x1f\s]/g, '');
+  // Explicitly disallow dangerous pseudoprotocols regardless of control-char/whitespace obfuscation
+  const stripped = trimmed.toLowerCase().replace(/[\u0000-\u0020\u007f]/g, '');
   if (
-    lower.startsWith('javascript:') ||
-    lower.startsWith('vbscript:') ||
-    lower.startsWith('data:') ||
-    lower.startsWith('file:')
+    stripped.startsWith('javascript:') ||
+    stripped.startsWith('vbscript:') ||
+    stripped.startsWith('data:') ||
+    stripped.startsWith('file:') ||
+    stripped.startsWith('blob:')
   ) {
     return '#';
   }
 
   try {
-    const parsed = new URL(trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('mailto:') ? trimmed : `https://${trimmed}`);
+    const candidate =
+      /^https?:\/\//i.test(trimmed) || /^mailto:/i.test(trimmed)
+        ? trimmed
+        : trimmed.includes('://') || /^[a-z0-9+.-]+:/i.test(trimmed)
+          ? trimmed
+          : `https://${trimmed}`;
+    const parsed = new URL(candidate);
     if (SAFE_PROTOCOLS.has(parsed.protocol)) {
       return parsed.toString();
     }
@@ -108,7 +116,17 @@ function getStorageRecord(key: string): RateLimitRecord | null {
   if (typeof window === 'undefined') return memoryRateLimitMap.get(key) || null;
   try {
     const raw = sessionStorage.getItem(`_rl_${key}`);
-    return raw ? JSON.parse(raw) : (memoryRateLimitMap.get(key) || null);
+    if (!raw) return memoryRateLimitMap.get(key) || null;
+    const parsed = safeParseJSON<RateLimitRecord | null>(raw, null);
+    if (
+      parsed &&
+      typeof parsed.attempts === 'number' &&
+      typeof parsed.firstAttempt === 'number' &&
+      (parsed.lockedUntil === undefined || typeof parsed.lockedUntil === 'number')
+    ) {
+      return parsed;
+    }
+    return memoryRateLimitMap.get(key) || null;
   } catch {
     return memoryRateLimitMap.get(key) || null;
   }
@@ -196,38 +214,135 @@ export function clearRateLimit(key: string): void {
   }
 }
 
-// 6. Secure Password Hashing (SHA-256 with Salt via Web Crypto API)
-const WORK_PLANNER_SALT = 'wp_sec_salt_2026_v1_';
+// 6. Secure Password Hashing (PBKDF2-SHA256 with random per-user salt via Web Crypto API)
+const WORK_PLANNER_LEGACY_SALT = 'wp_sec_salt_2026_v1_';
+const PBKDF2_ITERATIONS = 100000;
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function hexToBytes(hex: string): Uint8Array | null {
+  if (!hex || hex.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(hex)) return null;
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+async function derivePbkdf2Hex(password: string, saltBytes: Uint8Array, iterations: number): Promise<string> {
+  const enc = new TextEncoder();
+  const keyMaterial = await window.crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  // Copy into fresh ArrayBuffer so TypeScript BufferSource matches strictly
+  const saltCopy = new Uint8Array(saltBytes.length);
+  saltCopy.set(saltBytes);
+  const derived = await window.crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: saltCopy.buffer, iterations, hash: 'SHA-256' },
+    keyMaterial,
+    256
+  );
+  return bytesToHex(new Uint8Array(derived));
+}
+
+async function legacySha256Hash(password: string): Promise<string> {
+  if (typeof window === 'undefined' || !window.crypto?.subtle) return '';
+  const enc = new TextEncoder();
+  const data = enc.encode(WORK_PLANNER_LEGACY_SALT + password);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+  return `sha256_${bytesToHex(new Uint8Array(hashBuffer))}`;
+}
 
 export async function hashPassword(password: string): Promise<string> {
   if (!password) return '';
-  if (typeof window === 'undefined' || !window.crypto || !window.crypto.subtle) {
-    // Fallback simple checksum if Web Crypto is unavailable (e.g. testing)
-    return `hash_${btoa(unescape(encodeURIComponent(WORK_PLANNER_SALT + password)))}`;
+  if (typeof window === 'undefined' || !window.crypto?.subtle || !window.crypto.getRandomValues) {
+    throw new Error('เบราว์เซอร์ไม่รองรับระบบเข้ารหัสความปลอดภัย (Web Crypto API)');
   }
 
-  try {
-    const enc = new TextEncoder();
-    const data = enc.encode(WORK_PLANNER_SALT + password);
-    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return `sha256_${hashArray.map(b => b.toString(16).padStart(2, '0')).join('')}`;
-  } catch (err) {
-    console.warn('[Security] Crypto hash fallback:', err);
-    return `hash_${btoa(unescape(encodeURIComponent(WORK_PLANNER_SALT + password)))}`;
-  }
+  const salt = new Uint8Array(16);
+  window.crypto.getRandomValues(salt);
+  const hashHex = await derivePbkdf2Hex(password, salt, PBKDF2_ITERATIONS);
+  return `pbkdf2_${PBKDF2_ITERATIONS}_${bytesToHex(salt)}_${hashHex}`;
 }
 
 export async function verifyPassword(inputPassword: string, storedHashOrPlain: string): Promise<boolean> {
-  if (!inputPassword && !storedHashOrPlain) return true;
   if (!inputPassword || !storedHashOrPlain) return false;
 
-  // If already hashed
-  if (storedHashOrPlain.startsWith('sha256_') || storedHashOrPlain.startsWith('hash_')) {
-    const computed = await hashPassword(inputPassword);
-    return computed === storedHashOrPlain;
+  // Modern PBKDF2 format: pbkdf2_<iterations>_<saltHex>_<hashHex>
+  if (storedHashOrPlain.startsWith('pbkdf2_')) {
+    const parts = storedHashOrPlain.split('_');
+    if (parts.length !== 4) return false;
+    const iterations = Number(parts[1]);
+    const saltBytes = hexToBytes(parts[2]);
+    const expectedHex = parts[3];
+    if (!iterations || iterations < 10000 || iterations > 2000000 || !saltBytes || !expectedHex) {
+      return false;
+    }
+    try {
+      const actualHex = await derivePbkdf2Hex(inputPassword, saltBytes, iterations);
+      return timingSafeEqual(actualHex, expectedHex);
+    } catch {
+      return false;
+    }
   }
 
-  // Legacy plaintext match (backward compatibility)
-  return inputPassword === storedHashOrPlain;
+  // Legacy static-salted SHA-256 format (auto-upgraded on login)
+  if (storedHashOrPlain.startsWith('sha256_')) {
+    try {
+      const computed = await legacySha256Hash(inputPassword);
+      return Boolean(computed) && timingSafeEqual(computed, storedHashOrPlain);
+    } catch {
+      return false;
+    }
+  }
+
+  // Legacy base64 fallback format (auto-upgraded on login)
+  if (storedHashOrPlain.startsWith('hash_')) {
+    try {
+      const legacy = `hash_${btoa(unescape(encodeURIComponent(WORK_PLANNER_LEGACY_SALT + inputPassword)))}`;
+      return timingSafeEqual(legacy, storedHashOrPlain);
+    } catch {
+      return false;
+    }
+  }
+
+  // Legacy plaintext match (backward compatibility, auto-upgraded on login)
+  return timingSafeEqual(inputPassword, storedHashOrPlain);
+}
+
+// 7. Cryptographically Strong Random ID & CSV Formula Injection Neutralization
+export function generateSecureId(prefix = '', byteLength = 8): string {
+  const bytes = new Uint8Array(byteLength);
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < byteLength; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  const hex = bytesToHex(bytes);
+  return prefix ? `${prefix}_${hex}` : hex;
+}
+
+export function escapeFormulaCell(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (!str) return '';
+  if (/^[\u0000-\u0020]*[=+\-@\t\r]/.test(str)) {
+    return `'${str}`;
+  }
+  return str;
 }

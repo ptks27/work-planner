@@ -1,12 +1,23 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/authStore';
+import { usePlanner } from '@/lib/store';
+import { parseFirebaseConfig } from '@/lib/firebase';
+import { DEFAULT_FIREBASE_CONFIG } from '@/lib/firebaseDefaultConfig';
 import { AvatarIcon } from './Avatars';
 import { BuildingIcon, LogOutIcon, SparklesIcon, LinkIcon, CheckIcon, CloudIcon } from './Icons';
 import FirebaseConfigModal from './FirebaseConfigModal';
 
 export default function TeamSelectScreen() {
   const { currentUser, userTeams, switchTeam, createTeam, joinTeam, logout, fetchUserTeams } = useAuth();
+  const firebaseConfig = usePlanner(s => s.firebaseConfig);
+  const activeProjectId = (() => {
+    try {
+      return parseFirebaseConfig(firebaseConfig || DEFAULT_FIREBASE_CONFIG)?.projectId || 'Cloud Sync';
+    } catch {
+      return 'Cloud Sync';
+    }
+  })();
   const [tab, setTab] = useState<'create' | 'join'>('create');
   const [teamName, setTeamName] = useState('');
   const [teamCode, setTeamCode] = useState('');
@@ -25,6 +36,7 @@ export default function TeamSelectScreen() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
     if (!teamName.trim()) {
       return setError('กรุณาระบุชื่อทีมของคุณ');
@@ -39,6 +51,7 @@ export default function TeamSelectScreen() {
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
     if (!teamCode.trim()) {
       return setError('กรุณากรอกรหัสทีม (Team Code)');
@@ -116,7 +129,7 @@ export default function TeamSelectScreen() {
               Cloud ซิงค์ทีมอัตโนมัติ
             </span>
             <span style={{ fontSize: 11, color: 'var(--mut)', fontFamily: 'SF Mono, Menlo, monospace' }}>
-              (work-planner-9caf4)
+              ({activeProjectId})
             </span>
             <span style={{ fontSize: 11, color: 'var(--pri)', fontWeight: 600, marginLeft: 2 }}>
               ตั้งค่า &rsaquo;

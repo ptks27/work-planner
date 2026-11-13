@@ -334,8 +334,8 @@ export default function AchievementsModal({
                     borderRadius: 16,
                     padding: '14px',
                     background: b.unlocked
-                      ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(245, 245, 247, 0.9))'
-                      : 'rgba(120, 120, 128, 0.05)',
+                      ? `linear-gradient(135deg, ${b.color}12, var(--card-solid))`
+                      : 'rgba(120, 120, 128, 0.06)',
                     border: b.unlocked ? `1.5px solid ${b.color}` : '1px solid var(--line)',
                     boxShadow: b.unlocked ? `0 4px 16px ${b.color}25` : 'none',
                     opacity: b.unlocked ? 1 : 0.65,
