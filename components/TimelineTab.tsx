@@ -7,6 +7,7 @@ import { useToday } from '@/lib/hooks';
 import { Task, Priority, TaskStatus, PRIORITY, STATUS_CONFIG } from '@/lib/types';
 import { AvatarIcon } from './Avatars';
 import EditTaskModal from './EditTaskModal';
+import AppleSelect from './AppleSelect';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -15,6 +16,8 @@ import {
   CheckIcon,
   ClockIcon,
   SparklesIcon,
+  UsersIcon,
+  FlagIcon,
 } from './Icons';
 import { thDate, TH_DOW, TH_MONTHS } from '@/lib/utils';
 
@@ -209,48 +212,46 @@ export default function TimelineTab() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {/* Member Filter */}
-          <select
+          <AppleSelect
+            variant="pill"
+            prefix="ทีม"
+            ariaLabel="กรองไทม์ไลน์ตามสมาชิก"
             value={filterMember}
-            onChange={e => setFilterMember(e.target.value)}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 999,
-              border: '1px solid var(--line)',
-              background: 'var(--card-solid)',
-              fontSize: 12.5,
-              fontWeight: 600,
-              color: 'var(--txt)',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="all">👥 สมาชิกทุกคน ({teamMembers.length})</option>
-            {teamMembers.map(m => (
-              <option key={m.userId} value={m.userId}>
-                {m.name} {m.userId === currentUser?.id ? '(คุณ)' : ''}
-              </option>
-            ))}
-          </select>
+            onChange={setFilterMember}
+            isFiltered={filterMember !== 'all'}
+            options={[
+              {
+                value: 'all',
+                label: `สมาชิกทุกคน (${teamMembers.length})`,
+                icon: <UsersIcon size={13} color="var(--pri)" />,
+              },
+              ...teamMembers.map(m => ({
+                value: m.userId,
+                label: `${m.name}${m.userId === currentUser?.id ? ' (คุณ)' : ''}`,
+                icon: m.avatarId ? <AvatarIcon id={m.avatarId} size={16} /> : undefined,
+              })),
+            ]}
+          />
 
           {/* Priority Filter */}
-          <select
+          <AppleSelect
+            variant="pill"
+            prefix="ระดับ"
+            ariaLabel="กรองไทม์ไลน์ตามความสำคัญ"
             value={filterPriority}
-            onChange={e => setFilterPriority(e.target.value as any)}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 999,
-              border: '1px solid var(--line)',
-              background: 'var(--card-solid)',
-              fontSize: 12.5,
-              fontWeight: 600,
-              color: 'var(--txt)',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="all">🎯 ทุกความสำคัญ</option>
-            <option value="high">🔴 สำคัญสูง (High)</option>
-            <option value="medium">🟡 สำคัญปานกลาง (Medium)</option>
-            <option value="low">🟢 สำคัญทั่วไป (Low)</option>
-          </select>
+            onChange={v => setFilterPriority(v as Priority | 'all')}
+            isFiltered={filterPriority !== 'all'}
+            options={[
+              {
+                value: 'all',
+                label: 'ทุกความสำคัญ',
+                icon: <FlagIcon size={12} color="var(--pri)" />,
+              },
+              { value: 'high', label: `${PRIORITY.high.label} (High)`, dot: PRIORITY.high.color },
+              { value: 'medium', label: `${PRIORITY.medium.label} (Medium)`, dot: PRIORITY.medium.color },
+              { value: 'low', label: `${PRIORITY.low.label} (Low)`, dot: PRIORITY.low.color },
+            ]}
+          />
 
           {/* Hide Done Toggle */}
           <label

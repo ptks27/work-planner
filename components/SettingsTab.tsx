@@ -8,6 +8,7 @@ import { DEFAULT_FIREBASE_CONFIG } from '@/lib/firebaseDefaultConfig';
 import { parseFirebaseConfig } from '@/lib/firebase';
 import { isUserTeamOwner } from '@/lib/permissions';
 import FirebaseConfigModal from './FirebaseConfigModal';
+import AppleSelect from './AppleSelect';
 import { AvatarIcon } from './Avatars';
 import {
   BellIcon,
@@ -170,17 +171,19 @@ export default function SettingsTab() {
                 <b style={{ fontSize: 13, display: 'block', color: 'var(--txt)' }}>เตือนล่วงหน้า</b>
                 <small style={{ color: 'var(--mut)', fontSize: 11 }}>สำหรับงานที่ระบุเวลาไว้</small>
               </div>
-              <select
-                value={s.remindBefore}
-                onChange={e => s.setRemindBefore(+e.target.value)}
-                style={{ width: 'auto', margin: 0, padding: '5px 12px', fontSize: 12, borderRadius: 999 }}
-              >
-                {[0, 5, 10, 15, 30, 60].map(n => (
-                  <option key={n} value={n}>
-                    {n ? `ก่อน ${n} นาที` : 'ตรงเวลา'}
-                  </option>
-                ))}
-              </select>
+              <AppleSelect
+                variant="pill"
+                align="right"
+                ariaLabel="เตือนล่วงหน้า"
+                value={String(s.remindBefore)}
+                onChange={v => s.setRemindBefore(Number(v))}
+                minMenuWidth={155}
+                options={[0, 5, 10, 15, 30, 60].map(n => ({
+                  value: String(n),
+                  label: n ? `ก่อน ${n} นาที` : 'ตรงเวลา',
+                  icon: <ClockIcon size={12} color="var(--pri)" />,
+                }))}
+              />
             </div>
           </div>
 

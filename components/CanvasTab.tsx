@@ -44,6 +44,7 @@ import {
   ChevronDownIcon,
 } from './Icons';
 import ThaiDatePicker from './ThaiDatePicker';
+import AppleSelect from './AppleSelect';
 import { playCompletionSound, triggerConfetti } from '@/lib/audio';
 import { useModal } from './ModalContext';
 
@@ -2258,26 +2259,22 @@ export default function CanvasTab() {
                 />
               ))}
 
-              <select
-                value={pencilWidth}
-                onChange={e => setPencilWidth(Number(e.target.value))}
-                style={{
-                  marginLeft: 4,
-                  padding: '2px 6px',
-                  borderRadius: 6,
-                  border: '1px solid var(--line)',
-                  background: 'var(--bg)',
-                  fontSize: 11,
-                  color: 'var(--txt)',
-                  cursor: 'pointer',
-                }}
+              <AppleSelect
+                variant="compact"
+                placement="top"
+                ariaLabel="ขนาดหัวดินสอ"
                 title="ขนาดหัวดินสอ"
-              >
-                <option value={2}>2px บาง</option>
-                <option value={4}>4px ปกติ</option>
-                <option value={7}>7px หนา</option>
-                <option value={12}>12px หนาพิเศษ</option>
-              </select>
+                value={String(pencilWidth)}
+                onChange={v => setPencilWidth(Number(v))}
+                minMenuWidth={136}
+                style={{ marginLeft: 4 }}
+                options={[
+                  { value: '2', label: '2px บาง', dot: pencilColor },
+                  { value: '4', label: '4px ปกติ', dot: pencilColor },
+                  { value: '7', label: '7px หนา', dot: pencilColor },
+                  { value: '12', label: '12px หนาพิเศษ', dot: pencilColor },
+                ]}
+              />
             </div>
           </>
         )}
@@ -2797,16 +2794,17 @@ export default function CanvasTab() {
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600 }}>ความสำคัญ</label>
-                  <select
+                  <AppleSelect
+                    variant="field"
+                    ariaLabel="ความสำคัญ"
                     value={taskPriority}
-                    onChange={e => setTaskPriority(e.target.value as Priority)}
-                  >
-                    {PRIORITIES.map(p => (
-                      <option key={p} value={p}>
-                        {PRIORITY[p].label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={v => setTaskPriority(v as Priority)}
+                    options={PRIORITIES.map(p => ({
+                      value: p,
+                      label: PRIORITY[p].label,
+                      dot: PRIORITY[p].color,
+                    }))}
+                  />
                 </div>
               </div>
 

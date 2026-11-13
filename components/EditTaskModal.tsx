@@ -31,6 +31,7 @@ import {
   PaperclipIcon,
   SendIcon,
 } from './Icons';
+import AppleSelect from './AppleSelect';
 import { useAuth } from '@/lib/authStore';
 import { usePlanner } from '@/lib/store';
 import { useModal } from '@/components/ModalContext';
@@ -777,27 +778,31 @@ export default function EditTaskModal({ task, onClose, onSave }: EditTaskModalPr
               <div className="row">
                 <div>
                   <label>ความสำคัญ</label>
-                  <select
+                  <AppleSelect
+                    variant="field"
+                    ariaLabel="ความสำคัญ"
                     value={priority}
-                    onChange={e => setPriority(e.target.value as Priority)}
-                  >
-                    {PRIORITIES.map(p => (
-                      <option key={p} value={p}>
-                        {PRIORITY[p].label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={v => setPriority(v as Priority)}
+                    options={PRIORITIES.map(p => ({
+                      value: p,
+                      label: PRIORITY[p].label,
+                      dot: PRIORITY[p].color,
+                    }))}
+                  />
                 </div>
                 <div>
                   <label>สถานะงาน</label>
-                  <select
+                  <AppleSelect
+                    variant="field"
+                    ariaLabel="สถานะงาน"
                     value={status}
-                    onChange={e => setStatus(e.target.value as TaskStatus)}
-                  >
-                    <option value="todo">รอทำ (To Do)</option>
-                    <option value="in_progress">กำลังทำ (In Progress)</option>
-                    <option value="done">เสร็จสิ้น (Done)</option>
-                  </select>
+                    onChange={v => setStatus(v as TaskStatus)}
+                    options={[
+                      { value: 'todo', label: 'รอทำ (To Do)', dot: '#8e8e93' },
+                      { value: 'in_progress', label: 'กำลังทำ (In Progress)', dot: '#0284c7' },
+                      { value: 'done', label: 'เสร็จสิ้น (Done)', dot: '#34c759' },
+                    ]}
+                  />
                 </div>
               </div>
 

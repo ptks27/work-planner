@@ -7,6 +7,7 @@ import { PRIORITY, PRIORITIES, type Priority } from '@/lib/types';
 import { useModal } from './ModalContext';
 import { TrashIcon, RepeatIcon, CheckIcon, ClipboardCheckIcon, CalendarIcon, ClockIcon } from './Icons';
 import ThaiDatePicker from './ThaiDatePicker';
+import AppleSelect from './AppleSelect';
 
 
 const ORDER = [1, 2, 3, 4, 5, 6, 0]; // จันทร์ -> อาทิตย์
@@ -50,9 +51,17 @@ export default function RecurringTab() {
         <div className="row">
           <div>
             <label>ความสำคัญ</label>
-            <select value={f.priority} onChange={e => setF({ ...f, priority: e.target.value as Priority })}>
-              {PRIORITIES.map(p => <option key={p} value={p}>{PRIORITY[p].label}</option>)}
-            </select>
+            <AppleSelect
+              variant="field"
+              ariaLabel="ความสำคัญ"
+              value={f.priority}
+              onChange={v => setF({ ...f, priority: v as Priority })}
+              options={PRIORITIES.map(p => ({
+                value: p,
+                label: PRIORITY[p].label,
+                dot: PRIORITY[p].color,
+              }))}
+            />
           </div>
           <div><label>เวลา (แจ้งเตือน)</label><input type="time" value={f.time} onChange={e => setF({ ...f, time: e.target.value })} /></div>
         </div>

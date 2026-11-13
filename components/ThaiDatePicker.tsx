@@ -12,6 +12,7 @@ import {
   fromThaiDateDisplay,
 } from '@/lib/utils';
 import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon, TrashIcon } from './Icons';
+import AppleSelect from './AppleSelect';
 
 interface ThaiDatePickerProps {
   value: string; // ISO format: YYYY-MM-DD
@@ -69,7 +70,11 @@ export default function ThaiDatePicker({
   // ปิด Popover เมื่อคลิกด้านนอก
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node | null;
+      if (target instanceof Element && target.closest('[data-apple-select-menu]')) {
+        return;
+      }
+      if (containerRef.current && !containerRef.current.contains(target)) {
         setIsOpen(false);
       }
     };
@@ -279,48 +284,31 @@ export default function ThaiDatePicker({
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {/* Month Select */}
-              <select
-                value={viewMonth}
-                onChange={e =>
-                  setViewDate(new Date(viewYear, parseInt(e.target.value, 10), 1))
-                }
-                style={{
-                  width: 'auto',
-                  margin: 0,
-                  padding: '4px 8px',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  borderRadius: 8,
-                }}
-              >
-                {TH_MONTHS.map((mName, idx) => (
-                  <option key={mName} value={idx}>
-                    {mName}
-                  </option>
-                ))}
-              </select>
+              <AppleSelect
+                variant="compact"
+                ariaLabel="เลือกเดือน"
+                value={String(viewMonth)}
+                onChange={v => setViewDate(new Date(viewYear, parseInt(v, 10), 1))}
+                minMenuWidth={130}
+                options={TH_MONTHS.map((mName, idx) => ({
+                  value: String(idx),
+                  label: mName,
+                }))}
+              />
 
               {/* Year Select (พ.ศ.) */}
-              <select
-                value={viewYear}
-                onChange={e =>
-                  setViewDate(new Date(parseInt(e.target.value, 10), viewMonth, 1))
-                }
-                style={{
-                  width: 'auto',
-                  margin: 0,
-                  padding: '4px 8px',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  borderRadius: 8,
-                }}
-              >
-                {yearOptions.map(y => (
-                  <option key={y} value={y}>
-                    {y + 543}
-                  </option>
-                ))}
-              </select>
+              <AppleSelect
+                variant="compact"
+                ariaLabel="เลือกปีพุทธศักราช"
+                value={String(viewYear)}
+                onChange={v => setViewDate(new Date(parseInt(v, 10), viewMonth, 1))}
+                minMenuWidth={92}
+                align="right"
+                options={yearOptions.map(y => ({
+                  value: String(y),
+                  label: String(y + 543),
+                }))}
+              />
             </div>
 
             <button

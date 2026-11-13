@@ -20,6 +20,7 @@ import TaskItem from './TaskItem';
 import EditTaskModal from './EditTaskModal';
 import KanbanView from './KanbanView';
 import WeeklyView from './WeeklyView';
+import AppleSelect from './AppleSelect';
 import {
   TrashIcon,
   CalendarIcon,
@@ -310,59 +311,67 @@ export default function TasksTab() {
           {activeView === 'calendar' && (
             <>
               {/* Filter by Team Member */}
-              <div className="filter-select-pill">
-                <span className="filter-select-label">ทีม</span>
-                <select
-                  value={memberFilter}
-                  onChange={e => setMemberFilter(e.target.value)}
-                  aria-label="กรองตามสมาชิกทีม"
-                >
-                  <option key="filter-opt-all" value="all">สมาชิกทุกคน ({memberList.length} คน)</option>
-                  <option key="filter-opt-me" value="me">เฉพาะของฉัน</option>
-                  {memberList.map((u, idx) => (
-                    <option key={`filter-user-${u.id || idx}`} value={u.id}>
-                      {u.name || 'สมาชิก'} {u.id === currentUser?.id ? '(ฉัน)' : ''}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDownIcon size={12} className="filter-select-chevron" />
-              </div>
+              <AppleSelect
+                variant="pill"
+                prefix="ทีม"
+                ariaLabel="กรองตามสมาชิกทีม"
+                value={memberFilter}
+                onChange={setMemberFilter}
+                isFiltered={memberFilter !== 'all'}
+                options={[
+                  {
+                    value: 'all',
+                    label: `สมาชิกทุกคน (${memberList.length} คน)`,
+                    icon: <UsersIcon size={13} color="var(--pri)" />,
+                  },
+                  {
+                    value: 'me',
+                    label: 'เฉพาะของฉัน',
+                    icon: currentUser ? <AvatarIcon id={currentUser.avatarId} size={16} /> : undefined,
+                  },
+                  ...memberList.map(u => ({
+                    value: u.id,
+                    label: `${u.name || 'สมาชิก'}${u.id === currentUser?.id ? ' (ฉัน)' : ''}`,
+                    icon: u.avatarId ? <AvatarIcon id={u.avatarId} size={16} /> : undefined,
+                  })),
+                ]}
+              />
 
               {/* Filter by Priority */}
-              <div className="filter-select-pill">
-                <span className="filter-select-label">ระดับ</span>
-                <select
-                  value={filter}
-                  onChange={e => setFilter(e.target.value as 'all' | Priority)}
-                  aria-label="กรองตามระดับความสำคัญ"
-                >
-                  <option value="all">ทุกระดับ</option>
-                  {PRIORITIES.map(p => (
-                    <option key={p} value={p}>
-                      {PRIORITY[p].label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDownIcon size={12} className="filter-select-chevron" />
-              </div>
+              <AppleSelect
+                variant="pill"
+                prefix="ระดับ"
+                ariaLabel="กรองตามระดับความสำคัญ"
+                value={filter}
+                onChange={v => setFilter(v as 'all' | Priority)}
+                isFiltered={filter !== 'all'}
+                options={[
+                  { value: 'all', label: 'ทุกระดับ' },
+                  ...PRIORITIES.map(p => ({
+                    value: p,
+                    label: PRIORITY[p].label,
+                    dot: PRIORITY[p].color,
+                  })),
+                ]}
+              />
 
               {/* Filter by Tag */}
-              <div className="filter-select-pill">
-                <span className="filter-select-label">แท็ก</span>
-                <select
-                  value={tagFilter}
-                  onChange={e => setTagFilter(e.target.value)}
-                  aria-label="กรองตามแท็ก"
-                >
-                  <option value="all">ทุกแท็ก</option>
-                  {allTagNames.map(tag => (
-                    <option key={`filter-tag-${tag}`} value={tag}>
-                      #{tag.replace(/^#/, '')}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDownIcon size={12} className="filter-select-chevron" />
-              </div>
+              <AppleSelect
+                variant="pill"
+                prefix="แท็ก"
+                ariaLabel="กรองตามแท็ก"
+                value={tagFilter}
+                onChange={setTagFilter}
+                isFiltered={tagFilter !== 'all'}
+                options={[
+                  { value: 'all', label: 'ทุกแท็ก' },
+                  ...allTagNames.map(tag => ({
+                    value: tag,
+                    label: `#${tag.replace(/^#/, '')}`,
+                    dot: getTagStyle(tag).color,
+                  })),
+                ]}
+              />
 
               {(memberFilter !== 'all' || filter !== 'all' || tagFilter !== 'all') && (
                 <button
