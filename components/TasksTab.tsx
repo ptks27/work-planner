@@ -311,7 +311,7 @@ export default function TasksTab() {
             <>
               {/* Filter by Team Member */}
               <div className="filter-select-pill">
-                <small className="mut">ทีม</small>
+                <span className="filter-select-label">ทีม</span>
                 <select
                   value={memberFilter}
                   onChange={e => setMemberFilter(e.target.value)}
@@ -325,11 +325,12 @@ export default function TasksTab() {
                     </option>
                   ))}
                 </select>
+                <ChevronDownIcon size={12} className="filter-select-chevron" />
               </div>
 
               {/* Filter by Priority */}
               <div className="filter-select-pill">
-                <small className="mut">ระดับ</small>
+                <span className="filter-select-label">ระดับ</span>
                 <select
                   value={filter}
                   onChange={e => setFilter(e.target.value as 'all' | Priority)}
@@ -342,11 +343,12 @@ export default function TasksTab() {
                     </option>
                   ))}
                 </select>
+                <ChevronDownIcon size={12} className="filter-select-chevron" />
               </div>
 
               {/* Filter by Tag */}
               <div className="filter-select-pill">
-                <small className="mut">แท็ก</small>
+                <span className="filter-select-label">แท็ก</span>
                 <select
                   value={tagFilter}
                   onChange={e => setTagFilter(e.target.value)}
@@ -359,6 +361,7 @@ export default function TasksTab() {
                     </option>
                   ))}
                 </select>
+                <ChevronDownIcon size={12} className="filter-select-chevron" />
               </div>
 
               {(memberFilter !== 'all' || filter !== 'all' || tagFilter !== 'all') && (
@@ -394,8 +397,8 @@ export default function TasksTab() {
           <div className="grid calendar-task-grid mb">
             {/* Top Left Card: วันนี้ต้องทำ / งานค้างย้อนหลัง / ประวัติงานเก่า */}
             <div className="card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid var(--line)', paddingBottom: 8, flexWrap: 'wrap', gap: 6 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid var(--line)', paddingBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: '1 1 240px', minWidth: 0 }}>
                   <div className="macos-traffic-lights" aria-hidden="true">
                     <span className="macos-traffic-dot red" />
                     <span className="macos-traffic-dot yellow" />
@@ -443,7 +446,7 @@ export default function TasksTab() {
                 </div>
               </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 'auto' }}>
                   {leftTab === 'overdue' && overdueTasks.length > 0 && (
                     <button
                       className="btn sm"
@@ -458,9 +461,9 @@ export default function TasksTab() {
 
                   {currentLeftTasks.length > 3 && (
                     <button
-                      className="btn sm"
+                      className="btn ghost sm"
                       onClick={() => setIsLeftExpanded(!isLeftExpanded)}
-                      style={{ fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                      style={{ fontSize: 11.5, padding: '4px 10px' }}
                       title={isLeftExpanded ? 'ย่อเป็นกล่องเลื่อน (Scroll)' : 'ขยายดูทั้งหมด'}
                     >
                       {isLeftExpanded ? 'ย่อเป็น Scroll' : `ดูทั้งหมด (${currentLeftTasks.length})`}
@@ -468,10 +471,12 @@ export default function TasksTab() {
                   )}
 
                   <button
-                    className="btn sm"
+                    type="button"
+                    className="icon-btn sm"
                     onClick={() => setIsLeftCollapsed(!isLeftCollapsed)}
-                    style={{ padding: '3px 6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                    style={{ background: 'rgba(120, 120, 128, 0.1)', borderRadius: 999, color: 'var(--txt)' }}
                     title={isLeftCollapsed ? 'กางการ์ดออก' : 'พับเก็บการ์ด'}
+                    aria-label={isLeftCollapsed ? 'กางการ์ดออก' : 'พับเก็บการ์ด'}
                   >
                     {isLeftCollapsed ? <ChevronDownIcon size={14} /> : <ChevronUpIcon size={14} />}
                   </button>
@@ -566,8 +571,8 @@ export default function TasksTab() {
 
             {/* Top Right Card: งานวันที่เลือก / พรุ่งนี้ต้องทำ */}
             <div className="card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid var(--line)', paddingBottom: 8, flexWrap: 'wrap', gap: 6 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid var(--line)', paddingBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: '1 1 240px', minWidth: 0 }}>
                   <div className="macos-traffic-lights" aria-hidden="true">
                     <span className="macos-traffic-dot red" />
                     <span className="macos-traffic-dot yellow" />
@@ -594,7 +599,7 @@ export default function TasksTab() {
                 </div>
               </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 'auto' }}>
                   {rightTab === 'selected' && sel !== today && (
                     <small
                       className="mut"
@@ -624,9 +629,9 @@ export default function TasksTab() {
 
                   {currentRightTasks.length > 3 && (
                     <button
-                      className="btn sm"
+                      className="btn ghost sm"
                       onClick={() => setIsRightExpanded(!isRightExpanded)}
-                      style={{ fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                      style={{ fontSize: 11.5, padding: '4px 10px' }}
                       title={isRightExpanded ? 'ย่อเป็นกล่องเลื่อน (Scroll)' : 'ขยายดูทั้งหมด'}
                     >
                       {isRightExpanded ? 'ย่อเป็น Scroll' : `ดูทั้งหมด (${currentRightTasks.length})`}
@@ -634,10 +639,12 @@ export default function TasksTab() {
                   )}
 
                   <button
-                    className="btn sm"
+                    type="button"
+                    className="icon-btn sm"
                     onClick={() => setIsRightCollapsed(!isRightCollapsed)}
-                    style={{ padding: '3px 6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                    style={{ background: 'rgba(120, 120, 128, 0.1)', borderRadius: 999, color: 'var(--txt)' }}
                     title={isRightCollapsed ? 'กางการ์ดออก' : 'พับเก็บการ์ด'}
+                    aria-label={isRightCollapsed ? 'กางการ์ดออก' : 'พับเก็บการ์ด'}
                   >
                     {isRightCollapsed ? <ChevronDownIcon size={14} /> : <ChevronUpIcon size={14} />}
                   </button>
