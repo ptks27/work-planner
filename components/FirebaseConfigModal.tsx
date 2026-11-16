@@ -32,13 +32,18 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
   if (!isOpen) return null;
 
   // ตรวจสอบ config ปัจจุบัน
-  let currentProject = 'work-planner-9caf4';
-  let isDefault = true;
+  let currentProject = 'ยังไม่ได้ตั้งค่า';
+  let isDefault = false;
+  let hasValidConfig = false;
   try {
     const parsed = parseFirebaseConfig(firebaseConfig || DEFAULT_FIREBASE_CONFIG);
-    if (parsed.projectId) {
+    if (parsed?.apiKey && parsed?.projectId) {
       currentProject = parsed.projectId;
-      isDefault = parsed.projectId === DEFAULT_FIREBASE_CONFIG_OBJ.projectId;
+      hasValidConfig = true;
+      isDefault = Boolean(
+        DEFAULT_FIREBASE_CONFIG_OBJ?.projectId &&
+        parsed.projectId === DEFAULT_FIREBASE_CONFIG_OBJ.projectId
+      );
     }
   } catch {
     // fallback
@@ -98,12 +103,18 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
     setFirebaseConfig(DEFAULT_FIREBASE_CONFIG);
     setCustomInput(DEFAULT_FIREBASE_CONFIG);
     resetFirebaseInstance();
-    setSaveMsg({ ok: true, text: 'รีเซ็ตกลับเป็น Cloud กลาง (work-planner-9caf4) เรียบร้อย' });
+    setSaveMsg({
+      ok: true,
+      text: DEFAULT_FIREBASE_CONFIG
+        ? 'รีเซ็ตกลับเป็น Cloud กลางของระบบเรียบร้อย'
+        : 'ล้างการตั้งค่าเรียบร้อย (กรุณาตั้งค่า Env Vars หรือวาง Config)',
+    });
     setTestResult(null);
     setShowCustomConfig(false);
   };
 
   const handleCopyProject = () => {
+    if (!hasValidConfig) return;
     navigator.clipboard.writeText(currentProject);
     setCopiedProject(true);
     setTimeout(() => setCopiedProject(false), 2000);
@@ -236,8 +247,8 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
                   gap: 6,
                   padding: '4px 10px',
                   borderRadius: 999,
-                  background: 'rgba(52, 199, 89, 0.12)',
-                  color: '#34c759',
+                  background: hasValidConfig ? 'rgba(52, 199, 89, 0.12)' : 'rgba(255, 149, 0, 0.12)',
+                  color: hasValidConfig ? '#34c759' : '#ff9500',
                   fontSize: 12,
                   fontWeight: 600,
                 }}
@@ -247,11 +258,11 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
                     width: 7,
                     height: 7,
                     borderRadius: '50%',
-                    background: '#34c759',
-                    boxShadow: '0 0 6px #34c759',
+                    background: hasValidConfig ? '#34c759' : '#ff9500',
+                    boxShadow: hasValidConfig ? '0 0 6px #34c759' : '0 0 6px #ff9500',
                   }}
                 />
-                ออนไลน์ (พร้อมใช้งาน)
+                {hasValidConfig ? 'ออนไลน์ (พร้อมใช้งาน)' : 'ยังไม่ได้ตั้งค่า Config'}
               </span>
             </div>
 
@@ -270,12 +281,17 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
                   Cloud Database
                 </span>
                 <small style={{ display: 'block', fontSize: 11, color: 'var(--mut)' }}>
-                  {isDefault ? 'Cloud กลางของระบบ (แชร์อัตโนมัติ)' : 'Custom Firebase Project'}
+                  {!hasValidConfig
+                    ? 'ยังไม่มี Firebase Config (ตั้งค่า NEXT_PUBLIC_FIREBASE_* หรือกรอกด้านล่าง)'
+                    : isDefault
+                      ? 'Cloud กลางของระบบ (แชร์อัตโนมัติ)'
+                      : 'Custom Firebase Project'}
                 </small>
               </div>
               <button
                 type="button"
                 onClick={handleCopyProject}
+                disabled={!hasValidConfig}
                 className="btn ghost sm"
                 style={{
                   display: 'inline-flex',
@@ -288,10 +304,10 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
                   borderRadius: 8,
                   padding: '4px 10px',
                 }}
-                title="คลิกเพื่อคัดลอก Project ID"
+                title={hasValidConfig ? 'คลิกเพื่อคัดลอก Project ID' : 'ยังไม่ได้ตั้งค่า Project ID'}
               >
                 <span>{currentProject}</span>
-                {copiedProject ? <CheckIcon size={12} color="#34c759" /> : <CopyIcon size={12} />}
+                {hasValidConfig && (copiedProject ? <CheckIcon size={12} color="#34c759" /> : <CopyIcon size={12} />)}
               </button>
             </div>
 
@@ -442,7 +458,7 @@ export default function FirebaseConfigModal({ isOpen, onClose }: FirebaseConfigM
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <b style={{ fontSize: 13, color: 'var(--txt)' }}>กำหนด Firebase Config ของคุณเอง:</b>
-                {!isDefault && (
+                {!isDefault && DEFAULT_FIREBASE_CONFIG && (
                   <button
                     type="button"
                     onClick={handleResetDefault}

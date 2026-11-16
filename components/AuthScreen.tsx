@@ -22,7 +22,7 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
   const { login, register } = useAuth();
   const firebaseConfig = usePlanner(s => s.firebaseConfig);
 
-  let activeProjectId = 'work-planner-9caf4';
+  let activeProjectId = 'Cloud Sync';
   try {
     const parsed = parseFirebaseConfig(firebaseConfig || DEFAULT_FIREBASE_CONFIG);
     if (parsed?.projectId) activeProjectId = parsed.projectId;

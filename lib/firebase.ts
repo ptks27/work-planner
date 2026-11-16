@@ -25,6 +25,7 @@ let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
 
 export function parseFirebaseConfig(raw: string): any {
+  if (!raw || !raw.trim()) return {};
   let cleaned = raw.trim();
   if (cleaned.includes('=')) {
     cleaned = cleaned.substring(cleaned.indexOf('=') + 1).trim();
