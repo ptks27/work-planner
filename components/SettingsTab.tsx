@@ -1,12 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { usePlanner, setSyncingFromCloud, syncPlannerToFirebase } from '@/lib/store';
 import { useAuth } from '@/lib/authStore';
 import { useModal } from '@/components/ModalContext';
 import { DEFAULT_FIREBASE_CONFIG } from '@/lib/firebaseDefaultConfig';
 import { parseFirebaseConfig } from '@/lib/firebase';
 import { isUserTeamOwner } from '@/lib/permissions';
+import {
+  measureCloudStorage,
+  formatStorageBytes,
+  downloadBackupJson,
+  parseBackupJson,
+  mergePlannerData,
+  CLOUD_DOC_LIMIT_BYTES,
+  MAX_BACKUP_IMPORT_BYTES,
+  type ParsedBackupResult,
+} from '@/lib/storageBackup';
 import FirebaseConfigModal from './FirebaseConfigModal';
 import AppleSelect from './AppleSelect';
 import { AvatarIcon } from './Avatars';
@@ -17,6 +27,11 @@ import {
   CloudIcon,
   CloudUploadIcon,
   CloudDownloadIcon,
+  DownloadIcon,
+  UploadIcon,
+  ImageIcon,
+  CloseIcon,
+  FileTextIcon,
   TrashIcon,
   SparklesIcon,
   SunIcon,
@@ -45,6 +60,215 @@ export default function SettingsTab() {
   const [syncStatus, setSyncStatus] = useState<string>('');
   const [syncing, setSyncing] = useState(false);
   const [isFirebaseModalOpen, setIsFirebaseModalOpen] = useState(false);
+  const [lastBackupAt, setLastBackupAt] = useState<string | null>(null);
+  const [pendingRestore, setPendingRestore] = useState<{
+    fileName: string;
+    parsed: ParsedBackupResult;
+  } | null>(null);
+  const [restoreMode, setRestoreMode] = useState<'merge' | 'replace'>('merge');
+  const [restoring, setRestoring] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('wp_last_backup_at');
+      if (saved) setLastBackupAt(saved);
+    } catch {
+      // Ignore storage access errors
+    }
+  }, []);
+
+  const storageStats = useMemo(
+    () =>
+      measureCloudStorage({
+        tasks: s.tasks,
+        rules: s.rules,
+        events: s.events,
+        customTags: s.customTags,
+        deletedTags: s.deletedTags,
+        notifications: s.notifications,
+        canvasNotes: s.canvasNotes,
+        canvasConnections: s.canvasConnections,
+        canvasBoards: s.canvasBoards,
+        canvasStrokes: s.canvasStrokes,
+        canvasSections: s.canvasSections,
+        activeBoardId: s.activeBoardId,
+      }),
+    [
+      s.tasks,
+      s.rules,
+      s.events,
+      s.customTags,
+      s.deletedTags,
+      s.notifications,
+      s.canvasNotes,
+      s.canvasConnections,
+      s.canvasBoards,
+      s.canvasStrokes,
+      s.canvasSections,
+      s.activeBoardId,
+    ]
+  );
+
+  const previewRestoreResult = useMemo(() => {
+    if (!pendingRestore) return null;
+    const candidate =
+      restoreMode === 'merge'
+        ? mergePlannerData(
+            {
+              tasks: s.tasks,
+              rules: s.rules,
+              events: s.events,
+              customTags: s.customTags,
+              deletedTags: s.deletedTags,
+              notifications: s.notifications,
+              canvasNotes: s.canvasNotes,
+              canvasConnections: s.canvasConnections,
+              canvasBoards: s.canvasBoards,
+              canvasStrokes: s.canvasStrokes,
+              canvasSections: s.canvasSections,
+              activeBoardId: s.activeBoardId,
+            },
+            pendingRestore.parsed.data
+          )
+        : pendingRestore.parsed.data;
+    return {
+      data: candidate,
+      stats: measureCloudStorage(candidate),
+    };
+  }, [
+    pendingRestore,
+    restoreMode,
+    s.tasks,
+    s.rules,
+    s.events,
+    s.customTags,
+    s.deletedTags,
+    s.notifications,
+    s.canvasNotes,
+    s.canvasConnections,
+    s.canvasBoards,
+    s.canvasStrokes,
+    s.canvasSections,
+    s.activeBoardId,
+  ]);
+
+  const handleBackupJson = () => {
+    try {
+      const res = downloadBackupJson(
+        {
+          tasks: s.tasks,
+          rules: s.rules,
+          events: s.events,
+          customTags: s.customTags,
+          deletedTags: s.deletedTags,
+          notifications: s.notifications,
+          canvasNotes: s.canvasNotes,
+          canvasConnections: s.canvasConnections,
+          canvasBoards: s.canvasBoards,
+          canvasStrokes: s.canvasStrokes,
+          canvasSections: s.canvasSections,
+          activeBoardId: s.activeBoardId,
+        },
+        {
+          teamName: currentTeam?.name || 'Personal Workspace',
+          userName: currentUser?.name,
+        }
+      );
+      const isoNow = new Date().toISOString();
+      setLastBackupAt(isoNow);
+      try {
+        localStorage.setItem('wp_last_backup_at', isoNow);
+      } catch {
+        // Ignore storage write error
+      }
+      showAlert(
+        'สำรองข้อมูลสำเร็จ',
+        `ดาวน์โหลดไฟล์ ${res.filename} (${formatStorageBytes(res.bytes)}) เรียบร้อยแล้ว แนะนำเก็บสำรองไว้ในเครื่องหรือ Google Drive`
+      );
+    } catch (err) {
+      showAlert('ข้อผิดพลาด', err instanceof Error ? err.message : 'ไม่สามารถสร้างไฟล์สำรองข้อมูลได้');
+    }
+  };
+
+  const handleSelectBackupFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    if (file.size > MAX_BACKUP_IMPORT_BYTES) {
+      showAlert('ไฟล์ใหญ่เกินกำหนด', 'รองรับไฟล์ Backup JSON ขนาดไม่เกิน 5 MB เท่านั้น');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const parsed = parseBackupJson(text);
+      if (!parsed.ok) {
+        showAlert('ไฟล์ไม่ถูกต้อง', parsed.error);
+        return;
+      }
+      setRestoreMode('merge');
+      setPendingRestore({ fileName: file.name, parsed });
+    } catch {
+      showAlert('ข้อผิดพลาด', 'ไม่สามารถอ่านไฟล์ที่เลือกได้ กรุณาลองใหม่อีกครั้ง');
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!pendingRestore || !previewRestoreResult || restoring) return;
+    setRestoring(true);
+    try {
+      s.restore(previewRestoreResult.data);
+      const ok = await syncPlannerToFirebase();
+      setPendingRestore(null);
+      if (ok) {
+        showAlert(
+          'กู้คืนข้อมูลสำเร็จ',
+          `นำเข้าข้อมูลแบบ${restoreMode === 'merge' ? 'รวมกับข้อมูลเดิม' : 'แทนที่ทั้งหมด'} และซิงค์ขึ้น Firebase Cloud เรียบร้อยแล้ว`
+        );
+      } else {
+        const errMsg = usePlanner.getState().cloudSyncError;
+        showAlert(
+          'กู้คืนในเครื่องแล้ว (ซิงค์ Cloud ไม่สำเร็จ)',
+          errMsg || 'นำเข้าข้อมูลในเครื่องเรียบร้อยแล้ว แต่ไม่สามารถซิงค์ขึ้น Cloud ได้ กรุณาตรวจสอบขนาดข้อมูลและการเชื่อมต่อ'
+        );
+      }
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const handleClearDoneAttachments = () => {
+    const count = storageStats.counts.doneTaskAttachments;
+    const savedSize = formatStorageBytes(storageStats.counts.doneTaskAttachmentBytes);
+    if (count === 0) return;
+    showConfirm(
+      'ล้างรูปแนบของงานที่เสร็จแล้ว',
+      `ต้องการลบรูปแนบทั้งหมด ${count} รูป (ประหยัดพื้นที่ได้ประมาณ ${savedSize}) ออกจากงานที่ทำเสร็จแล้วใช่ไหม? ชื่องาน เช็กลิสต์ และสถิติ Dashboard จะยังอยู่ครบเหมือนเดิม`,
+      async () => {
+        const removed = s.clearDoneTaskAttachments();
+        if (removed > 0) {
+          await syncPlannerToFirebase();
+          showAlert('เคลียร์พื้นที่สำเร็จ', `ลบรูปแนบออกแล้ว ${removed} รูป และซิงค์ขึ้น Cloud เรียบร้อย`);
+        }
+      }
+    );
+  };
+
+  const handleClearAllNotifications = () => {
+    const count = storageStats.counts.notifications;
+    if (count === 0) return;
+    showConfirm(
+      'ล้างประวัติการแจ้งเตือน',
+      `ต้องการลบประวัติการแจ้งเตือนทั้งหมด ${count} รายการเพื่อประหยัดพื้นที่ใช่ไหม?`,
+      async () => {
+        s.clearNotifications();
+        await syncPlannerToFirebase();
+        showAlert('เคลียร์พื้นที่สำเร็จ', 'ล้างประวัติการแจ้งเตือนเรียบร้อยแล้ว');
+      }
+    );
+  };
 
   const ask = async () => {
     if (!supported) return showAlert('แจ้งเตือน', 'เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน');
@@ -497,6 +721,514 @@ export default function SettingsTab() {
           </button>
         </div>
       </div>
+
+      {/* Cloud Storage Meter & Backup / Restore JSON Card (macOS Storage Style) */}
+      <div className="card" style={{ padding: '20px 22px', borderRadius: 18 }}>
+        {(() => {
+          const statusColor =
+            storageStats.status === 'danger'
+              ? '#ff3b30'
+              : storageStats.status === 'warn'
+                ? '#ff9500'
+                : '#34c759';
+          const statusBg =
+            storageStats.status === 'danger'
+              ? 'rgba(255, 59, 48, 0.12)'
+              : storageStats.status === 'warn'
+                ? 'rgba(255, 149, 0, 0.14)'
+                : 'rgba(52, 199, 89, 0.12)';
+          const statusLabel =
+            storageStats.status === 'danger'
+              ? 'ใกล้เต็มเพดาน'
+              : storageStats.status === 'warn'
+                ? 'เริ่มใช้พื้นที่เยอะ'
+                : 'พื้นที่ปกติ';
+
+          const barDenom = Math.max(storageStats.limitBytes, storageStats.totalBytes);
+          const segPct = (bytes: number) => {
+            if (bytes <= 0) return 0;
+            return Math.max(0.8, Math.min(100, (bytes / barDenom) * 100));
+          };
+
+          const segments = [
+            {
+              key: 'tasks',
+              label: 'งาน & เช็กลิสต์',
+              color: '#0071e3',
+              bytes: storageStats.breakdown.tasksBytes,
+              sub: `${storageStats.counts.tasks} งาน`,
+            },
+            {
+              key: 'attachments',
+              label: 'รูปแนบในงาน',
+              color: '#ff9500',
+              bytes: storageStats.breakdown.attachmentsBytes,
+              sub: `${storageStats.counts.attachments} รูป`,
+            },
+            {
+              key: 'canvas',
+              label: 'กระดานไอเดีย',
+              color: '#af52de',
+              bytes: storageStats.breakdown.canvasBytes,
+              sub: `${storageStats.counts.boards} บอร์ด`,
+            },
+            {
+              key: 'other',
+              label: 'วันลา & แจ้งเตือน',
+              color: '#34c759',
+              bytes: storageStats.breakdown.otherBytes,
+              sub: `${storageStats.counts.events} วัน · ${storageStats.counts.notifications} เตือน`,
+            },
+          ];
+
+          return (
+            <>
+              {/* Header */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                  marginBottom: 14,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div className="macos-traffic-lights" aria-hidden="true">
+                    <span className="macos-traffic-dot red" />
+                    <span className="macos-traffic-dot yellow" />
+                    <span className="macos-traffic-dot green" />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--txt)' }}>
+                        พื้นที่จัดเก็บ Cloud & สำรองข้อมูล
+                      </h3>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          padding: '2px 9px',
+                          borderRadius: 999,
+                          background: statusBg,
+                          color: statusColor,
+                          fontSize: 11.5,
+                          fontWeight: 700,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            background: statusColor,
+                          }}
+                        />
+                        {statusLabel}
+                      </span>
+                    </div>
+                    <small style={{ color: 'var(--mut)', fontSize: 12 }}>
+                      คำนวณขนาดข้อมูลจริงก่อนซิงค์เทียบเพดาน 980 KB ของ Firestore (ไม่เสียโควตา Read/Write)
+                    </small>
+                  </div>
+                </div>
+
+                {/* Usage Numeric Summary */}
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--txt)', letterSpacing: '-0.02em' }}>
+                    {formatStorageBytes(storageStats.totalBytes)}{' '}
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--mut)' }}>
+                      / {Math.round(CLOUD_DOC_LIMIT_BYTES / 1000)} KB
+                    </span>
+                  </div>
+                  <small style={{ color: statusColor, fontSize: 11.5, fontWeight: 700 }}>
+                    ใช้งานไป {storageStats.percent.toFixed(1)}%
+                  </small>
+                </div>
+              </div>
+
+              {/* Multi-Segment macOS Storage Bar */}
+              <div
+                className="storage-bar-track"
+                role="progressbar"
+                aria-valuenow={storageStats.percent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="พื้นที่ใช้งาน Cloud Storage"
+              >
+                {segments.map(seg =>
+                  seg.bytes > 0 ? (
+                    <div
+                      key={seg.key}
+                      className="storage-bar-seg"
+                      style={{
+                        width: `${segPct(seg.bytes)}%`,
+                        background: seg.color,
+                      }}
+                      title={`${seg.label}: ${formatStorageBytes(seg.bytes)}`}
+                    />
+                  ) : null
+                )}
+              </div>
+
+              {/* Breakdown Legend */}
+              <div className="storage-legend-grid">
+                {segments.map(seg => (
+                  <div key={seg.key} className="storage-legend-item">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: seg.color,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          color: 'var(--mut)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {seg.label}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt)' }}>
+                      {formatStorageBytes(seg.bytes)}
+                    </div>
+                    <small style={{ fontSize: 11, color: 'var(--mut)' }}>{seg.sub}</small>
+                  </div>
+                ))}
+              </div>
+
+              {/* Warning Banner when >= 70% */}
+              {storageStats.status !== 'ok' && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: '10px 14px',
+                    borderRadius: 12,
+                    background: statusBg,
+                    border: `1px solid ${statusColor}40`,
+                    color: statusColor,
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {storageStats.status === 'danger'
+                    ? 'พื้นที่ใกล้เต็มเพดาน 980 KB แล้ว! หากเกินกำหนดจะไม่สามารถซิงค์ขึ้น Firebase ได้ แนะนำให้กด Backup JSON เก็บไว้ แล้วล้างรูปแนบของงานที่เสร็จแล้วครับ'
+                    : 'เริ่มใช้พื้นที่เกิน 70% แล้ว แนะนำสำรองไฟล์ JSON เก็บไว้ และล้างรูปแนบเก่าเพื่อลดขนาดไฟล์ครับ'}
+                </div>
+              )}
+
+              {/* Backup/Restore & Quick Cleanup Panels */}
+              <div className="storage-actions-grid">
+                {/* Panel 1: Backup & Restore JSON */}
+                <div className="storage-action-panel">
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13.5, fontWeight: 700, color: 'var(--txt)' }}>
+                      <FileTextIcon size={15} color="var(--pri)" />
+                      <span>สำรองและกู้คืนข้อมูล (JSON)</span>
+                    </div>
+                    <small style={{ display: 'block', color: 'var(--mut)', fontSize: 11.5, marginTop: 3, lineHeight: 1.45 }}>
+                      ดาวน์โหลดข้อมูลทั้งหมดเก็บลงเครื่องหรือ Google Drive และนำกลับเข้ามาได้ทุกเมื่อ (ซิงค์ขึ้น Cloud ให้อัตโนมัติ)
+                    </small>
+                    {lastBackupAt && (
+                      <div style={{ fontSize: 11, color: '#34c759', fontWeight: 600, marginTop: 6 }}>
+                        สำรองล่าสุด:{' '}
+                        {new Date(lastBackupAt).toLocaleString('th-TH', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn primary sm"
+                      onClick={handleBackupJson}
+                      style={{ borderRadius: 999 }}
+                    >
+                      <DownloadIcon size={14} />
+                      <span>สำรองข้อมูล (Backup JSON)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn ghost sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{ borderRadius: 999 }}
+                    >
+                      <UploadIcon size={14} />
+                      <span>กู้คืนข้อมูล (Restore JSON)</span>
+                    </button>
+
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".json,application/json"
+                      onChange={handleSelectBackupFile}
+                      style={{ display: 'none' }}
+                      aria-label="เลือกไฟล์สำรองข้อมูล JSON"
+                    />
+                  </div>
+                </div>
+
+                {/* Panel 2: Safe Storage Cleanup */}
+                <div className="storage-action-panel">
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13.5, fontWeight: 700, color: 'var(--txt)' }}>
+                      <ImageIcon size={15} color="#ff9500" />
+                      <span>เคลียร์พื้นที่อย่างปลอดภัย</span>
+                    </div>
+                    <small style={{ display: 'block', color: 'var(--mut)', fontSize: 11.5, marginTop: 3, lineHeight: 1.45 }}>
+                      ลบเฉพาะไฟล์รูปแนบในงานที่ทำเสร็จแล้วหรือแจ้งเตือนเก่า โดยยังคงชื่องาน เช็กลิสต์ และสถิติ Dashboard ไว้ครบ 100%
+                    </small>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className={storageStats.counts.doneTaskAttachments > 0 ? 'btn soft-red sm' : 'btn ghost sm'}
+                      onClick={handleClearDoneAttachments}
+                      disabled={storageStats.counts.doneTaskAttachments === 0}
+                      style={{ borderRadius: 999 }}
+                    >
+                      <TrashIcon size={13} />
+                      <span>
+                        {storageStats.counts.doneTaskAttachments > 0
+                          ? `ล้างรูปงานที่เสร็จ (${storageStats.counts.doneTaskAttachments} รูป · ${formatStorageBytes(storageStats.counts.doneTaskAttachmentBytes)})`
+                          : 'ไม่มีรูปค้างในงานที่เสร็จ'}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn ghost sm"
+                      onClick={handleClearAllNotifications}
+                      disabled={storageStats.counts.notifications === 0}
+                      style={{ borderRadius: 999 }}
+                    >
+                      <BellOffIcon size={13} />
+                      <span>
+                        {storageStats.counts.notifications > 0
+                          ? `ล้างแจ้งเตือน (${storageStats.counts.notifications})`
+                          : 'ไม่มีแจ้งเตือนค้าง'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        })()}
+      </div>
+
+      {/* Restore Backup Preview Modal */}
+      {pendingRestore && previewRestoreResult && (
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            if (!restoring) setPendingRestore(null);
+          }}
+        >
+          <div
+            className="modal-box"
+            style={{ maxWidth: 520, width: '92%' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 10,
+                    background: 'var(--pri-l)',
+                    color: 'var(--pri)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <UploadIcon size={17} />
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <h3 style={{ margin: 0, fontSize: 16 }}>ตรวจสอบข้อมูลก่อนกู้คืน</h3>
+                  <small
+                    style={{
+                      color: 'var(--mut)',
+                      fontSize: 11.5,
+                      display: 'block',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    ไฟล์: {pendingRestore.fileName}
+                    {pendingRestore.parsed.exportedAt
+                      ? ` · สำรองเมื่อ ${new Date(pendingRestore.parsed.exportedAt).toLocaleString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+                      : ''}
+                  </small>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => !restoring && setPendingRestore(null)}
+                aria-label="ปิดหน้าต่าง"
+              >
+                <CloseIcon size={16} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Backup File Summary */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                  gap: 8,
+                  textAlign: 'center',
+                }}
+              >
+                <div className="storage-legend-item" style={{ alignItems: 'center' }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--txt)' }}>
+                    {pendingRestore.parsed.summary.tasks}
+                  </div>
+                  <small style={{ fontSize: 11, color: 'var(--mut)' }}>งานทั้งหมด</small>
+                </div>
+                <div className="storage-legend-item" style={{ alignItems: 'center' }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--pri)' }}>
+                    {pendingRestore.parsed.summary.events}
+                  </div>
+                  <small style={{ fontSize: 11, color: 'var(--mut)' }}>วันหยุด/ลา</small>
+                </div>
+                <div className="storage-legend-item" style={{ alignItems: 'center' }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: '#af52de' }}>
+                    {pendingRestore.parsed.summary.boards}
+                  </div>
+                  <small style={{ fontSize: 11, color: 'var(--mut)' }}>กระดานไอเดีย</small>
+                </div>
+                <div className="storage-legend-item" style={{ alignItems: 'center' }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: '#ff9500' }}>
+                    {pendingRestore.parsed.summary.attachments}
+                  </div>
+                  <small style={{ fontSize: 11, color: 'var(--mut)' }}>รูปแนบ</small>
+                </div>
+              </div>
+
+              {/* Restore Mode Selector */}
+              <div>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--txt)', marginBottom: 8 }}>
+                  เลือกรูปแบบการนำเข้า
+                </div>
+                <div className="backup-mode-grid">
+                  <button
+                    type="button"
+                    className={`backup-mode-card ${restoreMode === 'merge' ? 'active' : ''}`}
+                    onClick={() => setRestoreMode('merge')}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
+                        รวมกับข้อมูลเดิม
+                      </span>
+                      <span className="count-pill info">แนะนำ</span>
+                    </div>
+                    <small style={{ fontSize: 11.5, color: 'var(--mut)', lineHeight: 1.4 }}>
+                      เพิ่มเฉพาะงานและรายการที่ยังไม่มีในระบบ ไม่ลบของเดิมที่มีอยู่
+                    </small>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`backup-mode-card ${restoreMode === 'replace' ? 'active' : ''}`}
+                    onClick={() => setRestoreMode('replace')}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
+                        แทนที่ทั้งหมด
+                      </span>
+                      <span className="count-pill warn">เขียนทับ</span>
+                    </div>
+                    <small style={{ fontSize: 11.5, color: 'var(--mut)', lineHeight: 1.4 }}>
+                      ล้างข้อมูลปัจจุบันทั้งหมด แล้วใช้ข้อมูลตามไฟล์ Backup นี้
+                    </small>
+                  </button>
+                </div>
+              </div>
+
+              {/* Resulting Cloud Size Preview */}
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: 12,
+                  background:
+                    previewRestoreResult.stats.totalBytes > CLOUD_DOC_LIMIT_BYTES
+                      ? 'rgba(255, 59, 48, 0.12)'
+                      : 'rgba(0, 113, 227, 0.07)',
+                  border:
+                    previewRestoreResult.stats.totalBytes > CLOUD_DOC_LIMIT_BYTES
+                      ? '1px solid rgba(255, 59, 48, 0.35)'
+                      : '1px solid rgba(0, 113, 227, 0.2)',
+                  fontSize: 12.5,
+                  color:
+                    previewRestoreResult.stats.totalBytes > CLOUD_DOC_LIMIT_BYTES
+                      ? '#ff3b30'
+                      : 'var(--txt)',
+                  lineHeight: 1.45,
+                }}
+              >
+                ขนาดรวมหลังกู้คืน: <b>{formatStorageBytes(previewRestoreResult.stats.totalBytes)}</b> / 980 KB ({previewRestoreResult.stats.percent.toFixed(1)}%)
+                {previewRestoreResult.stats.totalBytes > CLOUD_DOC_LIMIT_BYTES && (
+                  <div style={{ marginTop: 4, fontWeight: 600 }}>
+                    ขนาดเกินเพดาน 980 KB ของ Firestore — ข้อมูลจะกู้คืนในเครื่องได้ แต่ต้องล้างรูปแนบก่อนจึงจะซิงค์ขึ้น Cloud ได้
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => setPendingRestore(null)}
+                disabled={restoring}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                className={restoreMode === 'replace' ? 'btn red' : 'btn primary'}
+                onClick={handleConfirmRestore}
+                disabled={restoring}
+              >
+                <CheckIcon size={14} />
+                <span>
+                  {restoring
+                    ? 'กำลังกู้คืนและซิงค์...'
+                    : restoreMode === 'replace'
+                      ? 'ยืนยันแทนที่ข้อมูลทั้งหมด'
+                      : 'ยืนยันรวมข้อมูลและซิงค์ Cloud'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <FirebaseConfigModal
         isOpen={isFirebaseModalOpen}

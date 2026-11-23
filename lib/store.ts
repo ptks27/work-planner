@@ -99,6 +99,7 @@ interface PlannerState extends PlannerData {
   deleteTaskLink: (taskId: string, linkId: string) => void;
   addTaskAttachment: (taskId: string, attachment: Omit<TaskAttachment, 'id' | 'createdAt'>) => void;
   deleteTaskAttachment: (taskId: string, attachmentId: string) => void;
+  clearDoneTaskAttachments: () => number;
   notifications: AppNotification[];
   addNotification: (n: Omit<AppNotification, 'id' | 'createdAt' | 'read'>) => void;
   markNotificationRead: (id: string) => void;
@@ -459,6 +460,19 @@ export const usePlanner = create<PlannerState>()(
           };
         }),
       })),
+
+      clearDoneTaskAttachments: () => {
+        let removedCount = 0;
+        set(s => ({
+          tasks: s.tasks.map(t => {
+            if (!t.done || !t.attachments || t.attachments.length === 0) return t;
+            removedCount += t.attachments.length;
+            const { attachments: _removed, ...rest } = t;
+            return rest;
+          }),
+        }));
+        return removedCount;
+      },
 
       addNotification: n => set(s => {
         const newNotif: AppNotification = {
