@@ -7,6 +7,7 @@ import { DEFAULT_FIREBASE_CONFIG } from '@/lib/firebaseDefaultConfig';
 import { AvatarIcon, AVATAR_LIST } from './Avatars';
 import { BoltIcon, SparklesIcon, CheckIcon } from './Icons';
 import FirebaseConfigModal from './FirebaseConfigModal';
+import { Tilt3DCard } from './AppleMotion';
 
 export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) {
   const [isRegister, setIsRegister] = useState(false);
@@ -65,7 +66,12 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
+      <div className="auth-ambient-bg" aria-hidden="true">
+        <span className="auth-ambient-orb orb-1" />
+        <span className="auth-ambient-orb orb-2" />
+        <span className="auth-ambient-orb orb-3" />
+      </div>
+      <Tilt3DCard maxTilt={3.5} glare className="auth-card">
         {/* Header / Brand */}
         <div className="auth-header">
           <div className="auth-logo">
@@ -249,7 +255,7 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
             )}
           </button>
         </form>
-      </div>
+      </Tilt3DCard>
 
       <FirebaseConfigModal
         isOpen={isConfigOpen}

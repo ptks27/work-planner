@@ -33,6 +33,7 @@ import { useModal } from './ModalContext';
 import { canUserEditTaskDirectly } from '@/lib/permissions';
 import { sendTaskEditRequest } from '@/lib/notifications';
 import { playCompletionSound } from '@/lib/audio';
+import { VisionGlowCard, AnimatedNumber } from './AppleMotion';
 import { exportExcel } from '@/lib/export';
 
 const MODE_TITLE: Record<Mode, string> = {
@@ -449,10 +450,14 @@ export default function DashboardTab() {
         </div>
       </div>
 
-      {/* Top Stat Cards (Apple Health / Activity Ring Style) */}
+      {/* Top Stat Cards (Apple Health / VisionOS Specular Glass Style) */}
       <div className="grid g4">
         {/* Card 1: Completion Ring */}
-        <div className="card" style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <VisionGlowCard
+          className="card"
+          glowColor="rgba(52, 199, 89, 0.22)"
+          style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 16 }}
+        >
           <div style={{ width: 64, height: 64, position: 'relative', flexShrink: 0 }}>
             <Doughnut
               data={{
@@ -482,22 +487,22 @@ export default function DashboardTab() {
                 color: allTasks.length ? 'var(--txt)' : 'var(--mut)',
               }}
             >
-              {allTasks.length ? `${completionRate}%` : '0%'}
+              {allTasks.length ? <AnimatedNumber value={completionRate} suffix="%" /> : '0%'}
             </div>
           </div>
           <div>
             <div style={{ fontSize: 12, color: 'var(--mut)', fontWeight: 600 }}>อัตราสำเร็จ</div>
             <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color: completionRate === 100 ? '#34c759' : 'var(--txt)' }}>
-              {allTasks.length ? `${completionRate}%` : '-'}
+              {allTasks.length ? <AnimatedNumber value={completionRate} suffix="%" /> : '-'}
             </div>
             <div style={{ fontSize: 11, color: 'var(--mut)', marginTop: 2 }}>
-              {doneTasks.length} จาก {allTasks.length} งาน
+              <AnimatedNumber value={doneTasks.length} /> จาก <AnimatedNumber value={allTasks.length} /> งาน
             </div>
           </div>
-        </div>
+        </VisionGlowCard>
 
         {/* Card 2: Total Tasks */}
-        <div className="card" style={{ padding: '18px 20px' }}>
+        <VisionGlowCard className="card" glowColor="rgba(0, 113, 227, 0.22)" style={{ padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <span style={{ fontSize: 12, color: 'var(--mut)', fontWeight: 600 }}>งานทั้งหมด</span>
             <span style={{ background: 'var(--pri-l)', color: 'var(--pri)', borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
@@ -505,15 +510,15 @@ export default function DashboardTab() {
             </span>
           </div>
           <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--txt)' }}>
-            {allTasks.length}
+            <AnimatedNumber value={allTasks.length} />
           </div>
           <div style={{ fontSize: 11, color: 'var(--mut)', marginTop: 4 }}>
             ใน{MODE_TITLE[mode]}
           </div>
-        </div>
+        </VisionGlowCard>
 
         {/* Card 3: Completed */}
-        <div className="card" style={{ padding: '18px 20px' }}>
+        <VisionGlowCard className="card" glowColor="rgba(52, 199, 89, 0.24)" style={{ padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <span style={{ fontSize: 12, color: 'var(--mut)', fontWeight: 600 }}>เสร็จสิ้น</span>
             <span style={{ background: 'rgba(52, 199, 89, 0.12)', color: '#34c759', borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
@@ -521,15 +526,15 @@ export default function DashboardTab() {
             </span>
           </div>
           <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', color: '#34c759' }}>
-            {doneTasks.length}
+            <AnimatedNumber value={doneTasks.length} />
           </div>
           <div style={{ fontSize: 11, color: 'var(--mut)', marginTop: 4 }}>
             {doneTasks.length === allTasks.length && allTasks.length > 0 ? 'ครบ 100% ยอดเยี่ยม 🎉' : 'งานที่ทำเรียบร้อย'}
           </div>
-        </div>
+        </VisionGlowCard>
 
         {/* Card 4: Pending */}
-        <div className="card" style={{ padding: '18px 20px' }}>
+        <VisionGlowCard className="card" glowColor="rgba(255, 59, 48, 0.2)" style={{ padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <span style={{ fontSize: 12, color: 'var(--mut)', fontWeight: 600 }}>ยังค้างอยู่</span>
             <span style={{ background: 'rgba(255, 59, 48, 0.12)', color: '#ff3b30', borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
@@ -537,18 +542,18 @@ export default function DashboardTab() {
             </span>
           </div>
           <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', color: pendingTasks.length > 0 ? '#ff3b30' : 'var(--txt)' }}>
-            {pendingTasks.length}
+            <AnimatedNumber value={pendingTasks.length} />
           </div>
           <div style={{ fontSize: 11, color: 'var(--mut)', marginTop: 4 }}>
             {pendingTasks.length === 0 ? 'ไม่มีงานค้างเลย 👏' : 'งานที่ยังต้องทำให้เสร็จ'}
           </div>
-        </div>
+        </VisionGlowCard>
       </div>
 
       {/* Main Charts Row: Daily Velocity + Tag Distribution */}
       <div className="grid dashboard-charts-grid">
         {/* Chart 1: Daily Velocity (Apple Emerald & Sky Blue Stacked Bar) */}
-        <div className="card">
+        <VisionGlowCard className="card" glowColor="rgba(0, 113, 227, 0.16)">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 700 }}>
               <ChartBarIcon size={16} color="var(--pri)" />
@@ -620,10 +625,10 @@ export default function DashboardTab() {
               />
             )}
           </div>
-        </div>
+        </VisionGlowCard>
 
         {/* Chart 2: Tag Distribution (Apple Pastel Doughnut) */}
-        <div className="card">
+        <VisionGlowCard className="card" glowColor="rgba(175, 82, 222, 0.16)">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 700 }}>
               <TagIcon size={16} color="var(--pri)" />
@@ -700,7 +705,7 @@ export default function DashboardTab() {
               </div>
             </div>
           )}
-        </div>
+        </VisionGlowCard>
       </div>
 
       {/* Secondary Row: Priority Breakdown + Team Member Workload */}

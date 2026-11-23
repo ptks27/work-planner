@@ -7,6 +7,7 @@ import { DEFAULT_FIREBASE_CONFIG } from '@/lib/firebaseDefaultConfig';
 import { AvatarIcon } from './Avatars';
 import { BuildingIcon, LogOutIcon, SparklesIcon, LinkIcon, CheckIcon, CloudIcon } from './Icons';
 import FirebaseConfigModal from './FirebaseConfigModal';
+import { Tilt3DCard } from './AppleMotion';
 
 export default function TeamSelectScreen() {
   const { currentUser, userTeams, switchTeam, createTeam, joinTeam, logout, fetchUserTeams } = useAuth();
@@ -66,7 +67,12 @@ export default function TeamSelectScreen() {
 
   return (
     <div className="auth-container">
-      <div className="auth-card team-setup-card">
+      <div className="auth-ambient-bg" aria-hidden="true">
+        <span className="auth-ambient-orb orb-1" />
+        <span className="auth-ambient-orb orb-2" />
+        <span className="auth-ambient-orb orb-3" />
+      </div>
+      <Tilt3DCard maxTilt={3.5} glare className="auth-card team-setup-card">
         {/* Top User Bar */}
         <div className="team-user-header">
           <div className="team-user-info">
@@ -289,7 +295,7 @@ export default function TeamSelectScreen() {
           <SparklesIcon size={15} color="var(--pri)" />
           <span><b>หมายเหตุ:</b> คุณสามารถดูรหัสทีม หรือกดออกจากทีมได้ตลอดเวลาที่เมนูด้านบนของระบบ</span>
         </div>
-      </div>
+      </Tilt3DCard>
 
       <FirebaseConfigModal
         isOpen={isConfigOpen}

@@ -7,6 +7,7 @@ import { useToday } from '@/lib/hooks';
 import { computeActivityStats, type Badge } from '@/lib/achievements';
 import { triggerConfetti, playCompletionSound } from '@/lib/audio';
 import { SparklesIcon, CheckIcon, FireIcon } from './Icons';
+import { Tilt3DCard } from './AppleMotion';
 
 interface AchievementsModalProps {
   isOpen: boolean;
@@ -327,43 +328,41 @@ export default function AchievementsModal({
               }}
             >
               {stats.badges.map(b => (
-                <div
+                <Tilt3DCard
                   key={b.id}
+                  maxTilt={12}
+                  glare={b.unlocked}
+                  holographic={b.unlocked}
+                  disabled={!b.unlocked}
                   onClick={() => handleBadgeClick(b)}
                   style={{
                     borderRadius: 16,
                     padding: '14px',
                     background: b.unlocked
-                      ? `linear-gradient(135deg, ${b.color}12, var(--card-solid))`
+                      ? `linear-gradient(135deg, ${b.color}16, var(--card-solid))`
                       : 'rgba(120, 120, 128, 0.06)',
                     border: b.unlocked ? `1.5px solid ${b.color}` : '1px solid var(--line)',
-                    boxShadow: b.unlocked ? `0 4px 16px ${b.color}25` : 'none',
+                    boxShadow: b.unlocked ? `0 8px 22px ${b.color}28` : 'none',
                     opacity: b.unlocked ? 1 : 0.65,
                     cursor: b.unlocked ? 'pointer' : 'default',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     textAlign: 'center',
-                    position: 'relative',
                     overflow: 'hidden',
-                    transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
                   }}
-                  onMouseEnter={e => {
-                    if (b.unlocked) e.currentTarget.style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={e => {
-                    if (b.unlocked) e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                  title={b.unlocked ? 'คลิกเพื่อฉลองความสำเร็จ 🎉' : b.description}
+                  title={b.unlocked ? 'เลื่อนเมาส์เอียงเหรียญ 3 มิติ · คลิกเพื่อฉลองความสำเร็จ 🎉' : b.description}
                 >
                   {/* Badge Icon Medallion */}
                   <div
+                    className={b.unlocked ? 'tilt3d-pop' : undefined}
                     style={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 14,
-                      background: b.unlocked ? `${b.color}15` : 'rgba(120, 120, 128, 0.1)',
-                      border: b.unlocked ? `1px solid ${b.color}40` : '1px solid transparent',
+                      width: 48,
+                      height: 48,
+                      borderRadius: 15,
+                      background: b.unlocked ? `${b.color}18` : 'rgba(120, 120, 128, 0.1)',
+                      border: b.unlocked ? `1px solid ${b.color}45` : '1px solid transparent',
+                      boxShadow: b.unlocked ? `0 6px 14px ${b.color}26` : 'none',
                       display: 'grid',
                       placeItems: 'center',
                       fontSize: 24,
@@ -413,7 +412,7 @@ export default function AchievementsModal({
                       </div>
                     )}
                   </div>
-                </div>
+                </Tilt3DCard>
               ))}
             </div>
           </div>

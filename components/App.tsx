@@ -573,12 +573,14 @@ export default function App() {
 
         <main>
           <ErrorBoundary onReset={() => setTab('tasks')}>
-            {tab === 'tasks' && <TasksTab />}
-            {tab === 'timeline' && <TimelineTab />}
-            {tab === 'canvas' && <CanvasTab />}
-            {tab === 'events' && <EventsTab />}
-            {tab === 'dash' && <DashboardTab />}
-            {tab === 'settings' && <SettingsTab />}
+            <div key={tab} className="tab-view-enter">
+              {tab === 'tasks' && <TasksTab />}
+              {tab === 'timeline' && <TimelineTab />}
+              {tab === 'canvas' && <CanvasTab />}
+              {tab === 'events' && <EventsTab />}
+              {tab === 'dash' && <DashboardTab />}
+              {tab === 'settings' && <SettingsTab />}
+            </div>
           </ErrorBoundary>
         </main>
       </div>
