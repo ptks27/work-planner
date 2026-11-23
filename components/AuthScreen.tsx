@@ -36,7 +36,7 @@ interface PreviewTask {
 }
 
 const INITIAL_PREVIEW_TASKS: PreviewTask[] = [
-  { id: 'p1', title: 'สรุปแผนงานประจำสัปดาห์', tag: 'วางแผน', color: '#0071e3', done: true },
+  { id: 'p1', title: 'สรุปแผนงานประจำสัปดาห์', tag: 'วางแผน', color: '#7c3aed', done: true },
   { id: 'p2', title: 'อัปเดตหน้า Dashboard & KPI', tag: 'Design', color: '#af52de', done: true },
   { id: 'p3', title: 'ตรวจเช็กเดดไลน์งานสำคัญวันนี้', tag: 'ด่วน', color: '#ff9500', done: false },
 ];
@@ -51,7 +51,7 @@ function evaluatePasswordStrength(pw: string): { score: number; label: string; c
 
   if (score <= 1) return { score: 1, label: 'รหัสผ่านอ่อน', color: '#ff3b30' };
   if (score === 2) return { score: 2, label: 'พอใช้ได้', color: '#ff9500' };
-  if (score === 3) return { score: 3, label: 'ปลอดภัยดี', color: '#0071e3' };
+  if (score === 3) return { score: 3, label: 'ปลอดภัยดี', color: '#7c3aed' };
   return { score: 4, label: 'แข็งแรงมาก', color: '#34c759' };
 }
 
@@ -208,7 +208,7 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
                 Work Planner
               </div>
               <div style={{ fontSize: 12, color: 'var(--mut)', fontWeight: 500 }}>
-                Apple-style Workspace · Real-time Sync
+                Moonlit Studio · Real-time Sync
               </div>
             </div>
           </div>
@@ -257,8 +257,8 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
                     gap: 16,
                     padding: '14px 16px',
                     borderRadius: 16,
-                    background: 'rgba(0, 113, 227, 0.06)',
-                    border: '1px solid rgba(0, 113, 227, 0.16)',
+                    background: 'rgba(109, 40, 217, 0.06)',
+                    border: '1px solid rgba(109, 40, 217, 0.16)',
                   }}
                 >
                   <div
@@ -266,7 +266,7 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
                       padding: 4,
                       borderRadius: '50%',
                       background: 'var(--card-solid)',
-                      boxShadow: '0 8px 20px rgba(0, 113, 227, 0.22)',
+                      boxShadow: '0 8px 20px rgba(109, 40, 217, 0.22)',
                       flexShrink: 0,
                     }}
                   >
@@ -347,7 +347,7 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
                       background:
                         previewPct === 100
                           ? 'linear-gradient(90deg, #34c759, #30d158)'
-                          : 'linear-gradient(90deg, #0071e3, #5856d6)',
+                          : 'linear-gradient(90deg, #6d28d9, #a855f7)',
                       transition: 'width 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
                     }}
                   />
@@ -400,7 +400,7 @@ export default function AuthScreen({ onLoggedIn }: { onLoggedIn?: () => void }) 
           {/* 3 Feature Highlight Pills */}
           <div className="auth-feature-grid">
             <div className="auth-feature-pill">
-              <span className="auth-feature-icon" style={{ background: 'rgba(0, 113, 227, 0.12)', color: 'var(--pri)' }}>
+              <span className="auth-feature-icon" style={{ background: 'rgba(109, 40, 217, 0.12)', color: 'var(--pri)' }}>
                 <CalendarIcon size={15} />
               </span>
               <div style={{ minWidth: 0 }}>

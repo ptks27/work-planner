@@ -599,7 +599,7 @@ export default function TaskItem({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 4,
-                background: 'rgba(0, 113, 227, 0.08)',
+                background: 'rgba(109, 40, 217, 0.08)',
                 color: 'var(--pri)',
                 padding: '2px 8px',
                 borderRadius: 999,

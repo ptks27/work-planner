@@ -189,8 +189,8 @@ export default function MorningBriefingModal({
               style={{
                 borderRadius: 14,
                 padding: '14px 16px',
-                background: myPendingTasks.length > 0 ? 'rgba(0, 113, 227, 0.06)' : 'rgba(52, 199, 89, 0.06)',
-                border: myPendingTasks.length > 0 ? '1px solid rgba(0, 113, 227, 0.18)' : '1px solid rgba(52, 199, 89, 0.2)',
+                background: myPendingTasks.length > 0 ? 'rgba(109, 40, 217, 0.06)' : 'rgba(52, 199, 89, 0.06)',
+                border: myPendingTasks.length > 0 ? '1px solid rgba(109, 40, 217, 0.18)' : '1px solid rgba(52, 199, 89, 0.2)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -408,8 +408,8 @@ export default function MorningBriefingModal({
             style={{
               borderRadius: 14,
               padding: '12px 16px',
-              background: 'linear-gradient(135deg, rgba(0, 113, 227, 0.05), rgba(175, 82, 222, 0.05))',
-              border: '1px solid rgba(0, 113, 227, 0.15)',
+              background: 'linear-gradient(135deg, rgba(109, 40, 217, 0.05), rgba(175, 82, 222, 0.05))',
+              border: '1px solid rgba(109, 40, 217, 0.15)',
               display: 'flex',
               alignItems: 'center',
               gap: 10,

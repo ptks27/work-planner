@@ -77,7 +77,7 @@ export default function MemberScorecardModal({
 
   const GRADE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
     'A+': { bg: 'rgba(52, 199, 89, 0.15)', text: '#34c759', border: 'rgba(52, 199, 89, 0.4)' },
-    A: { bg: 'rgba(0, 113, 227, 0.15)', text: '#0071e3', border: 'rgba(0, 113, 227, 0.4)' },
+    A: { bg: 'rgba(124, 58, 237, 0.15)', text: '#7c3aed', border: 'rgba(124, 58, 237, 0.4)' },
     'B+': { bg: 'rgba(175, 82, 222, 0.15)', text: '#af52de', border: 'rgba(175, 82, 222, 0.4)' },
     B: { bg: 'rgba(255, 149, 0, 0.15)', text: '#ff9500', border: 'rgba(255, 149, 0, 0.4)' },
     C: { bg: 'rgba(255, 59, 48, 0.15)', text: '#ff3b30', border: 'rgba(255, 59, 48, 0.4)' },
@@ -183,7 +183,7 @@ export default function MemberScorecardModal({
             style={{
               padding: '20px',
               borderRadius: 18,
-              background: 'linear-gradient(135deg, rgba(120, 120, 128, 0.08), rgba(0, 113, 227, 0.05))',
+              background: 'linear-gradient(135deg, rgba(120, 120, 128, 0.08), rgba(124, 58, 237, 0.05))',
               border: '1px solid var(--line)',
               display: 'flex',
               alignItems: 'center',
@@ -358,8 +358,8 @@ export default function MemberScorecardModal({
             style={{
               padding: '14px 16px',
               borderRadius: 14,
-              background: 'rgba(0, 113, 227, 0.04)',
-              border: '1px solid rgba(0, 113, 227, 0.15)',
+              background: 'rgba(124, 58, 237, 0.04)',
+              border: '1px solid rgba(124, 58, 237, 0.15)',
             }}
           >
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--pri)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>

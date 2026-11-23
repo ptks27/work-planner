@@ -302,7 +302,7 @@ export interface TagConfig {
 }
 
 export const PRESET_TAGS: TagConfig[] = [
-  { name: 'Frontend', color: '#0071e3', bg: 'rgba(0, 113, 227, 0.1)', border: 'rgba(0, 113, 227, 0.25)' },
+  { name: 'Frontend', color: '#7c3aed', bg: 'rgba(124, 58, 237, 0.1)', border: 'rgba(124, 58, 237, 0.25)' },
   { name: 'Backend', color: '#6366f1', bg: 'rgba(99, 102, 241, 0.1)', border: 'rgba(99, 102, 241, 0.25)' },
   { name: 'Design', color: '#af52de', bg: 'rgba(175, 82, 222, 0.1)', border: 'rgba(175, 82, 222, 0.25)' },
   { name: 'Meeting', color: '#b25000', bg: 'rgba(255, 149, 0, 0.12)', border: 'rgba(255, 149, 0, 0.25)' },

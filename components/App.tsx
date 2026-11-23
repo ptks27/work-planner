@@ -456,7 +456,7 @@ export default function App() {
                       setIsQuickMenuOpen(false);
                     }}
                   >
-                    <span className="quick-menu-icon" style={{ background: 'rgba(0, 113, 227, 0.12)', color: 'var(--pri)' }}>
+                    <span className="quick-menu-icon" style={{ background: 'rgba(109, 40, 217, 0.12)', color: 'var(--pri)' }}>
                       <ChartBarIcon size={15} />
                     </span>
                     <div style={{ flex: 1 }}>

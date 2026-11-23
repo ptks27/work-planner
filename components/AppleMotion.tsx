@@ -102,7 +102,7 @@ interface VisionGlowCardProps extends React.HTMLAttributes<HTMLDivElement> {
  * VisionOS-inspired glass surface with subtle cursor-tracking specular edge glow.
  */
 export function VisionGlowCard({
-  glowColor = 'rgba(0, 113, 227, 0.24)',
+  glowColor = 'rgba(124, 58, 237, 0.24)',
   className = '',
   style,
   children,

@@ -115,7 +115,7 @@ export default function TimelineTab() {
     const leftPct = (Math.max(0, leftIndex) / daysCount) * 100;
     const widthPct = (span / daysCount) * 100;
 
-    let bg = 'linear-gradient(135deg, #0284c7, #0071e3)';
+    let bg = 'linear-gradient(135deg, #7c3aed, #6d28d9)';
     if (t.done || t.status === 'done') {
       bg = 'linear-gradient(135deg, #10b981, #059669)';
     } else if (t.priority === 'high') {
@@ -151,7 +151,7 @@ export default function TimelineTab() {
               width: 40,
               height: 40,
               borderRadius: 12,
-              background: 'linear-gradient(135deg, rgba(0, 113, 227, 0.15), rgba(175, 82, 222, 0.15))',
+              background: 'linear-gradient(135deg, rgba(109, 40, 217, 0.15), rgba(175, 82, 222, 0.15))',
               color: 'var(--pri)',
               display: 'flex',
               alignItems: 'center',
@@ -268,7 +268,7 @@ export default function TimelineTab() {
               userSelect: 'none',
               padding: '6px 14px',
               borderRadius: 999,
-              background: hideDone ? 'rgba(0, 113, 227, 0.1)' : 'var(--card-solid)',
+              background: hideDone ? 'rgba(109, 40, 217, 0.1)' : 'var(--card-solid)',
               border: `1px solid ${hideDone ? 'var(--pri)' : 'var(--line)'}`,
               transition: 'all 0.15s ease',
             }}
@@ -357,7 +357,7 @@ export default function TimelineTab() {
                       fontSize: 11,
                       borderRight: '1px solid var(--line)',
                       background: isToday
-                        ? 'rgba(0, 113, 227, 0.1)'
+                        ? 'rgba(109, 40, 217, 0.1)'
                         : isWeekend
                         ? 'rgba(120, 120, 128, 0.03)'
                         : 'transparent',
@@ -486,7 +486,7 @@ export default function TimelineTab() {
                           key={dStr}
                           style={{
                             borderRight: '1px solid rgba(120, 120, 128, 0.08)',
-                            background: dStr === today ? 'rgba(0, 113, 227, 0.04)' : 'transparent',
+                            background: dStr === today ? 'rgba(109, 40, 217, 0.04)' : 'transparent',
                           }}
                         />
                       ))}

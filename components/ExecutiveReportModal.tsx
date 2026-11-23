@@ -237,7 +237,7 @@ export default function ExecutiveReportModal({
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'flex-start',
-              borderBottom: '2px solid #0071e3',
+              borderBottom: '2px solid #6d28d9',
               paddingBottom: 16,
               marginBottom: 24,
             }}
@@ -246,7 +246,7 @@ export default function ExecutiveReportModal({
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                 <span
                   style={{
-                    background: 'linear-gradient(135deg, #0071e3, #60a5fa)',
+                    background: 'linear-gradient(135deg, #6d28d9, #a855f7)',
                     color: '#fff',
                     padding: '4px 10px',
                     borderRadius: 8,
@@ -299,10 +299,10 @@ export default function ExecutiveReportModal({
             </div>
 
             <div style={{ border: '1px solid #bfdbfe', borderRadius: 12, padding: '12px 14px', background: '#eff6ff' }}>
-              <span style={{ fontSize: 11, color: '#0071e3', fontWeight: 600, display: 'block', marginBottom: 4 }}>
+              <span style={{ fontSize: 11, color: '#6d28d9', fontWeight: 600, display: 'block', marginBottom: 4 }}>
                 อัตราความสำเร็จ
               </span>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#0071e3' }}>{completionRate}%</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#6d28d9' }}>{completionRate}%</div>
             </div>
 
             <div style={{ border: '1px solid #fee2e2', borderRadius: 12, padding: '12px 14px', background: '#fff5f5' }}>
@@ -357,7 +357,7 @@ export default function ExecutiveReportModal({
                 {memberStats.map(m => (
                   <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11.5 }}>
                     <span style={{ fontWeight: 600, color: '#1d1d1f' }}>{m.name}</span>
-                    <span style={{ color: m.pct === 100 ? '#059669' : '#0071e3', fontWeight: 600 }}>
+                    <span style={{ color: m.pct === 100 ? '#059669' : '#6d28d9', fontWeight: 600 }}>
                       {m.done}/{m.total} งาน ({m.pct}%)
                     </span>
                   </div>
@@ -414,7 +414,7 @@ export default function ExecutiveReportModal({
 
           {/* Section 4: Pending / Ongoing Work Table */}
           <div style={{ marginBottom: 30 }}>
-            <h3 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: '#0071e3', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <h3 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: '#6d28d9', display: 'flex', alignItems: 'center', gap: 6 }}>
               <span>⏳</span>
               <span>2. รายการงานที่อยู่ระหว่างดำเนินการ / แผนงานถัดไป (Pending Tasks - {pendingTasks.length} งาน)</span>
             </h3>
@@ -438,7 +438,7 @@ export default function ExecutiveReportModal({
                       <td style={{ padding: '6px 8px', color: '#86868b' }}>{idx + 1}</td>
                       <td style={{ padding: '6px 8px' }}>
                         <b style={{ color: '#1d1d1f' }}>{t.title}</b>
-                        {t.time && <span style={{ marginLeft: 6, color: '#0071e3' }}>⏰ {t.time}</span>}
+                        {t.time && <span style={{ marginLeft: 6, color: '#6d28d9' }}>⏰ {t.time}</span>}
                         {t.detail && <span style={{ color: '#6e6e73', marginLeft: 6 }}>– {t.detail}</span>}
                       </td>
                       <td style={{ padding: '6px 8px' }}>

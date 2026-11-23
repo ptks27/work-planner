@@ -69,7 +69,7 @@ export default function NotificationCenter({ onOpenTask }: NotificationCenterPro
 
   const getNotificationIcon = (type: AppNotification['type']) => {
     const badgeConfig: Record<AppNotification['type'], { bg: string; icon: React.ReactNode }> = {
-      mention: { bg: '#0071e3', icon: <MessageSquareIcon size={9} color="#ffffff" /> },
+      mention: { bg: '#7c3aed', icon: <MessageSquareIcon size={9} color="#ffffff" /> },
       assigned: { bg: '#34c759', icon: <UserIcon size={9} color="#ffffff" /> },
       status_change: { bg: '#ff9500', icon: <BoltIcon size={9} color="#ffffff" /> },
       edit_request: { bg: '#af52de', icon: <EditIcon size={9} color="#ffffff" /> },
@@ -112,7 +112,7 @@ export default function NotificationCenter({ onOpenTask }: NotificationCenterPro
         aria-label="การแจ้งเตือน"
         style={{
           position: 'relative',
-          background: isOpen ? 'rgba(0, 113, 227, 0.12)' : undefined,
+          background: isOpen ? 'rgba(109, 40, 217, 0.12)' : undefined,
           color: isOpen ? 'var(--pri)' : undefined,
         }}
       >
@@ -278,8 +278,8 @@ export default function NotificationCenter({ onOpenTask }: NotificationCenterPro
                     padding: '10px 12px',
                     borderRadius: 12,
                     cursor: 'pointer',
-                    background: item.read ? 'transparent' : 'rgba(0, 113, 227, 0.05)',
-                    border: item.read ? '1px solid transparent' : '1px solid rgba(0, 113, 227, 0.15)',
+                    background: item.read ? 'transparent' : 'rgba(109, 40, 217, 0.05)',
+                    border: item.read ? '1px solid transparent' : '1px solid rgba(109, 40, 217, 0.15)',
                     marginBottom: 4,
                     transition: 'all 0.15s ease',
                   }}
@@ -287,7 +287,7 @@ export default function NotificationCenter({ onOpenTask }: NotificationCenterPro
                   onMouseLeave={e =>
                     (e.currentTarget.style.background = item.read
                       ? 'transparent'
-                      : 'rgba(0, 113, 227, 0.05)')
+                      : 'rgba(109, 40, 217, 0.05)')
                   }
                 >
                   {/* Actor Avatar with Type Badge */}
@@ -356,8 +356,8 @@ export default function NotificationCenter({ onOpenTask }: NotificationCenterPro
                               fontWeight: 600,
                               padding: '1px 6px',
                               borderRadius: 4,
-                              background: 'rgba(0, 113, 227, 0.08)',
-                              border: '1px solid rgba(0, 113, 227, 0.2)',
+                              background: 'rgba(109, 40, 217, 0.08)',
+                              border: '1px solid rgba(109, 40, 217, 0.2)',
                               color: 'var(--pri)',
                             }}
                           >
@@ -483,7 +483,7 @@ export default function NotificationCenter({ onOpenTask }: NotificationCenterPro
                         width: 7,
                         height: 7,
                         borderRadius: '50%',
-                        background: '#0071e3',
+                        background: '#7c3aed',
                         marginTop: 6,
                         flexShrink: 0,
                       }}

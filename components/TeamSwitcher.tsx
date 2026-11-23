@@ -206,7 +206,7 @@ export default function TeamSwitcher({ onOpenMembers }: TeamSwitcherProps = {}) 
                 margin: '2px 4px 8px',
                 padding: '8px 10px',
                 background: 'var(--pri-l)',
-                border: '1px solid rgba(0, 113, 227, 0.2)',
+                border: '1px solid rgba(109, 40, 217, 0.2)',
                 borderRadius: 10,
                 display: 'flex',
                 alignItems: 'center',

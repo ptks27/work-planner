@@ -445,7 +445,7 @@ export default function SettingsTab() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
               <div>
                 <b style={{ fontSize: 13, display: 'block', color: 'var(--txt)' }}>ธีมการแสดงผล</b>
-                <small style={{ color: 'var(--mut)', fontSize: 11 }}>เลือกโหมดสีสไตล์ Apple macOS</small>
+                <small style={{ color: 'var(--mut)', fontSize: 11 }}>เลือกโหมดสี ขาว-ม่วง (สว่าง) หรือ ดำ-ม่วง (มืด)</small>
               </div>
 
               {/* Cupertino Theme Pill Switcher */}
@@ -546,8 +546,8 @@ export default function SettingsTab() {
             style={{
               padding: '14px',
               borderRadius: 14,
-              background: 'rgba(0, 113, 227, 0.05)',
-              border: '1px solid rgba(0, 113, 227, 0.18)',
+              background: 'rgba(109, 40, 217, 0.05)',
+              border: '1px solid rgba(109, 40, 217, 0.18)',
               marginBottom: 14,
             }}
           >
@@ -754,7 +754,7 @@ export default function SettingsTab() {
             {
               key: 'tasks',
               label: 'งาน & เช็กลิสต์',
-              color: '#0071e3',
+              color: '#7c3aed',
               bytes: storageStats.breakdown.tasksBytes,
               sub: `${storageStats.counts.tasks} งาน`,
             },
@@ -1179,11 +1179,11 @@ export default function SettingsTab() {
                   background:
                     previewRestoreResult.stats.totalBytes > CLOUD_DOC_LIMIT_BYTES
                       ? 'rgba(255, 59, 48, 0.12)'
-                      : 'rgba(0, 113, 227, 0.07)',
+                      : 'rgba(109, 40, 217, 0.07)',
                   border:
                     previewRestoreResult.stats.totalBytes > CLOUD_DOC_LIMIT_BYTES
                       ? '1px solid rgba(255, 59, 48, 0.35)'
-                      : '1px solid rgba(0, 113, 227, 0.2)',
+                      : '1px solid rgba(109, 40, 217, 0.2)',
                   fontSize: 12.5,
                   color:
                     previewRestoreResult.stats.totalBytes > CLOUD_DOC_LIMIT_BYTES

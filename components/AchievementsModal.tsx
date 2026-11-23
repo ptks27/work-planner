@@ -142,7 +142,7 @@ export default function AchievementsModal({
               alignItems: 'center',
               padding: '18px 20px',
               borderRadius: 18,
-              background: 'linear-gradient(135deg, rgba(255, 45, 85, 0.05), rgba(52, 199, 89, 0.05), rgba(0, 113, 227, 0.05))',
+              background: 'linear-gradient(135deg, rgba(255, 45, 85, 0.05), rgba(52, 199, 89, 0.05), rgba(124, 58, 237, 0.05))',
               border: '1px solid var(--line)',
             }}
           >
@@ -198,7 +198,7 @@ export default function AchievementsModal({
                   cx={size / 2}
                   cy={size / 2}
                   r={r3}
-                  stroke="rgba(0, 113, 227, 0.18)"
+                  stroke="rgba(124, 58, 237, 0.18)"
                   strokeWidth={strokeWidth}
                   fill="transparent"
                 />
@@ -206,7 +206,7 @@ export default function AchievementsModal({
                   cx={size / 2}
                   cy={size / 2}
                   r={r3}
-                  stroke="#0071e3"
+                  stroke="#7c3aed"
                   strokeWidth={strokeWidth}
                   strokeDasharray={circ3}
                   strokeDashoffset={offset3}

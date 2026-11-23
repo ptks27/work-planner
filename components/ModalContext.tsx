@@ -123,7 +123,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
                   borderRadius: 14,
                   background: state.danger
                     ? 'rgba(255, 59, 48, 0.12)'
-                    : 'rgba(0, 113, 227, 0.12)',
+                    : 'rgba(109, 40, 217, 0.12)',
                   color: state.danger ? '#ff3b30' : 'var(--pri)',
                   display: 'flex',
                   alignItems: 'center',
@@ -202,7 +202,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
                       cursor: 'pointer',
                       boxShadow: state.danger
                         ? '0 2px 8px rgba(220, 38, 38, 0.35)'
-                        : '0 2px 8px rgba(0, 113, 227, 0.35)',
+                        : '0 2px 8px rgba(109, 40, 217, 0.35)',
                       transition: 'transform 0.1s ease',
                     }}
                     onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.98)')}

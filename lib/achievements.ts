@@ -182,7 +182,7 @@ export function computeActivityStats(
       progressText: hasSpeedRunner ? 'ปลดล็อกแล้ว' : `${Math.min(3, Math.max(...Array.from(dateCounts.values()), 0))}/3 งานในวันเดียว`,
       progressPct: hasSpeedRunner ? 100 : Math.min(100, Math.round((Math.max(...Array.from(dateCounts.values()), 0) / 3) * 100)),
       tier: 'silver',
-      color: '#0071e3',
+      color: '#7c3aed',
     },
     {
       id: 'task_master',

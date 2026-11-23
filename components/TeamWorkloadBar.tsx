@@ -133,7 +133,7 @@ export default function TeamWorkloadBar({
               width: 36,
               height: 36,
               borderRadius: 10,
-              background: 'rgba(0, 113, 227, 0.12)',
+              background: 'rgba(109, 40, 217, 0.12)',
               color: 'var(--pri)',
               display: 'flex',
               alignItems: 'center',

@@ -43,7 +43,7 @@ const MODE_TITLE: Record<Mode, string> = {
 };
 
 const APPLE_TAG_COLORS = [
-  '#0071e3', // Apple Blue
+  '#7c3aed', // Apple Blue
   '#af52de', // Apple Purple
   '#ff9500', // Apple Orange
   '#34c759', // Apple Green
@@ -434,11 +434,11 @@ export default function DashboardTab() {
                 borderRadius: 999,
                 fontSize: 12,
                 fontWeight: 600,
-                background: 'linear-gradient(135deg, #0071e3, #60a5fa)',
+                background: 'linear-gradient(135deg, #6d28d9, #a855f7)',
                 color: '#ffffff',
                 border: 'none',
                 cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0, 113, 227, 0.28)',
+                boxShadow: '0 2px 8px rgba(124, 58, 237, 0.28)',
                 transition: 'transform 0.15s ease',
               }}
               title="สร้างเอกสารสรุปผลงาน"
@@ -502,7 +502,7 @@ export default function DashboardTab() {
         </VisionGlowCard>
 
         {/* Card 2: Total Tasks */}
-        <VisionGlowCard className="card" glowColor="rgba(0, 113, 227, 0.22)" style={{ padding: '18px 20px' }}>
+        <VisionGlowCard className="card" glowColor="rgba(124, 58, 237, 0.22)" style={{ padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <span style={{ fontSize: 12, color: 'var(--mut)', fontWeight: 600 }}>งานทั้งหมด</span>
             <span style={{ background: 'var(--pri-l)', color: 'var(--pri)', borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
@@ -553,7 +553,7 @@ export default function DashboardTab() {
       {/* Main Charts Row: Daily Velocity + Tag Distribution */}
       <div className="grid dashboard-charts-grid">
         {/* Chart 1: Daily Velocity (Apple Emerald & Sky Blue Stacked Bar) */}
-        <VisionGlowCard className="card" glowColor="rgba(0, 113, 227, 0.16)">
+        <VisionGlowCard className="card" glowColor="rgba(124, 58, 237, 0.16)">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 700 }}>
               <ChartBarIcon size={16} color="var(--pri)" />
@@ -564,7 +564,7 @@ export default function DashboardTab() {
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: '#34c759' }} /> เสร็จแล้ว
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: '#0071e3' }} /> ยังค้าง
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: '#7c3aed' }} /> ยังค้าง
               </span>
             </div>
           </div>
@@ -589,8 +589,8 @@ export default function DashboardTab() {
                     {
                       label: 'ยังค้าง',
                       data: dailyPendingData,
-                      backgroundColor: 'rgba(0, 113, 227, 0.65)',
-                      hoverBackgroundColor: '#0071e3',
+                      backgroundColor: 'rgba(124, 58, 237, 0.65)',
+                      hoverBackgroundColor: '#7c3aed',
                       borderRadius: 6,
                     },
                   ],
@@ -1366,7 +1366,7 @@ export default function DashboardTab() {
                             cursor: 'pointer',
                             display: 'grid',
                             placeItems: 'center',
-                            boxShadow: p === validCurrentPage ? '0 2px 8px rgba(0, 113, 227, 0.3)' : 'none',
+                            boxShadow: p === validCurrentPage ? '0 2px 8px rgba(124, 58, 237, 0.3)' : 'none',
                             transition: 'all 0.15s ease',
                           }}
                         >

@@ -103,7 +103,7 @@ export default function SmartSubtasksModal({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            background: 'linear-gradient(135deg, rgba(0, 113, 227, 0.04), rgba(175, 82, 222, 0.04))',
+            background: 'linear-gradient(135deg, rgba(109, 40, 217, 0.04), rgba(175, 82, 222, 0.04))',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -112,7 +112,7 @@ export default function SmartSubtasksModal({
                 width: 36,
                 height: 36,
                 borderRadius: 10,
-                background: 'linear-gradient(135deg, #0071e3, #af52de)',
+                background: 'linear-gradient(135deg, #6d28d9, #af52de)',
                 color: '#ffffff',
                 display: 'flex',
                 alignItems: 'center',
@@ -214,9 +214,9 @@ export default function SmartSubtasksModal({
                       gap: 10,
                       padding: '10px 12px',
                       borderRadius: 10,
-                      background: item.selected ? 'rgba(0, 113, 227, 0.05)' : 'var(--card-solid)',
+                      background: item.selected ? 'rgba(109, 40, 217, 0.05)' : 'var(--card-solid)',
                       border: item.selected
-                        ? '1px solid rgba(0, 113, 227, 0.25)'
+                        ? '1px solid rgba(109, 40, 217, 0.25)'
                         : '1px solid var(--line)',
                       cursor: 'pointer',
                       fontSize: 13,

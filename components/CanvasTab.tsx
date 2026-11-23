@@ -113,12 +113,12 @@ const FLOW_ROLES: Array<{
 ];
 
 const DRAWING_COLORS = [
-  { color: '#1c1c1e', label: 'สีดำเข้ม' },
-  { color: '#0071e3', label: 'สีน้ำเงิน Apple Blue' },
-  { color: '#ff3b30', label: 'สีแดง Apple Red' },
-  { color: '#34c759', label: 'สีเขียว Apple Green' },
-  { color: '#ff9500', label: 'สีส้ม Apple Orange' },
-  { color: '#af52de', label: 'สีม่วง Apple Purple' },
+  { color: '#141022', label: 'สีดำออบซิเดียน' },
+  { color: '#6d28d9', label: 'สีม่วง Royal Violet' },
+  { color: '#f43f5e', label: 'สีแดง Rose' },
+  { color: '#10b981', label: 'สีเขียว Emerald' },
+  { color: '#f59e0b', label: 'สีส้ม Amber' },
+  { color: '#c084fc', label: 'สีม่วงลาเวนเดอร์' },
   { color: '#eab308', label: 'สีเหลืองไฮไลท์' },
 ];
 
@@ -179,7 +179,7 @@ export default function CanvasTab() {
 
   // Drawing Tools state (Select / Pencil / Highlighter / Eraser)
   const [toolMode, setToolMode] = useState<'select' | 'pencil' | 'highlighter' | 'eraser'>('select');
-  const [pencilColor, setPencilColor] = useState<string>('#0071e3');
+  const [pencilColor, setPencilColor] = useState<string>('#6d28d9');
   const [pencilWidth, setPencilWidth] = useState<number>(4);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentStrokePoints, setCurrentStrokePoints] = useState<CanvasPoint[]>([]);
@@ -293,7 +293,7 @@ export default function CanvasTab() {
       y: initialY,
       width: 2400,
       height: 4,
-      color: '#0071e3',
+      color: '#6d28d9',
       style: 'dashed',
     });
   };
@@ -313,7 +313,7 @@ export default function CanvasTab() {
     });
   };
 
-  const handleCreateSectionZone = (color: string = '#0071e3') => {
+  const handleCreateSectionZone = (color: string = '#6d28d9') => {
     const scrollX = canvasRef.current?.scrollLeft || 0;
     const scrollY = canvasRef.current?.scrollTop || 0;
     const initialX = Math.max(60, scrollX + 120);
@@ -754,8 +754,8 @@ export default function CanvasTab() {
                     gap: 6,
                     padding: '3px 10px',
                     borderRadius: 999,
-                    background: 'rgba(0, 113, 227, 0.08)',
-                    border: '1px solid rgba(0, 113, 227, 0.25)',
+                    background: 'rgba(109, 40, 217, 0.08)',
+                    border: '1px solid rgba(109, 40, 217, 0.25)',
                     color: 'var(--pri)',
                     fontSize: 12,
                     fontWeight: 700,
@@ -816,7 +816,7 @@ export default function CanvasTab() {
                 style={{
                   padding: '2px 8px',
                   borderRadius: 999,
-                  background: 'rgba(0, 113, 227, 0.1)',
+                  background: 'rgba(109, 40, 217, 0.1)',
                   fontSize: 11,
                   fontWeight: 600,
                   color: 'var(--pri)',
@@ -879,9 +879,9 @@ export default function CanvasTab() {
                 padding: '5px 12px',
                 fontSize: 11.5,
                 fontWeight: 600,
-                background: 'rgba(0, 113, 227, 0.1)',
+                background: 'rgba(109, 40, 217, 0.1)',
                 color: 'var(--pri)',
-                border: '1px solid rgba(0, 113, 227, 0.25)',
+                border: '1px solid rgba(109, 40, 217, 0.25)',
                 boxShadow: 'none',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -988,14 +988,14 @@ export default function CanvasTab() {
       {connectingFromId && (
         <div
           style={{
-            background: 'linear-gradient(135deg, rgba(0, 113, 227, 0.95), rgba(59, 130, 246, 0.95))',
+            background: 'linear-gradient(135deg, rgba(109, 40, 217, 0.96), rgba(168, 85, 247, 0.96))',
             color: '#fff',
             borderRadius: 12,
             padding: '8px 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            boxShadow: '0 4px 16px rgba(0, 113, 227, 0.3)',
+            boxShadow: '0 4px 16px rgba(109, 40, 217, 0.3)',
             animation: 'fadeIn 0.2s ease',
           }}
         >
@@ -1088,7 +1088,7 @@ export default function CanvasTab() {
                         padding: '4px 12px',
                         borderRadius: 999,
                         background: 'var(--card-solid)',
-                        border: `1.5px solid ${sec.color || '#0071e3'}`,
+                        border: `1.5px solid ${sec.color || '#6d28d9'}`,
                         boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
                         cursor: toolMode === 'select' ? 'grab' : 'default',
                         userSelect: 'none',
@@ -1132,15 +1132,15 @@ export default function CanvasTab() {
                       <button
                         type="button"
                         onClick={() => {
-                          const colors = ['#0071e3', '#af52de', '#ff9500', '#10b981', '#64748b'];
-                          const nextColor = colors[(colors.indexOf(sec.color || '#0071e3') + 1) % colors.length];
+                          const colors = ['#6d28d9', '#af52de', '#ff9500', '#10b981', '#64748b'];
+                          const nextColor = colors[(colors.indexOf(sec.color || '#6d28d9') + 1) % colors.length];
                           updateCanvasSection(sec.id, { color: nextColor });
                         }}
                         style={{
                           width: 13,
                           height: 13,
                           borderRadius: '50%',
-                          background: sec.color || '#0071e3',
+                          background: sec.color || '#6d28d9',
                           border: '1.5px solid #ffffff',
                           boxShadow: '0 0 0 1px rgba(0,0,0,0.2)',
                           cursor: 'pointer',
@@ -1190,7 +1190,7 @@ export default function CanvasTab() {
                       style={{
                         flex: 1,
                         height: 0,
-                        borderTop: `2px ${sec.style === 'solid' ? 'solid' : 'dashed'} ${sec.color || '#0071e3'}`,
+                        borderTop: `2px ${sec.style === 'solid' ? 'solid' : 'dashed'} ${sec.color || '#6d28d9'}`,
                         opacity: 0.8,
                       }}
                     />
@@ -1273,7 +1273,7 @@ export default function CanvasTab() {
                       <button
                         type="button"
                         onClick={() => {
-                          const colors = ['#af52de', '#0071e3', '#ff9500', '#10b981', '#64748b'];
+                          const colors = ['#af52de', '#6d28d9', '#ff9500', '#10b981', '#64748b'];
                           const nextColor = colors[(colors.indexOf(sec.color || '#af52de') + 1) % colors.length];
                           updateCanvasSection(sec.id, { color: nextColor });
                         }}
@@ -1338,7 +1338,7 @@ export default function CanvasTab() {
                     height: sec.height || 420,
                     borderRadius: 20,
                     background: 'rgba(120, 120, 128, 0.04)',
-                    border: `2px dashed ${sec.color || '#0071e3'}`,
+                    border: `2px dashed ${sec.color || '#6d28d9'}`,
                     boxShadow: 'inset 0 0 30px rgba(0,0,0,0.015)',
                     zIndex: 2,
                     pointerEvents: toolMode === 'pencil' || toolMode === 'highlighter' ? 'none' : 'auto',
@@ -1355,8 +1355,8 @@ export default function CanvasTab() {
                       padding: '6px 14px',
                       borderRadius: '18px 0 14px 0',
                       background: 'var(--card-solid)',
-                      borderBottom: `1.5px solid ${sec.color || '#0071e3'}`,
-                      borderRight: `1.5px solid ${sec.color || '#0071e3'}`,
+                      borderBottom: `1.5px solid ${sec.color || '#6d28d9'}`,
+                      borderRight: `1.5px solid ${sec.color || '#6d28d9'}`,
                       cursor: toolMode === 'select' ? 'grab' : 'default',
                       userSelect: 'none',
                     }}
@@ -1400,15 +1400,15 @@ export default function CanvasTab() {
                     <button
                       type="button"
                       onClick={() => {
-                        const colors = ['#0071e3', '#af52de', '#10b981', '#ff9500', '#64748b'];
-                        const nextColor = colors[(colors.indexOf(sec.color || '#0071e3') + 1) % colors.length];
+                        const colors = ['#6d28d9', '#af52de', '#10b981', '#ff9500', '#64748b'];
+                        const nextColor = colors[(colors.indexOf(sec.color || '#6d28d9') + 1) % colors.length];
                         updateCanvasSection(sec.id, { color: nextColor });
                       }}
                       style={{
                         width: 13,
                         height: 13,
                         borderRadius: '50%',
-                        background: sec.color || '#0071e3',
+                        background: sec.color || '#6d28d9',
                         border: '1.5px solid #ffffff',
                         boxShadow: '0 0 0 1px rgba(0,0,0,0.2)',
                         cursor: 'pointer',
@@ -1449,7 +1449,7 @@ export default function CanvasTab() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: sec.color || '#0071e3',
+                      color: sec.color || '#6d28d9',
                       fontSize: 14,
                       fontWeight: 'bold',
                       opacity: 0.6,
@@ -1487,7 +1487,7 @@ export default function CanvasTab() {
                 markerHeight="7"
                 orient="auto-start-reverse"
               >
-                <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#0071e3" />
+                <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#6d28d9" />
               </marker>
             </defs>
 
@@ -1514,7 +1514,7 @@ export default function CanvasTab() {
                   <path
                     d={pathD}
                     fill="none"
-                    stroke="rgba(0, 113, 227, 0.2)"
+                    stroke="rgba(109, 40, 217, 0.2)"
                     strokeWidth="6"
                     strokeLinecap="round"
                   />
@@ -1522,7 +1522,7 @@ export default function CanvasTab() {
                   <path
                     d={pathD}
                     fill="none"
-                    stroke="#0071e3"
+                    stroke="#6d28d9"
                     strokeWidth="2.5"
                     className="flow-line-animated"
                     markerEnd="url(#flow-arrow)"
@@ -1610,15 +1610,15 @@ export default function CanvasTab() {
                   height: 24,
                   borderRadius: '50%',
                   background: '#ffffff',
-                  border: '1.5px solid #0071e3',
-                  color: '#0071e3',
+                  border: '1.5px solid #6d28d9',
+                  color: '#6d28d9',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
                   fontSize: 12,
                   fontWeight: 800,
-                  boxShadow: '0 2px 8px rgba(0, 113, 227, 0.25)',
+                  boxShadow: '0 2px 8px rgba(109, 40, 217, 0.25)',
                   padding: 0,
                   transition: 'all 0.15s ease',
                 }}
@@ -1629,8 +1629,8 @@ export default function CanvasTab() {
                 }}
                 onMouseLeave={e => {
                   e.currentTarget.style.background = '#ffffff';
-                  e.currentTarget.style.borderColor = '#0071e3';
-                  e.currentTarget.style.color = '#0071e3';
+                  e.currentTarget.style.borderColor = '#6d28d9';
+                  e.currentTarget.style.color = '#6d28d9';
                 }}
               >
                 ×
@@ -1685,12 +1685,12 @@ export default function CanvasTab() {
                 borderRadius: 14,
                 background: theme.bg,
                 border: isConnectingSource
-                  ? '2px solid #0071e3'
+                  ? '2px solid #6d28d9'
                   : `1.5px solid ${theme.border}`,
                 boxShadow: isDragging
                   ? '0 20px 40px rgba(0,0,0,0.2), 0 0 0 2px var(--pri)'
                   : isConnectingSource
-                  ? '0 0 0 4px rgba(0, 113, 227, 0.25), 0 8px 22px rgba(0, 0, 0, 0.12)'
+                  ? '0 0 0 4px rgba(109, 40, 217, 0.25), 0 8px 22px rgba(0, 0, 0, 0.12)'
                   : '0 8px 22px -4px rgba(0, 0, 0, 0.12), 0 4px 8px -2px rgba(0, 0, 0, 0.06)',
                 display: 'flex',
                 flexDirection: 'column',
@@ -2034,12 +2034,12 @@ export default function CanvasTab() {
                       padding: '3px 7px',
                       borderRadius: 999,
                       background: isConnectingSource
-                        ? '#0071e3'
+                        ? '#6d28d9'
                         : connectingFromId
-                        ? 'rgba(0, 113, 227, 0.15)'
+                        ? 'rgba(109, 40, 217, 0.15)'
                         : '#ffffff',
                       color: isConnectingSource ? '#ffffff' : 'var(--pri)',
-                      border: '1px solid rgba(0, 113, 227, 0.3)',
+                      border: '1px solid rgba(109, 40, 217, 0.3)',
                       fontSize: 10.5,
                       fontWeight: 700,
                       cursor: 'pointer',
@@ -2322,8 +2322,8 @@ export default function CanvasTab() {
               gap: 4,
               padding: '4px 10px',
               borderRadius: 999,
-              border: '1px solid rgba(0, 113, 227, 0.25)',
-              background: 'rgba(0, 113, 227, 0.08)',
+              border: '1px solid rgba(109, 40, 217, 0.25)',
+              background: 'rgba(109, 40, 217, 0.08)',
               color: 'var(--pri)',
               fontSize: 11.5,
               fontWeight: 600,
@@ -2359,7 +2359,7 @@ export default function CanvasTab() {
 
           <button
             type="button"
-            onClick={() => handleCreateSectionZone('#0071e3')}
+            onClick={() => handleCreateSectionZone('#6d28d9')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -2398,7 +2398,7 @@ export default function CanvasTab() {
                     width: 34,
                     height: 34,
                     borderRadius: 9,
-                    background: 'rgba(0, 113, 227, 0.12)',
+                    background: 'rgba(109, 40, 217, 0.12)',
                     color: 'var(--pri)',
                     display: 'flex',
                     alignItems: 'center',
@@ -2468,7 +2468,7 @@ export default function CanvasTab() {
                         padding: '12px 16px',
                         borderRadius: 14,
                         border: isActive ? '1.5px solid var(--pri)' : '1px solid var(--line)',
-                        background: isActive ? 'rgba(0, 113, 227, 0.05)' : 'rgba(120, 120, 128, 0.03)',
+                        background: isActive ? 'rgba(109, 40, 217, 0.05)' : 'rgba(120, 120, 128, 0.03)',
                         cursor: isEditingThis ? 'default' : 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -2477,7 +2477,7 @@ export default function CanvasTab() {
                         transition: 'all 0.15s ease',
                       }}
                       onMouseEnter={e => {
-                        if (!isActive && !isEditingThis) e.currentTarget.style.background = 'rgba(0, 113, 227, 0.03)';
+                        if (!isActive && !isEditingThis) e.currentTarget.style.background = 'rgba(109, 40, 217, 0.03)';
                       }}
                       onMouseLeave={e => {
                         if (!isActive && !isEditingThis) e.currentTarget.style.background = 'rgba(120, 120, 128, 0.03)';
@@ -2621,7 +2621,7 @@ export default function CanvasTab() {
                     width: 32,
                     height: 32,
                     borderRadius: 8,
-                    background: 'rgba(0, 113, 227, 0.12)',
+                    background: 'rgba(109, 40, 217, 0.12)',
                     color: 'var(--pri)',
                     display: 'flex',
                     alignItems: 'center',
@@ -2666,7 +2666,7 @@ export default function CanvasTab() {
                       padding: '12px 10px',
                       borderRadius: 12,
                       border: newBoardTemplate === 'blank' ? '2px solid var(--pri)' : '1px solid var(--line)',
-                      background: newBoardTemplate === 'blank' ? 'rgba(0, 113, 227, 0.08)' : 'rgba(120, 120, 128, 0.04)',
+                      background: newBoardTemplate === 'blank' ? 'rgba(109, 40, 217, 0.08)' : 'rgba(120, 120, 128, 0.04)',
                       textAlign: 'center',
                       cursor: 'pointer',
                       display: 'flex',
@@ -2689,7 +2689,7 @@ export default function CanvasTab() {
                       padding: '12px 10px',
                       borderRadius: 12,
                       border: newBoardTemplate === 'sample_flow' ? '2px solid var(--pri)' : '1px solid var(--line)',
-                      background: newBoardTemplate === 'sample_flow' ? 'rgba(0, 113, 227, 0.08)' : 'rgba(120, 120, 128, 0.04)',
+                      background: newBoardTemplate === 'sample_flow' ? 'rgba(109, 40, 217, 0.08)' : 'rgba(120, 120, 128, 0.04)',
                       textAlign: 'center',
                       cursor: 'pointer',
                       display: 'flex',
@@ -2743,7 +2743,7 @@ export default function CanvasTab() {
                     width: 32,
                     height: 32,
                     borderRadius: 8,
-                    background: 'rgba(0, 113, 227, 0.12)',
+                    background: 'rgba(109, 40, 217, 0.12)',
                     color: 'var(--pri)',
                     display: 'flex',
                     alignItems: 'center',

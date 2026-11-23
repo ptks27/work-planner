@@ -1146,7 +1146,7 @@ export default function TasksTab() {
                           fontSize: 12,
                           fontWeight: isSelected ? 600 : 500,
                           transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
-                          boxShadow: isSelected ? '0 1px 4px rgba(0, 113, 227, 0.18)' : 'none',
+                          boxShadow: isSelected ? '0 1px 4px rgba(109, 40, 217, 0.18)' : 'none',
                         }}
                       >
                         <AvatarIcon id={u.avatarId} size={18} />
@@ -1309,7 +1309,7 @@ export default function TasksTab() {
                   borderRadius: 999,
                   fontSize: 14,
                   fontWeight: 600,
-                  boxShadow: '0 4px 14px rgba(0, 113, 227, 0.3)',
+                  boxShadow: '0 4px 14px rgba(109, 40, 217, 0.3)',
                   cursor: 'pointer',
                   width: '100%',
                   marginTop: 4,
