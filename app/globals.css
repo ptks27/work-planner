@@ -3882,4 +3882,249 @@ textarea:focus-visible {
   }
 }
 
+/* ==========================================================================
+   Events / Holidays / Leaves Redesigned Apple Calendar UI
+   ========================================================================== */
+.event-year-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(120, 120, 128, 0.08);
+  border: 1px solid var(--line);
+}
+
+.event-year-stepper-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--txt);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.event-year-stepper-btn:hover {
+  background: var(--card-solid);
+  color: var(--pri);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.event-year-stepper-label {
+  padding: 0 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--txt);
+  white-space: nowrap;
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.event-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.event-stat-card {
+  border: 1px solid var(--line);
+  background: rgba(120, 120, 128, 0.04);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  min-width: 0;
+}
+
+.event-stat-card:hover {
+  background: rgba(120, 120, 128, 0.08);
+  transform: translateY(-1px);
+}
+
+.event-stat-card.active {
+  background: var(--card-solid);
+  border-color: var(--stat-accent, var(--pri));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06), 0 0 0 2px color-mix(in srgb, var(--stat-accent, var(--pri)) 20%, transparent);
+}
+
+.event-quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.event-quick-chip {
+  border: 1px solid var(--line);
+  background: var(--card-solid);
+  color: var(--mut);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.event-quick-chip:hover {
+  color: var(--pri);
+  border-color: rgba(0, 113, 227, 0.4);
+  background: var(--pri-l);
+}
+
+.event-month-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event-month-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mut);
+  letter-spacing: 0.01em;
+}
+
+.event-card-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--card-solid);
+  border: 1px solid var(--line);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease, opacity 0.16s ease;
+}
+
+.event-card-item:hover {
+  border-color: rgba(0, 113, 227, 0.28);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+}
+
+.event-card-item.is-past {
+  opacity: 0.72;
+}
+
+.event-card-item.is-past:hover {
+  opacity: 1;
+}
+
+.event-card-item.is-today {
+  border-color: rgba(0, 113, 227, 0.45);
+  box-shadow: 0 4px 16px rgba(0, 113, 227, 0.1);
+}
+
+.event-date-tile {
+  width: 46px;
+  min-width: 46px;
+  height: 48px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.event-date-tile-top {
+  height: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+}
+
+.event-date-tile-day {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16.5px;
+  font-weight: 800;
+  color: var(--txt);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.event-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.event-search-box {
+  position: relative;
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.event-search-box input {
+  width: 100%;
+  margin: 0 !important;
+  padding: 7px 30px 7px 32px !important;
+  border-radius: 999px !important;
+  font-size: 12.5px !important;
+  background: rgba(120, 120, 128, 0.07);
+}
+
+[data-theme="dark"] .event-year-stepper {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .event-stat-card {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .event-stat-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .event-stat-card.active {
+  background: rgba(44, 44, 46, 0.9);
+}
+
+[data-theme="dark"] .event-date-tile {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .event-search-box input {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+@media (max-width: 640px) {
+  .event-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .event-card-item {
+    gap: 10px;
+    padding: 10px;
+  }
+  .event-date-tile {
+    width: 42px;
+    min-width: 42px;
+    height: 44px;
+  }
+}
+
+
 
