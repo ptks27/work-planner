@@ -48,7 +48,7 @@ interface AuthState {
   teamMembers: TeamMember[];
   users: User[];
   login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
-  register: (name: string, email: string, password?: string) => Promise<{ success: boolean; error?: string; user?: User }>;
+  register: (name: string, email: string, password?: string, avatarId?: AvatarId) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => void;
   updateProfile: (patch: { name?: string; avatarId?: AvatarId; role?: string; department?: string }) => void;
   createTeam: (teamName: string) => Promise<{ success: boolean; team?: Team; error?: string }>;
@@ -155,7 +155,7 @@ export const useAuth = create<AuthState>()(
         return { success: true };
       },
 
-      register: async (name, email, password) => {
+      register: async (name, email, password, preferredAvatarId) => {
         const cleanName = name.trim();
         const cleanEmail = email.trim().toLowerCase();
         const firebaseCfg = getFirebaseCfg();
@@ -170,8 +170,11 @@ export const useAuth = create<AuthState>()(
           return { success: false, error: 'กรุณาตั้งรหัสผ่านอย่างน้อย 6 ตัวอักษร' };
         }
 
-        // สุ่ม Avatar ให้ผู้สมัครใหม่จาก 5 แบบ
-        const randomAvatar = DEFAULT_AVATARS[Math.floor(Math.random() * DEFAULT_AVATARS.length)];
+        // ใช้ Avatar ที่ผู้ใช้เลือก หรือสุ่มให้หากไม่ได้ระบุ
+        const chosenAvatar =
+          preferredAvatarId && DEFAULT_AVATARS.includes(preferredAvatarId)
+            ? preferredAvatarId
+            : DEFAULT_AVATARS[Math.floor(Math.random() * DEFAULT_AVATARS.length)];
         const hashedPassword = await hashPassword(password);
 
         const newUser: User = {
@@ -179,7 +182,7 @@ export const useAuth = create<AuthState>()(
           name: cleanName,
           email: cleanEmail,
           password: hashedPassword,
-          avatarId: randomAvatar,
+          avatarId: chosenAvatar,
           role: 'Team Member',
           department: 'General',
           createdAt: Date.now(),
