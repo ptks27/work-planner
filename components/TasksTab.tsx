@@ -237,17 +237,33 @@ export default function TasksTab() {
     )
   );
 
+  const todayTasks = filterTasks(visibleOn(s, today));
+  const selectedTasks = filterTasks(visibleOn(s, sel));
+  const tomorrowTasks = filterTasks(visibleOn(s, tomorrow));
+
   const currentLeftTasks =
     leftTab === 'today'
-      ? filterTasks(visibleOn(s, today))
+      ? todayTasks
       : leftTab === 'overdue'
       ? overdueTasks
       : pastTasks;
 
   const currentRightTasks =
     rightTab === 'selected'
-      ? filterTasks(visibleOn(s, sel))
-      : filterTasks(visibleOn(s, tomorrow));
+      ? selectedTasks
+      : tomorrowTasks;
+
+  const shiftSelectedDate = (deltaDays: number) => {
+    const nextDateObj = addDays(parse(sel), deltaDays);
+    setSel(fmt(nextDateObj));
+    setView(new Date(nextDateObj.getFullYear(), nextDateObj.getMonth(), 1));
+  };
+
+  const jumpToToday = () => {
+    const todayObj = parse(today);
+    setSel(today);
+    setView(new Date(todayObj.getFullYear(), todayObj.getMonth(), 1));
+  };
 
   const handleRolloverAllOverdue = () => {
     if (!overdueTasks.length) return showAlert('แจ้งเตือน', 'ไม่มีงานค้างย้อนหลัง');
@@ -405,71 +421,53 @@ export default function TasksTab() {
         <>
           <div className="grid calendar-task-grid mb">
             {/* Top Left Card: วันนี้ต้องทำ / งานค้างย้อนหลัง / ประวัติงานเก่า */}
-            <div className="card">
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid var(--line)', paddingBottom: 8, flexWrap: 'wrap', gap: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: '1 1 240px', minWidth: 0 }}>
+            <div className="card task-panel-card">
+              <div className="task-panel-head">
+                <div className="task-panel-title-wrap">
                   <div className="macos-traffic-lights" aria-hidden="true">
                     <span className="macos-traffic-dot red" />
                     <span className="macos-traffic-dot yellow" />
                     <span className="macos-traffic-dot green" />
                   </div>
-                  <div className="chips" style={{ margin: 0 }}>
-                  <button
-                    className={`chip ${leftTab === 'today' ? 'on' : ''}`}
-                    onClick={() => setLeftTab('today')}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
-                  >
-                    <CalendarIcon size={14} />
-                    <span>วันนี้ต้องทำ ({filterTasks(visibleOn(s, today)).length})</span>
-                  </button>
-
-                  <button
-                    className={`chip ${leftTab === 'overdue' ? 'on' : ''}`}
-                    onClick={() => setLeftTab('overdue')}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      fontSize: 13,
-                      color: overdueTasks.length > 0 && leftTab !== 'overdue' ? 'var(--warn)' : undefined,
-                      fontWeight: overdueTasks.length > 0 ? 600 : undefined,
-                    }}
-                  >
-                    <ClockIcon size={14} />
-                    <span>งานค้างย้อนหลัง</span>
-                    {overdueTasks.length > 0 && (
-                      <span className="count-pill hot" style={{ marginLeft: 2 }}>
-                        {overdueTasks.length}
+                  <div className="task-panel-title-row">
+                    <h3 className="task-panel-title">
+                      {leftTab === 'today'
+                        ? 'งานวันนี้'
+                        : leftTab === 'overdue'
+                          ? 'งานค้างย้อนหลัง'
+                          : 'ประวัติงานเก่า'}
+                    </h3>
+                    {leftTab === 'today' && (
+                      <span className="task-panel-badge is-today">{thDate(today)}</span>
+                    )}
+                    {leftTab === 'overdue' && (
+                      <span className={`task-panel-badge ${overdueTasks.length > 0 ? 'is-warn' : 'is-neutral'}`}>
+                        {overdueTasks.length > 0 ? `${overdueTasks.length} งานค้าง` : 'เคลียร์ครบ'}
                       </span>
                     )}
-                  </button>
-
-                  <button
-                    className={`chip ${leftTab === 'past' ? 'on' : ''}`}
-                    onClick={() => setLeftTab('past')}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
-                  >
-                    <FileTextIcon size={14} />
-                    <span>ประวัติงานเก่า ({pastTasks.length})</span>
-                  </button>
+                    {leftTab === 'past' && (
+                      <span className="task-panel-badge is-neutral">ย้อนหลังทั้งหมด</span>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 'auto' }}>
+                <div className="task-panel-actions">
                   {leftTab === 'overdue' && overdueTasks.length > 0 && (
                     <button
+                      type="button"
                       className="btn sm"
-                      style={{ background: 'var(--pri)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12 }}
+                      style={{ background: 'var(--pri)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5 }}
                       onClick={handleRolloverAllOverdue}
                       title="ย้ายงานค้างย้อนหลังทั้งหมดมาเป็นของวันนี้"
                     >
                       <RefreshCwIcon size={12} />
-                      <span>ย้ายมาวันนี้ทั้งหมด</span>
+                      <span>ย้ายมาวันนี้</span>
                     </button>
                   )}
 
-                  {currentLeftTasks.length > 3 && (
+                  {!isLeftCollapsed && currentLeftTasks.length > 3 && (
                     <button
+                      type="button"
                       className="btn ghost sm"
                       onClick={() => setIsLeftExpanded(!isLeftExpanded)}
                       style={{ fontSize: 11.5, padding: '4px 10px' }}
@@ -481,35 +479,76 @@ export default function TasksTab() {
 
                   <button
                     type="button"
-                    className="icon-btn sm"
+                    className={`task-collapse-btn ${isLeftCollapsed ? 'is-collapsed' : ''}`}
                     onClick={() => setIsLeftCollapsed(!isLeftCollapsed)}
-                    style={{ background: 'rgba(120, 120, 128, 0.1)', borderRadius: 999, color: 'var(--txt)' }}
                     title={isLeftCollapsed ? 'กางการ์ดออก' : 'พับเก็บการ์ด'}
                     aria-label={isLeftCollapsed ? 'กางการ์ดออก' : 'พับเก็บการ์ด'}
                   >
-                    {isLeftCollapsed ? <ChevronDownIcon size={14} /> : <ChevronUpIcon size={14} />}
+                    <ChevronUpIcon size={14} />
                   </button>
                 </div>
               </div>
 
+              <div className="task-panel-tabs cols-3" role="tablist" aria-label="หมวดหมู่งานหลัก">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={leftTab === 'today'}
+                  className={`task-panel-tab ${leftTab === 'today' ? 'active' : ''}`}
+                  onClick={() => setLeftTab('today')}
+                >
+                  <CalendarIcon size={13} />
+                  <span className="task-panel-tab-label">วันนี้</span>
+                  <span className="task-panel-tab-count">{todayTasks.length}</span>
+                </button>
+
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={leftTab === 'overdue'}
+                  className={`task-panel-tab ${leftTab === 'overdue' ? 'active' : ''} ${overdueTasks.length > 0 ? 'is-warn' : ''}`}
+                  onClick={() => setLeftTab('overdue')}
+                >
+                  <ClockIcon size={13} />
+                  <span className="task-panel-tab-label">งานค้าง</span>
+                  <span className={`task-panel-tab-count ${overdueTasks.length > 0 ? 'is-hot' : ''}`}>
+                    {overdueTasks.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={leftTab === 'past'}
+                  className={`task-panel-tab ${leftTab === 'past' ? 'active' : ''}`}
+                  onClick={() => setLeftTab('past')}
+                >
+                  <FileTextIcon size={13} />
+                  <span className="task-panel-tab-label">ประวัติเก่า</span>
+                  <span className="task-panel-tab-count">{pastTasks.length}</span>
+                </button>
+              </div>
+
               {isLeftCollapsed ? (
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    background: 'var(--bg)',
-                    borderRadius: 10,
-                    fontSize: 13,
-                    color: 'var(--mut)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
+                <button
+                  type="button"
+                  className="task-collapsed-bar"
                   onClick={() => setIsLeftCollapsed(false)}
                 >
-                  <span>พับรายการไว้ ({currentLeftTasks.length} งาน) — คลิกเพื่อกางออก</span>
-                  <ChevronDownIcon size={14} />
-                </div>
+                  <span className="task-collapsed-left">
+                    <span className="task-panel-tab-count">{currentLeftTasks.length}</span>
+                    <span>
+                      พับรายการอยู่ ·{' '}
+                      {currentLeftTasks.length === 0
+                        ? 'ยังไม่มีงานในหมวดนี้'
+                        : `มี ${currentLeftTasks.length} รายการ`}
+                    </span>
+                  </span>
+                  <span className="task-collapsed-cta">
+                    กางออก
+                    <ChevronDownIcon size={13} />
+                  </span>
+                </button>
               ) : (
                 <>
                   {currentLeftTasks.length === 0 ? (
@@ -579,65 +618,85 @@ export default function TasksTab() {
             </div>
 
             {/* Top Right Card: งานวันที่เลือก / พรุ่งนี้ต้องทำ */}
-            <div className="card">
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid var(--line)', paddingBottom: 8, flexWrap: 'wrap', gap: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: '1 1 240px', minWidth: 0 }}>
+            <div className="card task-panel-card">
+              <div className="task-panel-head">
+                <div className="task-panel-title-wrap">
                   <div className="macos-traffic-lights" aria-hidden="true">
                     <span className="macos-traffic-dot red" />
                     <span className="macos-traffic-dot yellow" />
                     <span className="macos-traffic-dot green" />
                   </div>
-                  <div className="chips" style={{ margin: 0 }}>
-                  <button
-                    className={`chip ${rightTab === 'selected' ? 'on' : ''}`}
-                    onClick={() => setRightTab('selected')}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
-                  >
-                    <CalendarIcon size={14} />
-                    <span>งานวันที่เลือก: {thDate(sel)}</span>
-                  </button>
-
-                  <button
-                    className={`chip ${rightTab === 'tomorrow' ? 'on' : ''}`}
-                    onClick={() => setRightTab('tomorrow')}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
-                  >
-                    <ChevronRightIcon size={14} />
-                    <span>พรุ่งนี้ต้องทำ ({filterTasks(visibleOn(s, tomorrow)).length})</span>
-                  </button>
+                  <div className="task-panel-title-row">
+                    {rightTab === 'selected' ? (
+                      <>
+                        <h3 className="task-panel-title">{thDate(sel)}</h3>
+                        <span
+                          className={`task-panel-badge ${
+                            sel === today ? 'is-today' : sel < today ? 'is-past' : 'is-future'
+                          }`}
+                        >
+                          {sel === today ? 'วันนี้' : sel < today ? 'งานย้อนหลัง' : 'งานล่วงหน้า'}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="task-panel-title">พรุ่งนี้ต้องทำ</h3>
+                        <span className="task-panel-badge is-future">{thDate(tomorrow)}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 'auto' }}>
-                  {rightTab === 'selected' && sel !== today && (
-                    <small
-                      className="mut"
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 600,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      <CalendarIcon size={12} />
-                      <span>{sel < today ? 'งานย้อนหลัง' : 'งานล่วงหน้า'}</span>
-                    </small>
+                <div className="task-panel-actions">
+                  {rightTab === 'selected' && (
+                    <div className="task-day-stepper" role="group" aria-label="เลื่อนวันที่เลือก">
+                      <button
+                        type="button"
+                        className="task-day-step-btn"
+                        onClick={() => shiftSelectedDate(-1)}
+                        title="วันก่อนหน้า"
+                        aria-label="วันก่อนหน้า"
+                      >
+                        <ChevronLeftIcon size={13} />
+                      </button>
+                      {sel !== today && (
+                        <button
+                          type="button"
+                          className="task-day-today-btn"
+                          onClick={jumpToToday}
+                          title="กลับไปวันนี้"
+                        >
+                          วันนี้
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="task-day-step-btn"
+                        onClick={() => shiftSelectedDate(1)}
+                        title="วันถัดไป"
+                        aria-label="วันถัดไป"
+                      >
+                        <ChevronRightIcon size={13} />
+                      </button>
+                    </div>
                   )}
+
                   {rightTab === 'selected' && visibleOn(s, sel).some(t => t.done) && (
                     <button
-                      className="btn red sm"
+                      type="button"
+                      className="btn soft-red sm"
                       onClick={clearDone}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, padding: '3px 8px' }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, padding: '4px 10px' }}
                       title="ลบงานที่เสร็จแล้วของวันนี้"
                     >
-                      <TrashIcon size={13} /> ลบที่เสร็จ ({visibleOn(s, sel).filter(t => t.done).length})
+                      <TrashIcon size={12} />
+                      <span>ลบที่เสร็จ ({visibleOn(s, sel).filter(t => t.done).length})</span>
                     </button>
                   )}
 
-                  {currentRightTasks.length > 3 && (
+                  {!isRightCollapsed && currentRightTasks.length > 3 && (
                     <button
+                      type="button"
                       className="btn ghost sm"
                       onClick={() => setIsRightExpanded(!isRightExpanded)}
                       style={{ fontSize: 11.5, padding: '4px 10px' }}
@@ -649,35 +708,62 @@ export default function TasksTab() {
 
                   <button
                     type="button"
-                    className="icon-btn sm"
+                    className={`task-collapse-btn ${isRightCollapsed ? 'is-collapsed' : ''}`}
                     onClick={() => setIsRightCollapsed(!isRightCollapsed)}
-                    style={{ background: 'rgba(120, 120, 128, 0.1)', borderRadius: 999, color: 'var(--txt)' }}
                     title={isRightCollapsed ? 'กางการ์ดออก' : 'พับเก็บการ์ด'}
                     aria-label={isRightCollapsed ? 'กางการ์ดออก' : 'พับเก็บการ์ด'}
                   >
-                    {isRightCollapsed ? <ChevronDownIcon size={14} /> : <ChevronUpIcon size={14} />}
+                    <ChevronUpIcon size={14} />
                   </button>
                 </div>
               </div>
 
+              <div className="task-panel-tabs cols-2" role="tablist" aria-label="สลับมุมมองวันที่เลือกและวันพรุ่งนี้">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={rightTab === 'selected'}
+                  className={`task-panel-tab ${rightTab === 'selected' ? 'active' : ''}`}
+                  onClick={() => setRightTab('selected')}
+                >
+                  <CalendarIcon size={13} />
+                  <span className="task-panel-tab-label">งานวันที่เลือก</span>
+                  <span className="task-panel-tab-count">{selectedTasks.length}</span>
+                </button>
+
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={rightTab === 'tomorrow'}
+                  className={`task-panel-tab ${rightTab === 'tomorrow' ? 'active' : ''}`}
+                  onClick={() => setRightTab('tomorrow')}
+                >
+                  <ChevronRightIcon size={13} />
+                  <span className="task-panel-tab-label">พรุ่งนี้ต้องทำ</span>
+                  <span className="task-panel-tab-count">{tomorrowTasks.length}</span>
+                </button>
+              </div>
+
               {isRightCollapsed ? (
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    background: 'var(--bg)',
-                    borderRadius: 10,
-                    fontSize: 13,
-                    color: 'var(--mut)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
+                <button
+                  type="button"
+                  className="task-collapsed-bar"
                   onClick={() => setIsRightCollapsed(false)}
                 >
-                  <span>พับรายการไว้ ({currentRightTasks.length} งาน) — คลิกเพื่อกางออก</span>
-                  <ChevronDownIcon size={14} />
-                </div>
+                  <span className="task-collapsed-left">
+                    <span className="task-panel-tab-count">{currentRightTasks.length}</span>
+                    <span>
+                      พับรายการอยู่ ·{' '}
+                      {currentRightTasks.length === 0
+                        ? 'ยังไม่มีงานในวันนี้'
+                        : `มี ${currentRightTasks.length} รายการ`}
+                    </span>
+                  </span>
+                  <span className="task-collapsed-cta">
+                    กางออก
+                    <ChevronDownIcon size={13} />
+                  </span>
+                </button>
               ) : (
                 <>
                   {currentRightTasks.length === 0 ? (
