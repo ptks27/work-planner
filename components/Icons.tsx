@@ -799,6 +799,25 @@ export function EyeOffIcon({ size = 16, strokeWidth = 2, className, style, color
   );
 }
 
+export function ShieldIcon({ size = 18, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
+export function AlertCircleIcon({ size = 16, strokeWidth = 2, className, style, color }: IconProps) {
+  return (
+    <svg {...baseProps(size, strokeWidth, className, style, color)}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  );
+}
+
 
 
 

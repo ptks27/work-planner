@@ -5324,6 +5324,470 @@ textarea:focus-visible {
   }
 }
 
+/* ==========================================================================
+   Admin Console & Team Request Status UI (Pocket Moon Violet / Obsidian)
+   ========================================================================== */
+.admin-hero-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(124, 58, 237, 0.12) 0%, transparent 55%),
+    var(--card);
+}
+
+.admin-hero-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1 1 280px;
+}
+
+.admin-hero-badge {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #6d28d9 0%, #9333ea 58%, #c084fc 100%);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 10px 24px rgba(109, 40, 217, 0.32);
+}
+
+.admin-role-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--pri-l);
+  color: var(--pri);
+  border: 1px solid rgba(109, 40, 217, 0.22);
+}
+
+.admin-kpi-card {
+  padding: 18px 20px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-kpi-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-kpi-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mut);
+}
+
+.admin-kpi-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.admin-kpi-value {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--txt);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 1.15;
+}
+
+.admin-kpi-unit {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mut);
+}
+
+.admin-kpi-sub {
+  font-size: 11px;
+  color: var(--mut);
+}
+
+.admin-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 240px;
+  max-width: 340px;
+}
+
+.admin-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--mut);
+  pointer-events: none;
+}
+
+.admin-search-wrap input {
+  width: 100%;
+  margin: 0 !important;
+  padding: 8px 32px 8px 34px !important;
+  font-size: 13px;
+  border-radius: 11px !important;
+}
+
+.admin-search-clear {
+  position: absolute;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--mut);
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.admin-search-clear:hover {
+  background: rgba(109, 40, 217, 0.1);
+  color: var(--txt);
+}
+
+.admin-teams-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 14px;
+}
+
+.admin-team-card {
+  background: var(--card-solid);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-team-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(109, 40, 217, 0.28);
+  box-shadow: 0 10px 26px rgba(24, 12, 56, 0.08);
+}
+
+.admin-team-card.is-active {
+  border-color: rgba(109, 40, 217, 0.42);
+  box-shadow: 0 0 0 2px rgba(109, 40, 217, 0.1);
+}
+
+.admin-team-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-team-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--pri-l);
+  color: var(--pri);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.admin-team-name {
+  font-size: 14.5px;
+  color: var(--txt);
+  letter-spacing: -0.015em;
+}
+
+.admin-code-pill {
+  border: 1px solid rgba(109, 40, 217, 0.2);
+  background: var(--pri-l);
+  color: var(--pri);
+  border-radius: 7px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.admin-team-desc {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--mut);
+  line-height: 1.45;
+}
+
+.admin-team-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: rgba(109, 40, 217, 0.045);
+  border: 1px solid var(--line);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--txt);
+}
+
+.admin-team-creator-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+
+.admin-avatar-stack {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.admin-avatar-ring {
+  margin-left: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--card-solid);
+  display: inline-flex;
+}
+
+.admin-avatar-ring:first-child {
+  margin-left: 0;
+}
+
+.admin-avatar-more {
+  margin-left: -4px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--pri-l);
+  color: var(--pri);
+  border: 2px solid var(--card-solid);
+}
+
+.admin-team-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Admin Request Cards */
+.admin-req-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--card-solid);
+  border: 1px solid var(--line);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-req-card.status-pending {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.05) 0%, var(--card-solid) 40%);
+}
+
+.admin-req-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.admin-req-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.admin-req-note {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--txt);
+  background: rgba(109, 40, 217, 0.05);
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  border-radius: 9px;
+}
+
+.admin-req-reject-reason {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--red);
+  background: var(--red-l);
+  padding: 5px 10px;
+  border-radius: 9px;
+}
+
+.admin-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.admin-status-badge.approved {
+  background: var(--ok-l);
+  color: var(--ok);
+}
+
+.admin-status-badge.rejected {
+  background: var(--red-l);
+  color: var(--red);
+}
+
+/* Sidebar Pending Badge */
+.menu-badge-pill {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--red);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(244, 63, 94, 0.35);
+}
+
+/* Requester Status Cards (TeamSelectScreen & TeamSwitcher) */
+.team-req-status-box {
+  padding: 14px 16px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--line);
+}
+
+.team-req-status-box.is-pending {
+  background: linear-gradient(135deg, rgba(109, 40, 217, 0.08), rgba(245, 158, 11, 0.08));
+  border-color: rgba(109, 40, 217, 0.28);
+}
+
+.team-req-status-box.is-rejected {
+  background: var(--red-l);
+  border-color: rgba(244, 63, 94, 0.32);
+}
+
+.team-req-status-box.is-approved {
+  background: var(--ok-l);
+  border-color: rgba(16, 185, 129, 0.32);
+}
+
+.team-req-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.22);
+  display: inline-block;
+  flex-shrink: 0;
+  animation: pulseDot 1.8s ease-in-out infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.25); opacity: 0.6; }
+}
+
+[data-theme="dark"] .admin-hero-card {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(168, 85, 247, 0.2) 0%, transparent 55%),
+    var(--card);
+}
+
+[data-theme="dark"] .admin-team-card {
+  background: rgba(20, 18, 31, 0.92);
+}
+
+[data-theme="dark"] .admin-team-card:hover {
+  border-color: rgba(196, 181, 253, 0.34);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.52);
+}
+
+[data-theme="dark"] .admin-meta-pill {
+  background: rgba(168, 85, 247, 0.09);
+  border-color: rgba(196, 181, 253, 0.14);
+}
+
+[data-theme="dark"] .admin-req-card {
+  background: rgba(20, 18, 31, 0.92);
+}
+
+[data-theme="dark"] .admin-req-card.status-pending {
+  border-color: rgba(251, 191, 36, 0.36);
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.1) 0%, rgba(20, 18, 31, 0.92) 42%);
+}
+
+@media (max-width: 700px) and (orientation: portrait), (max-width: 500px) {
+  .menu-badge-pill {
+    position: absolute;
+    top: 2px;
+    right: 6px;
+    min-width: 16px;
+    height: 16px;
+    font-size: 9px;
+    padding: 0 4px;
+  }
+  .menu-item {
+    position: relative;
+  }
+}
+
 
 
 

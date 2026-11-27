@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/authStore';
+import { isAdminUser } from '@/lib/types';
 import { useModal } from './ModalContext';
 import {
   BuildingIcon,
@@ -14,6 +15,8 @@ import {
   SparklesIcon,
   CloseIcon,
   UsersIcon,
+  ClockIcon,
+  AlertCircleIcon,
 } from './Icons';
 
 interface TeamSwitcherProps {
@@ -26,9 +29,13 @@ export default function TeamSwitcher({ onOpenMembers }: TeamSwitcherProps = {}) 
     currentTeam,
     userTeams,
     teamMembers,
+    teamRequests,
     fetchUserTeams,
     switchTeam,
     createTeam,
+    submitTeamRequest,
+    cancelTeamRequest,
+    acknowledgeTeamRequest,
     joinTeam,
     leaveTeam,
   } = useAuth();
@@ -37,12 +44,21 @@ export default function TeamSwitcher({ onOpenMembers }: TeamSwitcherProps = {}) 
   const [isOpen, setIsOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'join' | null>(null);
   const [teamName, setTeamName] = useState('');
+  const [teamNote, setTeamNote] = useState('');
   const [teamCode, setTeamCode] = useState('');
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const isAdmin = isAdminUser(currentUser);
+  const pendingRequest = !isAdmin
+    ? (teamRequests || []).find(r => r.status === 'pending')
+    : undefined;
+  const unackRejectedRequest = !isAdmin
+    ? (teamRequests || []).find(r => r.status === 'rejected' && !r.acknowledged)
+    : undefined;
 
   // ดึงรายการทีมทั้งหมดที่ผู้ใช้สังกัดอยู่
   useEffect(() => {
@@ -109,15 +125,43 @@ export default function TeamSwitcher({ onOpenMembers }: TeamSwitcherProps = {}) 
       return setError('กรุณาระบุชื่อทีม');
     }
     setLoading(true);
-    const res = await createTeam(teamName.trim());
+
+    if (isAdmin) {
+      const res = await createTeam(teamName.trim());
+      setLoading(false);
+      if (res.success) {
+        setTeamName('');
+        setTeamNote('');
+        setModalMode(null);
+        setIsOpen(false);
+        showAlert('สำเร็จ', `สร้างทีม "${res.team?.name}" เรียบร้อยแล้ว`);
+      } else {
+        setError(res.error || 'ไม่สามารถสร้างทีมได้');
+      }
+      return;
+    }
+
+    if (unackRejectedRequest) {
+      await acknowledgeTeamRequest(unackRejectedRequest.id);
+    }
+    const res = await submitTeamRequest(teamName.trim(), teamNote.trim());
     setLoading(false);
     if (res.success) {
       setTeamName('');
-      setModalMode(null);
-      setIsOpen(false);
-      showAlert('สำเร็จ', `สร้างทีม "${res.team?.name}" เรียบร้อยแล้ว`);
+      setTeamNote('');
     } else {
-      setError(res.error || 'ไม่สามารถสร้างทีมได้');
+      setError(res.error || 'ไม่สามารถส่งคำขอสร้างทีมได้');
+    }
+  };
+
+  const handleCancelPendingRequest = async () => {
+    if (!pendingRequest) return;
+    setLoading(true);
+    setError('');
+    const res = await cancelTeamRequest(pendingRequest.id);
+    setLoading(false);
+    if (!res.success) {
+      setError(res.error || 'ไม่สามารถยกเลิกคำขอได้');
     }
   };
 
@@ -443,6 +487,39 @@ export default function TeamSwitcher({ onOpenMembers }: TeamSwitcherProps = {}) 
 
           <hr style={{ margin: '8px 0', borderColor: 'var(--line)' }} />
 
+          {/* Pending Request Indicator in Dropdown */}
+          {pendingRequest && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                setError('');
+                setModalMode('create');
+              }}
+              style={{
+                width: '100%',
+                marginBottom: 6,
+                padding: '7px 10px',
+                borderRadius: 10,
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                background: 'rgba(245, 158, 11, 0.1)',
+                color: 'var(--txt)',
+                fontSize: 11.5,
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 7,
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <span className="team-req-pulse-dot" />
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                รอผู้ดูแลระบบอนุมัติ: {pendingRequest.teamName}
+              </span>
+            </button>
+          )}
+
           {/* Quick Actions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <button
@@ -594,33 +671,97 @@ export default function TeamSwitcher({ onOpenMembers }: TeamSwitcherProps = {}) 
               )}
 
               {modalMode === 'create' ? (
-                <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div>
-                    <label>ชื่อทีมของคุณ *</label>
-                    <input
-                      type="text"
-                      placeholder="เช่น ทีมพัฒนา Frontend, ฝ่ายการตลาด"
-                      value={teamName}
-                      onChange={e => setTeamName(e.target.value)}
-                      autoFocus
-                    />
+                pendingRequest ? (
+                  <div className="team-req-status-box is-pending">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span className="team-req-pulse-dot" />
+                      <b style={{ fontSize: 14, color: 'var(--txt)' }}>รอผู้ดูแลระบบอนุมัติ</b>
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--txt)', lineHeight: 1.5 }}>
+                      ส่งคำขอสร้างทีม <b>&ldquo;{pendingRequest.teamName}&rdquo;</b> เรียบร้อยแล้ว กรุณารอผู้ดูแลระบบตรวจสอบและอนุมัติ
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+                      <button
+                        type="button"
+                        className="btn ghost sm"
+                        onClick={handleCancelPendingRequest}
+                        disabled={loading}
+                      >
+                        {loading ? 'กำลังยกเลิก...' : 'ยกเลิกคำขอ'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn primary sm"
+                        onClick={() => setModalMode(null)}
+                      >
+                        ปิดหน้าต่าง
+                      </button>
+                    </div>
                   </div>
-                  <small className="mut" style={{ fontSize: 12, lineHeight: 1.4 }}>
-                    💡 คุณจะเป็น <b>ผู้สร้างทีมนี้</b> และเป็นคนเดียวที่สามารถดูรหัสทีมเพื่อคัดลอกส่งให้สมาชิกคนอื่นได้
-                  </small>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-                    <button
-                      type="button"
-                      className="btn ghost sm"
-                      onClick={() => setModalMode(null)}
-                    >
-                      ยกเลิก
-                    </button>
-                    <button type="submit" className="btn sm" disabled={loading}>
-                      {loading ? 'กำลังสร้าง...' : 'สร้างทีม'}
-                    </button>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {unackRejectedRequest && (
+                      <div className="team-req-status-box is-rejected">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--red)', fontWeight: 700, fontSize: 13 }}>
+                          <AlertCircleIcon size={15} />
+                          <span>ผู้ดูแลระบบไม่อนุมัติ กรุณาลองใหม่อีกครั้ง</span>
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--txt)' }}>
+                          คำขอทีม &ldquo;{unackRejectedRequest.teamName}&rdquo; ไม่ได้รับอนุมัติ
+                        </div>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div>
+                        <label>ชื่อทีมของคุณ *</label>
+                        <input
+                          type="text"
+                          placeholder="เช่น ทีมพัฒนา Frontend, ฝ่ายการตลาด"
+                          value={teamName}
+                          onChange={e => setTeamName(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      {!isAdmin && (
+                        <div>
+                          <label>หมายเหตุถึงผู้ดูแลระบบ (ไม่บังคับ)</label>
+                          <input
+                            type="text"
+                            placeholder="ระบุเหตุผลหรือแผนก..."
+                            value={teamNote}
+                            onChange={e => setTeamNote(e.target.value)}
+                          />
+                        </div>
+                      )}
+                      <small className="mut" style={{ fontSize: 12, lineHeight: 1.45 }}>
+                        {isAdmin ? (
+                          <>💡 สิทธิ์ผู้ดูแลระบบ (Admin): คุณสามารถสร้างทีมใหม่และรับรหัสทีมได้ทันที</>
+                        ) : (
+                          <>⏳ การสร้างทีมใหม่ต้องส่งคำขอให้ผู้ดูแลระบบอนุมัติก่อน เมื่อได้รับอนุมัติทีมจะปรากฏในรายการทีมของคุณทันที</>
+                        )}
+                      </small>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
+                        <button
+                          type="button"
+                          className="btn ghost sm"
+                          onClick={() => setModalMode(null)}
+                        >
+                          ยกเลิก
+                        </button>
+                        <button type="submit" className="btn primary sm" disabled={loading}>
+                          {loading
+                            ? isAdmin
+                              ? 'กำลังสร้าง...'
+                              : 'กำลังส่งคำขอ...'
+                            : isAdmin
+                              ? 'สร้างทีมทันที'
+                              : 'ส่งคำขอสร้างทีม'}
+                        </button>
+                      </div>
+                    </form>
                   </div>
-                </form>
+                )
               ) : (
                 <form onSubmit={handleJoinSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div>

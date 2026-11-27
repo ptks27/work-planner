@@ -9,6 +9,7 @@ import {
   doc,
   setDoc,
   getDoc,
+  deleteDoc,
   collection,
   getDocs,
   query,
@@ -17,7 +18,15 @@ import {
   type Firestore,
   type Unsubscribe,
 } from 'firebase/firestore';
-import type { PlannerData, User, Team, TeamMember } from './types';
+import {
+  isAdminEmail,
+  type PlannerData,
+  type User,
+  type Team,
+  type TeamMember,
+  type TeamCreationRequest,
+  type AdminTeamRoomStats,
+} from './types';
 import { DEFAULT_FIREBASE_CONFIG } from './firebaseDefaultConfig';
 import { hashPassword, verifyPassword, sanitizeForPollution, generateSecureId } from './security';
 
@@ -899,6 +908,564 @@ export function subscribePlannerLive(
   } catch (err) {
     console.error('Firestore live subscription error:', err);
     return null;
+  }
+}
+
+// ----------------- Team Creation Request Flow -----------------
+
+export async function firebaseSubmitTeamRequest(
+  teamName: string,
+  user: User,
+  note?: string,
+  configStr?: string
+): Promise<{ success: boolean; request?: TeamCreationRequest; error?: string }> {
+  try {
+    const cleanName = teamName.trim();
+    if (!cleanName) return { success: false, error: 'กรุณาระบุชื่อทีมที่ต้องการสร้าง' };
+
+    const instance = getFirebaseInstance(configStr);
+    const reqId = generateSecureId('treq', 6);
+    const newReq: TeamCreationRequest = {
+      id: reqId,
+      teamName: cleanName,
+      note: (note || '').trim() || undefined,
+      requesterId: user.id,
+      requesterName: user.name || 'สมาชิก',
+      requesterEmail: (user.email || '').toLowerCase().trim(),
+      requesterAvatar: user.avatarId || 'dev_boy',
+      status: 'pending',
+      createdAt: Date.now(),
+      acknowledged: false,
+    };
+
+    if (instance) {
+      // ป้องกันการส่งคำขอซ้ำขณะที่ยังมีคำขอรออนุมัติอยู่
+      const existingQ = query(
+        collection(instance.db, 'team_requests'),
+        where('requesterId', '==', user.id)
+      );
+      const existingSnap = await getDocs(existingQ);
+      const hasPending = existingSnap.docs.some(d => {
+        const data = sanitizeForPollution(d.data());
+        return data.status === 'pending';
+      });
+      if (hasPending) {
+        return {
+          success: false,
+          error: 'คุณมีคำขอสร้างทีมที่รอผู้ดูแลระบบอนุมัติอยู่แล้ว กรุณารอผลการอนุมัติหรือยกเลิกคำขอเดิมก่อน',
+        };
+      }
+
+      await setDoc(doc(instance.db, 'team_requests', reqId), cleanForFirestore(newReq));
+    }
+
+    return { success: true, request: newReq };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการส่งคำขอสร้างทีม',
+    };
+  }
+}
+
+export async function firebaseFetchUserTeamRequests(
+  userId: string,
+  configStr?: string
+): Promise<TeamCreationRequest[]> {
+  try {
+    const instance = getFirebaseInstance(configStr);
+    if (!instance || !userId) return [];
+
+    const q = query(collection(instance.db, 'team_requests'), where('requesterId', '==', userId));
+    const snap = await getDocs(q);
+    return snap.docs
+      .map(d => {
+        const data = sanitizeForPollution(d.data());
+        return { ...data, id: data.id || d.id } as TeamCreationRequest;
+      })
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  } catch (err) {
+    console.error('firebaseFetchUserTeamRequests error:', err);
+    return [];
+  }
+}
+
+export function firebaseSubscribeUserTeamRequests(
+  userId: string,
+  onUpdate: (requests: TeamCreationRequest[]) => void,
+  configStr?: string
+): Unsubscribe | null {
+  const instance = getFirebaseInstance(configStr);
+  if (!instance || !userId) return null;
+
+  try {
+    const q = query(collection(instance.db, 'team_requests'), where('requesterId', '==', userId));
+    return onSnapshot(q, snap => {
+      const list = snap.docs
+        .map(d => {
+          const data = sanitizeForPollution(d.data());
+          return { ...data, id: data.id || d.id } as TeamCreationRequest;
+        })
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      onUpdate(list);
+    });
+  } catch (err) {
+    console.error('firebaseSubscribeUserTeamRequests error:', err);
+    return null;
+  }
+}
+
+export async function firebaseCancelTeamRequest(
+  requestId: string,
+  userId: string,
+  configStr?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const instance = getFirebaseInstance(configStr);
+    if (!instance) return { success: true };
+
+    const ref = doc(instance.db, 'team_requests', requestId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return { success: true };
+
+    const data = sanitizeForPollution(snap.data()) as TeamCreationRequest;
+    if (data.requesterId !== userId) {
+      return { success: false, error: 'ไม่มีสิทธิ์ยกเลิกคำขอนี้' };
+    }
+    if (data.status !== 'pending') {
+      return { success: false, error: 'คำขอนี้ได้รับการดำเนินการไปแล้ว' };
+    }
+
+    await deleteDoc(ref);
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'ไม่สามารถยกเลิกคำขอได้',
+    };
+  }
+}
+
+export async function firebaseAcknowledgeTeamRequest(
+  requestId: string,
+  configStr?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const instance = getFirebaseInstance(configStr);
+    if (!instance || !requestId) return { success: true };
+
+    await setDoc(
+      doc(instance.db, 'team_requests', requestId),
+      { acknowledged: true },
+      { merge: true }
+    );
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'ไม่สามารถอัปเดตสถานะคำขอได้',
+    };
+  }
+}
+
+// ----------------- Admin Operations (Restricted to ADMIN_EMAIL) -----------------
+
+export async function firebaseAdminFetchAllTeams(
+  actorEmail?: string | null,
+  configStr?: string
+): Promise<Team[]> {
+  if (!isAdminEmail(actorEmail)) return [];
+  try {
+    const instance = getFirebaseInstance(configStr);
+    if (!instance) return [];
+
+    const snap = await getDocs(collection(instance.db, 'teams'));
+    return snap.docs
+      .map(d => {
+        const data = sanitizeForPollution(d.data());
+        return { ...data, id: data.id || d.id } as Team;
+      })
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  } catch (err) {
+    console.error('firebaseAdminFetchAllTeams error:', err);
+    return [];
+  }
+}
+
+export function firebaseAdminSubscribeAllTeams(
+  actorEmail: string | null | undefined,
+  onUpdate: (teams: Team[]) => void,
+  configStr?: string
+): Unsubscribe | null {
+  if (!isAdminEmail(actorEmail)) return null;
+  const instance = getFirebaseInstance(configStr);
+  if (!instance) return null;
+
+  try {
+    return onSnapshot(collection(instance.db, 'teams'), snap => {
+      const list = snap.docs
+        .map(d => {
+          const data = sanitizeForPollution(d.data());
+          return { ...data, id: data.id || d.id } as Team;
+        })
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      onUpdate(list);
+    });
+  } catch (err) {
+    console.error('firebaseAdminSubscribeAllTeams error:', err);
+    return null;
+  }
+}
+
+export async function firebaseAdminFetchRoomStats(
+  actorEmail?: string | null,
+  configStr?: string
+): Promise<Record<string, AdminTeamRoomStats>> {
+  if (!isAdminEmail(actorEmail)) return {};
+  try {
+    const instance = getFirebaseInstance(configStr);
+    if (!instance) return {};
+
+    const snap = await getDocs(collection(instance.db, 'team_planners'));
+    const stats: Record<string, AdminTeamRoomStats> = {};
+    snap.docs.forEach(d => {
+      const val = sanitizeForPollution(d.data());
+      const tasks = Array.isArray(val.tasks) ? val.tasks.filter((t: any) => !t?.hidden) : [];
+      const events = Array.isArray(val.events) ? val.events : [];
+      const boards = Array.isArray(val.canvasBoards) ? val.canvasBoards : [];
+      stats[d.id] = {
+        teamId: d.id,
+        tasksCount: tasks.length,
+        eventsCount: events.length,
+        boardsCount: boards.length,
+        updatedAt: typeof val.updatedAt === 'number' ? val.updatedAt : undefined,
+      };
+    });
+    return stats;
+  } catch (err) {
+    console.error('firebaseAdminFetchRoomStats error:', err);
+    return {};
+  }
+}
+
+export function firebaseAdminSubscribeTeamRequests(
+  actorEmail: string | null | undefined,
+  onUpdate: (requests: TeamCreationRequest[]) => void,
+  configStr?: string
+): Unsubscribe | null {
+  if (!isAdminEmail(actorEmail)) return null;
+  const instance = getFirebaseInstance(configStr);
+  if (!instance) return null;
+
+  try {
+    return onSnapshot(collection(instance.db, 'team_requests'), snap => {
+      const statusOrder = { pending: 0, approved: 1, rejected: 2 };
+      const list = snap.docs
+        .map(d => {
+          const data = sanitizeForPollution(d.data());
+          return { ...data, id: data.id || d.id } as TeamCreationRequest;
+        })
+        .sort((a, b) => {
+          const diff = (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
+          if (diff !== 0) return diff;
+          return (b.createdAt || 0) - (a.createdAt || 0);
+        });
+      onUpdate(list);
+    });
+  } catch (err) {
+    console.error('firebaseAdminSubscribeTeamRequests error:', err);
+    return null;
+  }
+}
+
+export async function firebaseAdminUpdateTeam(
+  actorEmail: string | null | undefined,
+  teamId: string,
+  patch: { name?: string; code?: string; description?: string },
+  configStr?: string
+): Promise<{ success: boolean; team?: Team; error?: string }> {
+  if (!isAdminEmail(actorEmail)) {
+    return { success: false, error: 'ไม่มีสิทธิ์ผู้ดูแลระบบ' };
+  }
+  try {
+    const instance = getFirebaseInstance(configStr);
+    if (!instance || !teamId) {
+      return { success: false, error: 'ไม่พบการเชื่อมต่อ Firebase หรือรหัสทีม' };
+    }
+
+    const teamRef = doc(instance.db, 'teams', teamId);
+    const snap = await getDoc(teamRef);
+    if (!snap.exists()) {
+      return { success: false, error: 'ไม่พบทีมนี้ในฐานข้อมูล' };
+    }
+
+    const current = { ...sanitizeForPollution(snap.data()), id: snap.id } as Team;
+    const nextName = patch.name !== undefined ? patch.name.trim() : current.name;
+    if (!nextName) {
+      return { success: false, error: 'กรุณาระบุชื่อทีม' };
+    }
+
+    let nextCode = current.code;
+    if (patch.code !== undefined) {
+      const cleanedCode = patch.code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (cleanedCode.length < 4 || cleanedCode.length > 8) {
+        return { success: false, error: 'รหัสทีมต้องเป็นตัวอักษรภาษาอังกฤษหรือตัวเลข 4-8 หลัก' };
+      }
+      if (cleanedCode !== current.code) {
+        const dupQ = query(collection(instance.db, 'teams'), where('code', '==', cleanedCode));
+        const dupSnap = await getDocs(dupQ);
+        if (dupSnap.docs.some(d => d.id !== teamId)) {
+          return { success: false, error: `รหัสทีม "${cleanedCode}" ถูกใช้งานแล้ว กรุณาใช้รหัสอื่น` };
+        }
+      }
+      nextCode = cleanedCode;
+    }
+
+    const nextDesc = patch.description !== undefined ? patch.description.trim() : current.description || '';
+
+    const updatedTeam: Team = {
+      ...current,
+      name: nextName,
+      code: nextCode,
+      description: nextDesc,
+    };
+
+    await setDoc(
+      teamRef,
+      {
+        name: nextName,
+        code: nextCode,
+        description: nextDesc,
+      },
+      { merge: true }
+    );
+
+    // ซิงค์ชื่อทีมและรหัสทีมใหม่ไปยังบัญชีผู้ใช้ที่กำลังใช้งานทีมนี้อยู่
+    const usersQ = query(collection(instance.db, 'users'), where('teamId', '==', teamId));
+    const usersSnap = await getDocs(usersQ);
+    await Promise.all(
+      usersSnap.docs.map(uDoc =>
+        setDoc(
+          doc(instance.db, 'users', uDoc.id),
+          { teamName: nextName, teamCode: nextCode },
+          { merge: true }
+        )
+      )
+    );
+
+    return { success: true, team: updatedTeam };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการแก้ไขข้อมูลทีม',
+    };
+  }
+}
+
+export async function firebaseAdminRemoveMemberFromTeam(
+  actorEmail: string | null | undefined,
+  teamId: string,
+  targetUserId: string,
+  configStr?: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!isAdminEmail(actorEmail)) {
+    return { success: false, error: 'ไม่มีสิทธิ์ผู้ดูแลระบบ' };
+  }
+  return firebaseRemoveMemberFromTeam(teamId, targetUserId, configStr);
+}
+
+export async function firebaseAdminDeleteTeam(
+  actorEmail: string | null | undefined,
+  teamId: string,
+  configStr?: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!isAdminEmail(actorEmail)) {
+    return { success: false, error: 'ไม่มีสิทธิ์ผู้ดูแลระบบ' };
+  }
+  try {
+    const instance = getFirebaseInstance(configStr);
+    if (!instance || !teamId) {
+      return { success: false, error: 'ไม่พบการเชื่อมต่อ Firebase หรือรหัสทีม' };
+    }
+
+    // 1. ลบเอกสารทีมและข้อมูล planner ของห้องนี้
+    await deleteDoc(doc(instance.db, 'teams', teamId));
+    await deleteDoc(doc(instance.db, 'team_planners', teamId)).catch(() => null);
+
+    // 2. อัปเดตผู้ใช้ที่กำลังเลือกห้องนี้อยู่ ให้สลับไปทีมอื่นที่สังกัด หรือเคลียร์ teamId
+    const usersQ = query(collection(instance.db, 'users'), where('teamId', '==', teamId));
+    const usersSnap = await getDocs(usersQ);
+    await Promise.all(
+      usersSnap.docs.map(async uDoc => {
+        const uidVal = uDoc.id;
+        const remQ = query(
+          collection(instance.db, 'teams'),
+          where('memberIds', 'array-contains', uidVal)
+        );
+        const remSnap = await getDocs(remQ);
+        const remaining = remSnap.docs
+          .map(d => ({ ...sanitizeForPollution(d.data()), id: d.id } as Team))
+          .filter(t => t.id !== teamId);
+        const nextTeam = remaining[0] || null;
+        await setDoc(
+          doc(instance.db, 'users', uidVal),
+          {
+            teamId: nextTeam ? nextTeam.id : '',
+            teamCode: nextTeam ? nextTeam.code : '',
+            teamName: nextTeam ? nextTeam.name : '',
+          },
+          { merge: true }
+        );
+      })
+    );
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการลบทีม',
+    };
+  }
+}
+
+export async function firebaseAdminApproveTeamRequest(
+  actorEmail: string | null | undefined,
+  requestId: string,
+  configStr?: string
+): Promise<{ success: boolean; team?: Team; error?: string }> {
+  if (!isAdminEmail(actorEmail)) {
+    return { success: false, error: 'ไม่มีสิทธิ์ผู้ดูแลระบบ' };
+  }
+  try {
+    const instance = getFirebaseInstance(configStr);
+    if (!instance || !requestId) {
+      return { success: false, error: 'ไม่พบการเชื่อมต่อ Firebase หรือรหัสคำขอ' };
+    }
+
+    const reqRef = doc(instance.db, 'team_requests', requestId);
+    const reqSnap = await getDoc(reqRef);
+    if (!reqSnap.exists()) {
+      return { success: false, error: 'ไม่พบคำขอสร้างทีมนี้' };
+    }
+
+    const req = { ...sanitizeForPollution(reqSnap.data()), id: reqSnap.id } as TeamCreationRequest;
+    if (req.status !== 'pending') {
+      return { success: false, error: 'คำขอนี้ถูกดำเนินการไปแล้ว' };
+    }
+
+    // ดึงข้อมูลผู้ขอสร้างทีมล่าสุดจาก users collection
+    let requesterUser: User = {
+      id: req.requesterId,
+      name: req.requesterName || 'ผู้สร้างทีม',
+      email: req.requesterEmail || '',
+      avatarId: req.requesterAvatar || 'dev_boy',
+      role: 'Team Member',
+      department: 'General',
+      createdAt: req.createdAt || Date.now(),
+    };
+    const userSnap = await getDoc(doc(instance.db, 'users', req.requesterId)).catch(() => null);
+    if (userSnap && userSnap.exists()) {
+      const uData = sanitizeForPollution(userSnap.data()) as User;
+      requesterUser = {
+        ...requesterUser,
+        ...uData,
+        id: uData.id || req.requesterId,
+      };
+    }
+
+    // สร้างทีมจริงในฐานข้อมูลให้ผู้ขอทันที (ผู้ขอจะเป็นผู้สร้างทีมและเข้า flow ปกติได้ทันที)
+    const createRes = await firebaseCreateTeam(req.teamName, requesterUser, configStr);
+    if (!createRes.success || !createRes.team) {
+      return { success: false, error: createRes.error || 'ไม่สามารถสร้างทีมได้' };
+    }
+
+    await setDoc(
+      reqRef,
+      {
+        status: 'approved',
+        resolvedAt: Date.now(),
+        resolvedBy: (actorEmail || '').toLowerCase().trim(),
+        createdTeamId: createRes.team.id,
+        createdTeamCode: createRes.team.code,
+        acknowledged: false,
+      },
+      { merge: true }
+    );
+
+    return { success: true, team: createRes.team };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการอนุมัติคำขอสร้างทีม',
+    };
+  }
+}
+
+export async function firebaseAdminRejectTeamRequest(
+  actorEmail: string | null | undefined,
+  requestId: string,
+  rejectReason?: string,
+  configStr?: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!isAdminEmail(actorEmail)) {
+    return { success: false, error: 'ไม่มีสิทธิ์ผู้ดูแลระบบ' };
+  }
+  try {
+    const instance = getFirebaseInstance(configStr);
+    if (!instance || !requestId) {
+      return { success: false, error: 'ไม่พบการเชื่อมต่อ Firebase หรือรหัสคำขอ' };
+    }
+
+    const reqRef = doc(instance.db, 'team_requests', requestId);
+    const reqSnap = await getDoc(reqRef);
+    if (!reqSnap.exists()) {
+      return { success: false, error: 'ไม่พบคำขอสร้างทีมนี้' };
+    }
+
+    const req = sanitizeForPollution(reqSnap.data()) as TeamCreationRequest;
+    if (req.status !== 'pending') {
+      return { success: false, error: 'คำขอนี้ถูกดำเนินการไปแล้ว' };
+    }
+
+    await setDoc(
+      reqRef,
+      {
+        status: 'rejected',
+        resolvedAt: Date.now(),
+        resolvedBy: (actorEmail || '').toLowerCase().trim(),
+        rejectReason: (rejectReason || '').trim() || 'ผู้ดูแลระบบไม่อนุมัติ กรุณาลองใหม่อีกครั้ง',
+        acknowledged: false,
+      },
+      { merge: true }
+    );
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการปฏิเสธคำขอ',
+    };
+  }
+}
+
+export async function firebaseAdminDeleteTeamRequest(
+  actorEmail: string | null | undefined,
+  requestId: string,
+  configStr?: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!isAdminEmail(actorEmail)) {
+    return { success: false, error: 'ไม่มีสิทธิ์ผู้ดูแลระบบ' };
+  }
+  try {
+    const instance = getFirebaseInstance(configStr);
+    if (!instance || !requestId) return { success: true };
+    await deleteDoc(doc(instance.db, 'team_requests', requestId));
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'ไม่สามารถลบประวัติคำขอได้',
+    };
   }
 }
 

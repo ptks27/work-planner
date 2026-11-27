@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { User, Team, TeamMember, AvatarId } from './types';
+import { isAdminUser, type User, type Team, type TeamMember, type AvatarId, type TeamCreationRequest } from './types';
 import { uid } from './utils';
 import { DEFAULT_FIREBASE_CONFIG } from './firebaseDefaultConfig';
 import {
@@ -15,6 +15,9 @@ import {
   firebaseFetchTeamMembers,
   firebaseFetchUserTeams,
   firebaseSwitchActiveTeam,
+  firebaseSubmitTeamRequest,
+  firebaseCancelTeamRequest,
+  firebaseAcknowledgeTeamRequest,
   downloadFromFirebase,
   generateTeamCode,
 } from './firebase';
@@ -46,12 +49,19 @@ interface AuthState {
   currentTeam: Team | null;
   userTeams: Team[];
   teamMembers: TeamMember[];
+  teamRequests: TeamCreationRequest[];
   users: User[];
   login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   register: (name: string, email: string, password?: string, avatarId?: AvatarId) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => void;
   updateProfile: (patch: { name?: string; avatarId?: AvatarId; role?: string; department?: string }) => void;
   createTeam: (teamName: string) => Promise<{ success: boolean; team?: Team; error?: string }>;
+  submitTeamRequest: (teamName: string, note?: string) => Promise<{ success: boolean; request?: TeamCreationRequest; error?: string }>;
+  cancelTeamRequest: (requestId: string) => Promise<{ success: boolean; error?: string }>;
+  acknowledgeTeamRequest: (requestId: string) => Promise<void>;
+  setTeamRequests: (requests: TeamCreationRequest[]) => void;
+  handleTeamUpdatedByAdmin: (updatedTeam: Team) => void;
+  handleTeamDeletedByAdmin: (deletedTeamId: string) => Promise<void>;
   joinTeam: (teamCode: string) => Promise<{ success: boolean; team?: Team; error?: string }>;
   switchTeam: (teamId: string) => Promise<{ success: boolean; team?: Team; error?: string }>;
   leaveTeam: (teamId?: string) => Promise<{ success: boolean; error?: string }>;
@@ -69,6 +79,7 @@ export const useAuth = create<AuthState>()(
       currentTeam: null,
       userTeams: [],
       teamMembers: [],
+      teamRequests: [],
       users: [],
 
       login: async (email, password) => {
@@ -219,6 +230,12 @@ export const useAuth = create<AuthState>()(
       createTeam: async (teamName: string) => {
         const user = get().currentUser;
         if (!user) return { success: false, error: 'กรุณาเข้าสู่ระบบก่อนสร้างทีม' };
+        if (!isAdminUser(user)) {
+          return {
+            success: false,
+            error: 'การสร้างทีมใหม่ต้องส่งคำขอเพื่อรอผู้ดูแลระบบอนุมัติก่อน',
+          };
+        }
 
         const firebaseCfg = getFirebaseCfg();
         const res = await firebaseCreateTeam(teamName, user, firebaseCfg);
@@ -248,6 +265,102 @@ export const useAuth = create<AuthState>()(
         await get().fetchTeamMembers(team.id);
 
         return { success: true, team };
+      },
+
+      submitTeamRequest: async (teamName: string, note?: string) => {
+        const user = get().currentUser;
+        if (!user) return { success: false, error: 'กรุณาเข้าสู่ระบบก่อนส่งคำขอสร้างทีม' };
+
+        const firebaseCfg = getFirebaseCfg();
+        const res = await firebaseSubmitTeamRequest(teamName, user, note, firebaseCfg);
+        if (!res.success || !res.request) {
+          return { success: false, error: res.error || 'ไม่สามารถส่งคำขอสร้างทีมได้' };
+        }
+
+        set(state => ({
+          teamRequests: [
+            res.request!,
+            ...state.teamRequests.filter(r => r.id !== res.request!.id),
+          ],
+        }));
+
+        return { success: true, request: res.request };
+      },
+
+      cancelTeamRequest: async (requestId: string) => {
+        const user = get().currentUser;
+        if (!user) return { success: false, error: 'กรุณาเข้าสู่ระบบ' };
+
+        const firebaseCfg = getFirebaseCfg();
+        const res = await firebaseCancelTeamRequest(requestId, user.id, firebaseCfg);
+        if (!res.success) {
+          return { success: false, error: res.error || 'ไม่สามารถยกเลิกคำขอได้' };
+        }
+
+        set(state => ({
+          teamRequests: state.teamRequests.filter(r => r.id !== requestId),
+        }));
+        return { success: true };
+      },
+
+      acknowledgeTeamRequest: async (requestId: string) => {
+        const firebaseCfg = getFirebaseCfg();
+        set(state => ({
+          teamRequests: state.teamRequests.map(r =>
+            r.id === requestId ? { ...r, acknowledged: true } : r
+          ),
+        }));
+        await firebaseAcknowledgeTeamRequest(requestId, firebaseCfg);
+      },
+
+      setTeamRequests: (requests: TeamCreationRequest[]) => {
+        set({ teamRequests: requests });
+      },
+
+      handleTeamUpdatedByAdmin: (updatedTeam: Team) => {
+        set(state => {
+          const isCurrent = state.currentTeam?.id === updatedTeam.id || state.currentUser?.teamId === updatedTeam.id;
+          const nextUser =
+            isCurrent && state.currentUser
+              ? {
+                  ...state.currentUser,
+                  teamName: updatedTeam.name,
+                  teamCode: updatedTeam.code,
+                }
+              : state.currentUser;
+          return {
+            currentUser: nextUser,
+            currentTeam: isCurrent ? { ...(state.currentTeam || updatedTeam), ...updatedTeam } : state.currentTeam,
+            userTeams: state.userTeams.map(t => (t.id === updatedTeam.id ? { ...t, ...updatedTeam } : t)),
+          };
+        });
+      },
+
+      handleTeamDeletedByAdmin: async (deletedTeamId: string) => {
+        const state = get();
+        const remaining = state.userTeams.filter(t => t.id !== deletedTeamId);
+        const isCurrent = state.currentUser?.teamId === deletedTeamId || state.currentTeam?.id === deletedTeamId;
+
+        if (!isCurrent) {
+          set({ userTeams: remaining });
+          return;
+        }
+
+        const nextTeam = remaining[0] || null;
+        if (nextTeam) {
+          set({ userTeams: remaining });
+          await get().switchTeam(nextTeam.id);
+        } else {
+          usePlanner.getState().restore({ tasks: [], rules: [], events: [] });
+          set(s => ({
+            currentUser: s.currentUser
+              ? { ...s.currentUser, teamId: undefined, teamCode: undefined, teamName: undefined, teamIds: [] }
+              : null,
+            currentTeam: null,
+            userTeams: [],
+            teamMembers: [],
+          }));
+        }
       },
 
       joinTeam: async (teamCode: string) => {
@@ -528,21 +641,33 @@ export const useAuth = create<AuthState>()(
 
         // อัปเดตข้อมูลทีม
         const team = await firebaseFetchTeam(user.teamId, firebaseCfg);
-        if (team) {
-          // หากผู้ใช้ปัจจุบันไม่ได้เป็นสมาชิกในทีมนี้แล้ว (ถูกนำออกจากทีม) ให้ล้างข้อมูลทีมและกลับสู่หน้าเลือกทีม
-          if (team.memberIds && !team.memberIds.includes(user.id)) {
-            const updatedUser: User = {
-              ...user,
-              teamId: undefined,
-              teamCode: undefined,
-              teamName: undefined,
-            };
-            usePlanner.getState().restore({ tasks: [], rules: [], events: [] });
-            set({ currentUser: updatedUser, currentTeam: null, teamMembers: [] });
-            return;
-          }
-          set({ currentTeam: team });
+        if (!team) {
+          // ทีมนี้ถูกลบออกจากระบบแล้ว
+          await get().handleTeamDeletedByAdmin(user.teamId);
+          return;
         }
+        // หากผู้ใช้ปัจจุบันไม่ได้เป็นสมาชิกในทีมนี้แล้ว (ถูกนำออกจากทีม) ให้ล้างข้อมูลทีมและกลับสู่หน้าเลือกทีม
+        if (team.memberIds && !team.memberIds.includes(user.id)) {
+          const updatedUser: User = {
+            ...user,
+            teamId: undefined,
+            teamCode: undefined,
+            teamName: undefined,
+          };
+          usePlanner.getState().restore({ tasks: [], rules: [], events: [] });
+          set({ currentUser: updatedUser, currentTeam: null, teamMembers: [] });
+          return;
+        }
+        set(state => ({
+          currentTeam: team,
+          currentUser: state.currentUser
+            ? {
+                ...state.currentUser,
+                teamName: team.name,
+                teamCode: team.code,
+              }
+            : null,
+        }));
 
         // ซิงค์สมาชิกพร้อมระดับและวันที่เข้าร่วมทีม
         await get().fetchTeamMembers(user.teamId);
@@ -550,7 +675,7 @@ export const useAuth = create<AuthState>()(
 
       logout: () => {
         usePlanner.getState().restore({ tasks: [], rules: [], events: [] });
-        set({ currentUser: null, currentTeam: null, teamMembers: [], userTeams: [] });
+        set({ currentUser: null, currentTeam: null, teamMembers: [], userTeams: [], teamRequests: [] });
       },
 
       updateProfile: patch => {

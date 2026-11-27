@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import Sidebar, { TABS, type TabId } from '@/components/Sidebar';
+import Sidebar, { TABS, ADMIN_TAB, type TabId } from '@/components/Sidebar';
 import Notifier from '@/components/Notifier';
 import TasksTab from '@/components/TasksTab';
 import RecurringTab from '@/components/RecurringTab';
@@ -9,6 +9,7 @@ import TimelineTab from '@/components/TimelineTab';
 import CanvasTab from '@/components/CanvasTab';
 import DashboardTab from '@/components/DashboardTab';
 import SettingsTab from '@/components/SettingsTab';
+import AdminTab from '@/components/AdminTab';
 import NotificationCenter from '@/components/NotificationCenter';
 import MemberScorecardModal from '@/components/MemberScorecardModal';
 import SearchModal from '@/components/SearchModal';
@@ -29,9 +30,13 @@ import { thDate } from '@/lib/utils';
 import { usePlanner, setSyncingFromCloud, syncPlannerToFirebase } from '@/lib/store';
 import { useAuth } from '@/lib/authStore';
 import { DEFAULT_FIREBASE_CONFIG } from '@/lib/firebaseDefaultConfig';
-import { subscribePlannerLive } from '@/lib/firebase';
+import {
+  subscribePlannerLive,
+  firebaseAdminSubscribeTeamRequests,
+  firebaseSubscribeUserTeamRequests,
+} from '@/lib/firebase';
 import { visibleOn } from '@/lib/selectors';
-import { PRIORITY, type Task } from '@/lib/types';
+import { PRIORITY, isAdminUser, type Task } from '@/lib/types';
 import {
   SearchIcon,
   SunIcon,
@@ -65,13 +70,99 @@ export default function App() {
   const [reportCopied, setReportCopied] = useState(false);
   const [teamCodeCopied, setTeamCodeCopied] = useState(false);
   const [isQuickMenuOpen, setIsQuickMenuOpen] = useState(false);
+  const [adminPendingCount, setAdminPendingCount] = useState(0);
   const quickMenuRef = useRef<HTMLDivElement>(null);
+  const notifiedReqIdsRef = useRef<Set<string>>(new Set());
   const today = useToday();
   const s = usePlanner();
-  const { currentUser, currentTeam, teamMembers, fetchTeamMembers, leaveTeam } = useAuth();
-  const { showConfirm } = useModal();
-  const cur = TABS.find(t => t.id === tab) || TABS[0];
+  const {
+    currentUser,
+    currentTeam,
+    teamMembers,
+    fetchTeamMembers,
+    fetchUserTeams,
+    setTeamRequests,
+    acknowledgeTeamRequest,
+    leaveTeam,
+  } = useAuth();
+  const { showAlert, showConfirm } = useModal();
+  const isAdmin = isAdminUser(currentUser);
+  const allTabs = isAdmin ? [...TABS, ADMIN_TAB] : TABS;
+  const cur = allTabs.find(t => t.id === tab) || TABS[0];
   const activityStats = computeActivityStats(s.tasks, currentUser?.id, today);
+
+  // ป้องกันผู้ใช้ที่ไม่ใช่ Admin เข้าถึงหน้า Admin Tab
+  useEffect(() => {
+    if (!isAdmin && tab === 'admin') {
+      setTab('tasks');
+    }
+  }, [isAdmin, tab]);
+
+  // สำหรับ Admin: ติดตามจำนวนคำขอสร้างทีมที่รออนุมัติแบบ Real-time เพื่อแสดง Badge บน Sidebar
+  useEffect(() => {
+    if (!mounted || !isAdmin || !currentUser?.email) {
+      setAdminPendingCount(0);
+      return;
+    }
+    const activeCfg = s.firebaseConfig || DEFAULT_FIREBASE_CONFIG;
+    const unsub = firebaseAdminSubscribeTeamRequests(
+      currentUser.email,
+      reqs => {
+        setAdminPendingCount(reqs.filter(r => r.status === 'pending').length);
+      },
+      activeCfg
+    );
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [mounted, isAdmin, currentUser?.email, s.firebaseConfig]);
+
+  // สำหรับผู้ใช้ทั่วไปที่อยู่ในทีมแล้ว: ติดตามสถานะคำขอสร้างทีมใหม่แบบ Real-time
+  useEffect(() => {
+    if (!mounted || !currentUser?.id || !currentUser?.teamId || isAdmin) return;
+    const activeCfg = s.firebaseConfig || DEFAULT_FIREBASE_CONFIG;
+    const unsub = firebaseSubscribeUserTeamRequests(
+      currentUser.id,
+      async reqs => {
+        setTeamRequests(reqs);
+
+        const unackApproved = reqs.find(
+          r => r.status === 'approved' && !r.acknowledged && !notifiedReqIdsRef.current.has(r.id)
+        );
+        if (unackApproved) {
+          notifiedReqIdsRef.current.add(unackApproved.id);
+          await fetchUserTeams();
+          await acknowledgeTeamRequest(unackApproved.id);
+          showAlert(
+            'คำขอสร้างทีมได้รับอนุมัติแล้ว',
+            `ผู้ดูแลระบบอนุมัติทีม "${unackApproved.teamName}"${unackApproved.createdTeamCode ? ` (รหัส #${unackApproved.createdTeamCode})` : ''} เรียบร้อยแล้ว คุณสามารถสลับเข้าใช้งานได้ทันทีจากเมนูทีมด้านบน`
+          );
+          return;
+        }
+
+        const unackRejected = reqs.find(
+          r => r.status === 'rejected' && !r.acknowledged && !notifiedReqIdsRef.current.has(r.id)
+        );
+        if (unackRejected) {
+          notifiedReqIdsRef.current.add(unackRejected.id);
+          const reasonMsg =
+            unackRejected.rejectReason &&
+            unackRejected.rejectReason !== 'ผู้ดูแลระบบไม่อนุมัติ กรุณาลองใหม่อีกครั้ง'
+              ? `\nเหตุผล: ${unackRejected.rejectReason}`
+              : '';
+          showAlert(
+            'ผู้ดูแลระบบไม่อนุมัติคำขอสร้างทีม',
+            `คำขอสร้างทีม "${unackRejected.teamName}" ไม่ได้รับอนุมัติ\nผู้ดูแลระบบไม่อนุมัติ กรุณาลองใหม่อีกครั้ง${reasonMsg}`
+          );
+          await acknowledgeTeamRequest(unackRejected.id);
+        }
+      },
+      activeCfg
+    );
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [mounted, currentUser?.id, currentUser?.teamId, isAdmin, s.firebaseConfig]);
 
   // ปิด Quick Menu เมื่อคลิกนอกขอบเขต
   useEffect(() => {
@@ -271,7 +362,12 @@ export default function App() {
 
   return (
     <div className="layout" data-theme={s.theme || 'light'}>
-      <Sidebar tab={tab} onTab={setTab} onOpenProfile={() => setIsProfileOpen(true)} />
+      <Sidebar
+        tab={tab}
+        onTab={setTab}
+        onOpenProfile={() => setIsProfileOpen(true)}
+        adminPendingCount={adminPendingCount}
+      />
       <div className="content">
         <header className="topbar">
           {/* Left: Identity Badge & Title Breadcrumb */}
@@ -580,6 +676,7 @@ export default function App() {
               {tab === 'events' && <EventsTab />}
               {tab === 'dash' && <DashboardTab />}
               {tab === 'settings' && <SettingsTab />}
+              {tab === 'admin' && isAdmin && <AdminTab />}
             </div>
           </ErrorBoundary>
         </main>

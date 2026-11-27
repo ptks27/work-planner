@@ -1,30 +1,63 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/authStore';
 import { usePlanner } from '@/lib/store';
-import { parseFirebaseConfig } from '@/lib/firebase';
+import {
+  parseFirebaseConfig,
+  firebaseSubscribeUserTeamRequests,
+} from '@/lib/firebase';
 import { DEFAULT_FIREBASE_CONFIG } from '@/lib/firebaseDefaultConfig';
+import { isAdminUser } from '@/lib/types';
 import { AvatarIcon } from './Avatars';
-import { BuildingIcon, LogOutIcon, SparklesIcon, LinkIcon, CheckIcon, CloudIcon } from './Icons';
+import {
+  BuildingIcon,
+  LogOutIcon,
+  SparklesIcon,
+  LinkIcon,
+  CheckIcon,
+  ClockIcon,
+  AlertCircleIcon,
+  ShieldIcon,
+} from './Icons';
 import FirebaseConfigModal from './FirebaseConfigModal';
 import { Tilt3DCard } from './AppleMotion';
 
 export default function TeamSelectScreen() {
-  const { currentUser, userTeams, switchTeam, createTeam, joinTeam, logout, fetchUserTeams } = useAuth();
+  const {
+    currentUser,
+    userTeams,
+    teamRequests,
+    switchTeam,
+    createTeam,
+    submitTeamRequest,
+    cancelTeamRequest,
+    acknowledgeTeamRequest,
+    setTeamRequests,
+    joinTeam,
+    logout,
+    fetchUserTeams,
+  } = useAuth();
   const firebaseConfig = usePlanner(s => s.firebaseConfig);
+  const activeCfg = firebaseConfig || DEFAULT_FIREBASE_CONFIG;
   const activeProjectId = (() => {
     try {
-      return parseFirebaseConfig(firebaseConfig || DEFAULT_FIREBASE_CONFIG)?.projectId || 'Cloud Sync';
+      return parseFirebaseConfig(activeCfg)?.projectId || 'Cloud Sync';
     } catch {
       return 'Cloud Sync';
     }
   })();
+
   const [tab, setTab] = useState<'create' | 'join'>('create');
   const [teamName, setTeamName] = useState('');
+  const [teamNote, setTeamNote] = useState('');
   const [teamCode, setTeamCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [enteringApproved, setEnteringApproved] = useState(false);
   const [error, setError] = useState('');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const handledApprovedRef = useRef<Set<string>>(new Set());
+
+  const isAdmin = isAdminUser(currentUser);
 
   // ซิงค์ทีมที่เป็นของบัญชีปัจจุบันจริงจาก Firestore ทันทีที่เปิดหน้านี้
   useEffect(() => {
@@ -33,7 +66,49 @@ export default function TeamSelectScreen() {
     }
   }, [currentUser?.id]);
 
+  // รับสถานะคำขอสร้างทีมแบบ Real-time จาก Firestore
+  useEffect(() => {
+    if (!currentUser?.id || isAdmin) return;
+    const unsub = firebaseSubscribeUserTeamRequests(
+      currentUser.id,
+      async reqs => {
+        setTeamRequests(reqs);
+
+        // หากคำขอถูกอนุมัติแล้ว ให้ดึงทีมและพาเข้าสู่ flow การใช้งานปกติทันที
+        const approvedReq = reqs.find(
+          r =>
+            r.status === 'approved' &&
+            r.createdTeamId &&
+            !r.acknowledged &&
+            !handledApprovedRef.current.has(r.id)
+        );
+        if (approvedReq && approvedReq.createdTeamId) {
+          handledApprovedRef.current.add(approvedReq.id);
+          setEnteringApproved(true);
+          try {
+            await fetchUserTeams();
+            await acknowledgeTeamRequest(approvedReq.id);
+            await switchTeam(approvedReq.createdTeamId);
+          } finally {
+            setEnteringApproved(false);
+          }
+        }
+      },
+      activeCfg
+    );
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [currentUser?.id, isAdmin, activeCfg]);
+
   if (!currentUser) return null;
+
+  const pendingRequest = !isAdmin
+    ? (teamRequests || []).find(r => r.status === 'pending')
+    : undefined;
+  const unackRejectedRequest = !isAdmin
+    ? (teamRequests || []).find(r => r.status === 'rejected' && !r.acknowledged)
+    : undefined;
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,11 +118,45 @@ export default function TeamSelectScreen() {
       return setError('กรุณาระบุชื่อทีมของคุณ');
     }
     setLoading(true);
-    const res = await createTeam(teamName);
+
+    if (isAdmin) {
+      const res = await createTeam(teamName);
+      setLoading(false);
+      if (!res.success) {
+        setError(res.error || 'เกิดข้อผิดพลาดในการสร้างทีม');
+      }
+      return;
+    }
+
+    // ผู้ใช้ทั่วไป: ส่งคำขอสร้างทีมรอผู้ดูแลระบบอนุมัติ
+    if (unackRejectedRequest) {
+      await acknowledgeTeamRequest(unackRejectedRequest.id);
+    }
+    const res = await submitTeamRequest(teamName, teamNote);
     setLoading(false);
     if (!res.success) {
-      setError(res.error || 'เกิดข้อผิดพลาดในการสร้างทีม');
+      setError(res.error || 'เกิดข้อผิดพลาดในการส่งคำขอสร้างทีม');
+    } else {
+      setTeamName('');
+      setTeamNote('');
     }
+  };
+
+  const handleCancelPending = async () => {
+    if (!pendingRequest || loading) return;
+    setLoading(true);
+    setError('');
+    const res = await cancelTeamRequest(pendingRequest.id);
+    setLoading(false);
+    if (!res.success) {
+      setError(res.error || 'ไม่สามารถยกเลิกคำขอได้');
+    }
+  };
+
+  const handleDismissRejected = async () => {
+    if (!unackRejectedRequest) return;
+    await acknowledgeTeamRequest(unackRejectedRequest.id);
+    setError('');
   };
 
   const handleJoin = async (e: React.FormEvent) => {
@@ -78,7 +187,14 @@ export default function TeamSelectScreen() {
           <div className="team-user-info">
             <AvatarIcon id={currentUser.avatarId} size={38} />
             <div>
-              <div className="team-user-name">สวัสดีคุณ, <b>{currentUser.name}</b></div>
+              <div className="team-user-name" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span>สวัสดีคุณ, <b>{currentUser.name}</b></span>
+                {isAdmin && (
+                  <span className="admin-role-chip" style={{ fontSize: 10 }}>
+                    <ShieldIcon size={11} style={{ marginRight: 3 }} /> Admin
+                  </span>
+                )}
+              </div>
               <div className="team-user-email">{currentUser.email}</div>
             </div>
           </div>
@@ -174,37 +290,136 @@ export default function TeamSelectScreen() {
 
         {/* Form Create */}
         {tab === 'create' && (
-          <form onSubmit={handleCreate} className="auth-form">
-            <div className="form-group">
-              <label>ชื่อทีมของคุณ</label>
-              <input
-                type="text"
-                value={teamName}
-                onChange={e => setTeamName(e.target.value)}
-                placeholder="เช่น ทีมพัฒนาเว็บ, ฝ่ายขายและการตลาด, ทีมบริหาร..."
-                autoFocus
-                disabled={loading}
-              />
-              <small className="mut" style={{ display: 'block', marginTop: 4 }}>
-                ระบบจะสร้าง <b>รหัสทีม 6 หลัก</b> ให้อัตโนมัติ เพื่อนำไปส่งต่อให้เพื่อนร่วมทีม
-              </small>
-            </div>
+          <>
+            {enteringApproved ? (
+              <div className="team-req-status-box is-approved">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, color: 'var(--ok)', fontSize: 14 }}>
+                  <CheckIcon size={17} />
+                  <span>ผู้ดูแลระบบอนุมัติคำขอสร้างทีมแล้ว!</span>
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--txt)' }}>
+                  กำลังสร้างพื้นที่ทีมและพาคุณเข้าสู่ระบบอัตโนมัติ...
+                </div>
+              </div>
+            ) : pendingRequest ? (
+              <div className="team-req-status-box is-pending">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <span className="team-req-pulse-dot" />
+                  <b style={{ fontSize: 14.5, color: 'var(--txt)' }}>
+                    รอผู้ดูแลระบบอนุมัติ
+                  </b>
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--txt)', lineHeight: 1.55 }}>
+                  ส่งคำขอสร้างทีม <b>&ldquo;{pendingRequest.teamName}&rdquo;</b> เรียบร้อยแล้ว
+                  <br />
+                  กรุณารอผู้ดูแลระบบตรวจสอบและอนุมัติ เมื่ออนุมัติแล้วระบบจะสร้างห้องและพาคุณเข้าสู่ขั้นตอนปกติโดยอัตโนมัติ
+                </div>
+                {pendingRequest.note && (
+                  <div className="admin-req-note" style={{ marginTop: 0 }}>
+                    หมายเหตุที่ส่ง: {pendingRequest.note}
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginTop: 2 }}>
+                  <span style={{ fontSize: 11.5, color: 'var(--mut)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <ClockIcon size={12} /> กำลังรอผลการอนุมัติแบบเรียลไทม์...
+                  </span>
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    onClick={handleCancelPending}
+                    disabled={loading}
+                  >
+                    {loading ? 'กำลังยกเลิก...' : 'ยกเลิกคำขอ'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {unackRejectedRequest && (
+                  <div className="team-req-status-box is-rejected">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--red)', fontWeight: 700, fontSize: 13.5 }}>
+                      <AlertCircleIcon size={16} />
+                      <span>ผู้ดูแลระบบไม่อนุมัติ กรุณาลองใหม่อีกครั้ง</span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--txt)' }}>
+                      คำขอสร้างทีม <b>&ldquo;{unackRejectedRequest.teamName}&rdquo;</b> ไม่ได้รับการอนุมัติ
+                      {unackRejectedRequest.rejectReason &&
+                        unackRejectedRequest.rejectReason !== 'ผู้ดูแลระบบไม่อนุมัติ กรุณาลองใหม่อีกครั้ง' && (
+                          <div style={{ marginTop: 4, color: 'var(--red)' }}>
+                            เหตุผล: {unackRejectedRequest.rejectReason}
+                          </div>
+                        )}
+                    </div>
+                    <div>
+                      <button
+                        type="button"
+                        className="btn ghost sm"
+                        onClick={handleDismissRejected}
+                      >
+                        รับทราบ
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-            <button
-              type="submit"
-              className="btn ok submit-btn"
-              disabled={loading}
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-            >
-              {loading ? (
-                'กำลังสร้างทีม...'
-              ) : (
-                <>
-                  <SparklesIcon size={16} /> สร้างทีมและเข้าสู่ระบบทันที
-                </>
-              )}
-            </button>
-          </form>
+                <form onSubmit={handleCreate} className="auth-form">
+                  <div className="form-group">
+                    <label>ชื่อทีมของคุณ</label>
+                    <input
+                      type="text"
+                      value={teamName}
+                      onChange={e => setTeamName(e.target.value)}
+                      placeholder="เช่น ทีมพัฒนาเว็บ, ฝ่ายขายและการตลาด, ทีมบริหาร..."
+                      autoFocus
+                      disabled={loading}
+                    />
+                    {!isAdmin && (
+                      <div style={{ marginTop: 10 }}>
+                        <label>หมายเหตุถึงผู้ดูแลระบบ (ไม่บังคับ)</label>
+                        <input
+                          type="text"
+                          value={teamNote}
+                          onChange={e => setTeamNote(e.target.value)}
+                          placeholder="เช่น แผนกหรือวัตถุประสงค์ในการสร้างห้องนี้..."
+                          disabled={loading}
+                        />
+                      </div>
+                    )}
+                    <small className="mut" style={{ display: 'block', marginTop: 6 }}>
+                      {isAdmin ? (
+                        <>
+                          สิทธิ์ผู้ดูแลระบบ: ระบบจะสร้างทีมและ <b>รหัสทีม 6 หลัก</b> ให้ทันที
+                        </>
+                      ) : (
+                        <>
+                          การสร้างทีมใหม่จะส่งคำขอไปยังผู้ดูแลระบบเพื่ออนุมัติ เมื่อได้รับอนุมัติระบบจะสร้าง <b>รหัสทีม 6 หลัก</b> และเปิดห้องให้อัตโนมัติ
+                        </>
+                      )}
+                    </small>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className={`btn ${isAdmin ? 'ok' : 'primary'} submit-btn`}
+                    disabled={loading}
+                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                  >
+                    {loading ? (
+                      isAdmin ? 'กำลังสร้างทีม...' : 'กำลังส่งคำขอสร้างทีม...'
+                    ) : isAdmin ? (
+                      <>
+                        <SparklesIcon size={16} /> สร้างทีมและเข้าสู่ระบบทันที
+                      </>
+                    ) : (
+                      <>
+                        <ClockIcon size={15} /> ส่งคำขอสร้างทีม (รอผู้ดูแลระบบอนุมัติ)
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+            )}
+          </>
         )}
 
         {/* Form Join */}

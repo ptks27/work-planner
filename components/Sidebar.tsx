@@ -3,6 +3,7 @@ import { usePlanner } from '@/lib/store';
 import { useToday } from '@/lib/hooks';
 import { visibleOn } from '@/lib/selectors';
 import { useAuth } from '@/lib/authStore';
+import { isAdminUser } from '@/lib/types';
 import { AvatarIcon } from './Avatars';
 
 import {
@@ -15,10 +16,13 @@ import {
   BoltIcon,
   StickyNoteIcon,
   ChevronRightIcon,
+  ShieldIcon,
 } from './Icons';
 
+export type TabId = 'tasks' | 'timeline' | 'canvas' | 'events' | 'dash' | 'settings' | 'admin';
+
 export interface TabItem {
-  id: 'tasks' | 'timeline' | 'canvas' | 'events' | 'dash' | 'settings';
+  id: TabId;
   icon: React.ReactNode;
   label: string;
   shortLabel: string;
@@ -33,16 +37,25 @@ export const TABS: TabItem[] = [
   { id: 'dash', icon: <ChartBarIcon size={18} />, label: 'Dashboard', shortLabel: 'แดชบอร์ด', desc: 'สรุปผลงานและสถิติกราฟ' },
   { id: 'settings', icon: <SettingsIcon size={18} />, label: 'ตั้งค่า', shortLabel: 'ตั้งค่า', desc: 'ระบบ คลาวด์ และการแจ้งเตือน' },
 ];
-export type TabId = 'tasks' | 'timeline' | 'canvas' | 'events' | 'dash' | 'settings';
+
+export const ADMIN_TAB: TabItem = {
+  id: 'admin',
+  icon: <ShieldIcon size={18} />,
+  label: 'ผู้ดูแลระบบ',
+  shortLabel: 'Admin',
+  desc: 'จัดการห้อง ทีม และอนุมัติคำขอสร้างทีม',
+};
 
 export default function Sidebar({
   tab,
   onTab,
   onOpenProfile,
+  adminPendingCount = 0,
 }: {
   tab: TabId;
   onTab: (t: TabId) => void;
   onOpenProfile?: () => void;
+  adminPendingCount?: number;
 }) {
   const s = usePlanner();
   const { currentUser } = useAuth();
@@ -50,6 +63,8 @@ export default function Sidebar({
   const ts = visibleOn(s, today);
   const done = ts.filter(t => t.done).length;
   const pct = ts.length ? Math.round((done / ts.length) * 100) : 0;
+  const isAdmin = isAdminUser(currentUser);
+  const visibleTabs = isAdmin ? [...TABS, ADMIN_TAB] : TABS;
 
   return (
     <aside className="sidebar">
@@ -61,11 +76,16 @@ export default function Sidebar({
       </div>
 
       <nav className="menu">
-        {TABS.map(t => (
+        {visibleTabs.map(t => (
           <button key={t.id} className={`menu-item ${tab === t.id ? 'active' : ''}`} onClick={() => onTab(t.id)}>
             <span className="mi-icon">{t.icon}</span>
             <span className="menu-label-full">{t.label}</span>
             <span className="menu-label-short">{t.shortLabel}</span>
+            {t.id === 'admin' && adminPendingCount > 0 && (
+              <span className="menu-badge-pill" title={`${adminPendingCount} คำขอสร้างทีมรออนุมัติ`}>
+                {adminPendingCount}
+              </span>
+            )}
           </button>
         ))}
       </nav>

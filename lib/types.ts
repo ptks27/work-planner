@@ -35,10 +35,49 @@ export interface Team {
   id: string;
   code: string;
   name: string;
+  description?: string;
   createdBy: string;
   createdAt: number;
   memberIds: string[];
   members?: TeamMember[];
+}
+
+export type TeamRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface TeamCreationRequest {
+  id: string;
+  teamName: string;
+  note?: string;
+  requesterId: string;
+  requesterName: string;
+  requesterEmail: string;
+  requesterAvatar?: AvatarId;
+  status: TeamRequestStatus;
+  createdAt: number;
+  resolvedAt?: number;
+  resolvedBy?: string;
+  rejectReason?: string;
+  createdTeamId?: string;
+  createdTeamCode?: string;
+  acknowledged?: boolean;
+}
+
+export interface AdminTeamRoomStats {
+  teamId: string;
+  tasksCount: number;
+  eventsCount: number;
+  boardsCount: number;
+  updatedAt?: number;
+}
+
+export const ADMIN_EMAIL = 'dev01@gmail.com';
+
+export function isAdminEmail(email?: string | null): boolean {
+  return (email || '').trim().toLowerCase() === ADMIN_EMAIL;
+}
+
+export function isAdminUser(user?: { email?: string | null } | null): boolean {
+  return isAdminEmail(user?.email);
 }
 
 export interface User {
